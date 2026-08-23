@@ -1,70 +1,56 @@
 import { useEffect, useState, useMemo } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
 import { getCurrentUser } from "../../services/auth";
-import { teacherService, offeringService, enrollmentService, studentService, courseService } from "../../services/entities";
-import type { Teacher, CourseOffering, Course, Enrollment, Student } from "../../types/user";
+import { getMyTeacherProfile, getMyCourseOfferings, getEnrollmentList } from "../../services/entities";
+import type { Teacher, CourseOfferingListItem, EnrollmentListItem } from "../../types/user";
 
 export default function TeacherStudents() {
   const user = getCurrentUser();
   const [teacher, setTeacher] = useState<Teacher | null>(null);
-  
-  const [offerings, setOfferings] = useState<CourseOffering[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
-  
+
+  const [offerings, setOfferings] = useState<CourseOfferingListItem[]>([]);
+  const [enrollments, setEnrollments] = useState<EnrollmentListItem[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [courseFilter, setCourseFilter] = useState("all");
 
   useEffect(() => {
-    if (!user || !user.teacher_id) {
+    if (!user) {
       setLoading(false);
       return;
     }
-    
-    teacherService.getById(user.teacher_id).then(myTeacher => {
+
+    getMyTeacherProfile().then(myTeacher => {
       setTeacher(myTeacher);
-      
+
+      // enrollments/ is already server-scoped to this teacher's own offerings,
+      // and its DTO already nests the student + course + section info this
+      // page needs - no separate students/courses/sections fetch required.
       Promise.all([
-        offeringService.getAll(),
-        courseService.getAll(),
-        enrollmentService.getAll(),
-        studentService.getAll()
-      ]).then(([o, c, e, s]) => {
-        const myOfferings = o.filter(x => x.teacher === myTeacher.id);
-        setOfferings(myOfferings);
-        setCourses(c);
-        
-        const myOfferingIds = myOfferings.map(x => x.id);
-        const myEnrollments = e.filter(x => myOfferingIds.includes(x.course_offering));
-        setEnrollments(myEnrollments);
-        
-        const myStudentIds = [...new Set(myEnrollments.map(x => x.student))];
-        setStudents(s.filter(x => myStudentIds.includes(x.id)));
-        
+        getMyCourseOfferings(1, 500),
+        getEnrollmentList(1, 500),
+      ]).then(([o, e]) => {
+        setOfferings(o.results);
+        setEnrollments(e.results);
       }).finally(() => setLoading(false));
-    }).catch(console.error);
-  }, [user]);
+    }).catch(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredEnrollments = useMemo(() => {
-    return courseFilter === "all" 
-      ? enrollments 
-      : enrollments.filter(e => e.course_offering.toString() === courseFilter);
+    return courseFilter === "all"
+      ? enrollments
+      : enrollments.filter(e => e.course_offering.id.toString() === courseFilter);
   }, [enrollments, courseFilter]);
 
-  const getCourseInfo = (offeringId: number) => {
-    const o = offerings.find(x => x.id === offeringId);
-    if (!o) return "Unknown";
-    const c = courses.find(x => x.id === o.course);
-    return c ? `${c.name} (${c.code}) - Sec ${o.section}` : "Unknown Course";
-  };
+  const getCourseLabel = (offering: CourseOfferingListItem) =>
+    `${offering.course?.name || "Unknown Course"} (${offering.course?.code || "---"}) - ${offering.section?.name || "No Section"}`;
 
   if (loading) {
-    return <DashboardLayout title="My Students"><div style={{ padding: "40px", textAlign: "center" }}>Loading students...</div></DashboardLayout>;
+    return <><div style={{ padding: "40px", textAlign: "center" }}>Loading students...</div></>;
   }
 
   return (
-    <DashboardLayout title="My Students">
+    <>
       <div className="page-header">
         <h2>My Students</h2>
         <p>Students enrolled in your classes</p>
@@ -82,7 +68,7 @@ export default function TeacherStudents() {
               <select className="form-control" value={courseFilter} onChange={e => setCourseFilter(e.target.value)} style={{ maxWidth: "300px" }}>
                 <option value="all">All Classes</option>
                 {offerings.map(o => (
-                  <option key={o.id} value={o.id}>{getCourseInfo(o.id)}</option>
+                  <option key={o.id} value={o.id}>{getCourseLabel(o)}</option>
                 ))}
               </select>
             </div>
@@ -104,29 +90,26 @@ export default function TeacherStudents() {
                     <td colSpan={4} style={{ textAlign: "center", padding: "24px" }}>No students found for this selection.</td>
                   </tr>
                 ) : (
-                  filteredEnrollments.map(e => {
-                    const student = students.find(s => s.id === e.student);
-                    return (
-                      <tr key={e.id}>
-                        <td><strong>{student ? `${student.first_name} ${student.last_name}` : "Unknown"}</strong></td>
-                        <td>{student ? student.student_email : "---"}</td>
-                        <td>{getCourseInfo(e.course_offering)}</td>
-                        <td>
-                          <span className={`badge ${
-                            e.status === 'ACTIVE' ? 'badge-success' : 'badge-warning'
-                          }`}>
-                            {e.status}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
+                  filteredEnrollments.map(e => (
+                    <tr key={e.id}>
+                      <td><strong>{e.student.first_name} {e.student.last_name}</strong></td>
+                      <td>{e.student.student_email}</td>
+                      <td>{e.course_offering.course.name} ({e.course_offering.course.code}) - {e.course_offering.section?.name || "No Section"}</td>
+                      <td>
+                        <span className={`badge ${
+                          e.status === 'ACTIVE' ? 'badge-success' : 'badge-warning'
+                        }`}>
+                          {e.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
           </div>
         </>
       )}
-    </DashboardLayout>
+    </>
   );
 }

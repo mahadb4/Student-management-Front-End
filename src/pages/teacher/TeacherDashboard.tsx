@@ -1,43 +1,41 @@
 import { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
 import { getCurrentUser } from "../../services/auth";
-import { teacherService, offeringService, enrollmentService } from "../../services/entities";
+import { getMyTeacherProfile, getMyCourseOfferings, getEnrollmentList } from "../../services/entities";
 import { Link } from "react-router-dom";
-import type { Teacher, CourseOffering } from "../../types/user";
+import type { Teacher, CourseOfferingListItem } from "../../types/user";
 
 export default function TeacherDashboard() {
   const user = getCurrentUser();
   const [teacher, setTeacher] = useState<Teacher | null>(null);
-  
-  const [offerings, setOfferings] = useState<CourseOffering[]>([]);
+
+  const [offerings, setOfferings] = useState<CourseOfferingListItem[]>([]);
   const [studentCount, setStudentCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !user.teacher_id) {
+    if (!user) {
       setLoading(false);
       return;
     }
-    
-    teacherService.getById(user.teacher_id).then(myTeacher => {
+
+    getMyTeacherProfile().then(myTeacher => {
       setTeacher(myTeacher);
-      
+
+      // enrollments/ is already server-scoped to this teacher's own offerings
+      // via apply_data_scope - not a full-table fetch despite the shared endpoint.
       Promise.all([
-        offeringService.getAll(),
-        enrollmentService.getAll()
+        getMyCourseOfferings(1, 500),
+        getEnrollmentList(1, 500),
       ]).then(([o, e]) => {
-        const myOfferings = o.filter(x => x.teacher === myTeacher.id);
-        setOfferings(myOfferings);
-        
-        const myOfferingIds = myOfferings.map(x => x.id);
-        const myEnrollments = e.filter(x => myOfferingIds.includes(x.course_offering));
-        setStudentCount(myEnrollments.length);
+        setOfferings(o.results);
+        setStudentCount(e.results.length);
       }).finally(() => setLoading(false));
-    }).catch(console.error);
-  }, [user]);
+    }).catch(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
-    <DashboardLayout title="Teacher Dashboard">
+    <>
       <div className="page-header">
         <h2>Welcome, {user?.name}</h2>
         <p>Your teaching overview</p>
@@ -95,6 +93,6 @@ export default function TeacherDashboard() {
           </div>
         </>
       )}
-    </DashboardLayout>
+    </>
   );
 }

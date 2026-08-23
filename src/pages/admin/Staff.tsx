@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
 import { getMockUsers } from "../../services/auth";
 import type { User } from "../../types/user";
 
@@ -8,16 +7,26 @@ function Staff() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
+    
     const fetchStaff = async () => {
-      const allUsers = await getMockUsers();
-      setStaff(allUsers.filter((u: User) => u.role === "staff" && u.status === "approved"));
-      setLoading(false);
+      try {
+        const allUsers = await getMockUsers(controller.signal);
+        setStaff(allUsers.filter((u: User) => u.role === "staff" && u.status === "approved"));
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchStaff();
+    
+    return () => controller.abort();
   }, []);
 
   return (
-    <DashboardLayout title="Staff Management">
+    <>
       <div className="page-header">
         <h2>Staff</h2>
         <p>Manage administrative and support staff</p>
@@ -64,7 +73,7 @@ function Staff() {
           </table>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 }
 

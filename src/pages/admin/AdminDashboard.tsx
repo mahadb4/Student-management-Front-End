@@ -1,43 +1,33 @@
 import { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
-import { 
-  getStudents, getTeachers, getDepartments, getCourses, 
-  offeringService, enrollmentService 
-} from "../../services/entities";
+import { dashboardService } from "../../services/entities";
+import type { AdminSummary } from "../../services/entities";
 import { Link } from "react-router-dom";
 
 function AdminDashboard() {
-  const [stats, setStats] = useState({
-    students: 0,
-    teachers: 0,
-    departments: 0,
-    courses: 0,
-    offerings: 0,
-    enrollments: 0
+  const [stats, setStats] = useState<AdminSummary>({
+    total_students: 0,
+    total_teachers: 0,
+    total_departments: 0,
+    total_courses: 0,
+    total_course_offerings: 0,
+    total_enrollments: 0
   });
 
   useEffect(() => {
-    Promise.all([
-      getStudents(),
-      getTeachers(),
-      getDepartments(),
-      getCourses(),
-      offeringService.getAll(),
-      enrollmentService.getAll()
-    ]).then(([s, t, d, c, o, e]) => {
-      setStats({
-        students: s.length,
-        teachers: t.length,
-        departments: d.length,
-        courses: c.length,
-        offerings: o.length,
-        enrollments: e.length
+    const controller = new AbortController();
+    
+    dashboardService.getAdminSummary(controller.signal)
+      .then(setStats)
+      .catch(err => {
+        if (err.name === 'AbortError') return;
+        console.error(err);
       });
-    }).catch(console.error);
+      
+    return () => controller.abort();
   }, []);
 
   return (
-    <DashboardLayout title="Admin Dashboard">
+    <>
       <div className="page-header">
         <h2>Overview</h2>
         <p>System-wide metrics and status</p>
@@ -49,7 +39,7 @@ function AdminDashboard() {
             <div className="stat-icon primary">👨‍🎓</div>
             <div className="stat-title">Total Students</div>
           </div>
-          <div className="stat-value">{stats.students}</div>
+          <div className="stat-value">{stats.total_students}</div>
           <div className="stat-desc">Registered in system</div>
         </div>
 
@@ -58,7 +48,7 @@ function AdminDashboard() {
             <div className="stat-icon success">👨‍🏫</div>
             <div className="stat-title">Total Teachers</div>
           </div>
-          <div className="stat-value">{stats.teachers}</div>
+          <div className="stat-value">{stats.total_teachers}</div>
           <div className="stat-desc">Active faculty members</div>
         </div>
 
@@ -67,7 +57,7 @@ function AdminDashboard() {
             <div className="stat-icon warning">🏢</div>
             <div className="stat-title">Departments</div>
           </div>
-          <div className="stat-value">{stats.departments}</div>
+          <div className="stat-value">{stats.total_departments}</div>
           <div className="stat-desc">Academic faculties</div>
         </div>
 
@@ -76,7 +66,7 @@ function AdminDashboard() {
             <div className="stat-icon primary">📚</div>
             <div className="stat-title">Courses</div>
           </div>
-          <div className="stat-value">{stats.courses}</div>
+          <div className="stat-value">{stats.total_courses}</div>
           <div className="stat-desc">Curriculum courses</div>
         </div>
         
@@ -85,7 +75,7 @@ function AdminDashboard() {
             <div className="stat-icon success">🗓️</div>
             <div className="stat-title">Course Offerings</div>
           </div>
-          <div className="stat-value">{stats.offerings}</div>
+          <div className="stat-value">{stats.total_course_offerings}</div>
           <div className="stat-desc">Active in current semester</div>
         </div>
         
@@ -94,7 +84,7 @@ function AdminDashboard() {
             <div className="stat-icon warning">📝</div>
             <div className="stat-title">Total Enrollments</div>
           </div>
-          <div className="stat-value">{stats.enrollments}</div>
+          <div className="stat-value">{stats.total_enrollments}</div>
           <div className="stat-desc">Active student enrollments</div>
         </div>
       </div>
@@ -110,7 +100,7 @@ function AdminDashboard() {
           <Link to="/admin/course-offerings" className="btn btn-outline">Manage Offerings</Link>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 }
 

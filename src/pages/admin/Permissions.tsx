@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
-import { apiRequest } from "../../services/api";
-import { getAccessToken } from "../../services/auth";
+import { getUsers } from "../../services/auth";
 import type { User } from "../../types/user";
 
 export default function Permissions() {
@@ -9,22 +7,26 @@ export default function Permissions() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchUsers = async () => {
       try {
-        const token = getAccessToken();
-        const data = await apiRequest<User[]>("/users/", { method: "GET", token: token || undefined });
+        const data = await getUsers(controller.signal);
         setUsers(data);
-      } catch (err) {
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
         console.error("Failed to load users", err);
       } finally {
         setLoading(false);
       }
     };
     fetchUsers();
+    
+    return () => controller.abort();
   }, []);
 
   return (
-    <DashboardLayout title="Role Permissions">
+    <>
       <div className="page-header">
         <h2>System Permissions</h2>
         <p>Manage access controls across the platform</p>
@@ -85,6 +87,6 @@ export default function Permissions() {
           </table>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 }

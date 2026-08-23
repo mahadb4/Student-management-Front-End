@@ -16,6 +16,10 @@ interface EntityTableProps<T> {
   onDelete?: (item: T) => void;
   onView?: (item: T) => void;
   emptyMessage?: string;
+  totalCount?: number;
+  currentPage?: number;
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
 }
 
 export function EntityTable<T extends { id: number | string }>({
@@ -27,6 +31,10 @@ export function EntityTable<T extends { id: number | string }>({
   onDelete,
   onView,
   emptyMessage = "No data available",
+  totalCount,
+  currentPage,
+  pageSize,
+  onPageChange,
 }: EntityTableProps<T>) {
   const { canUpdate, canDelete } = usePermissions();
 
@@ -96,6 +104,30 @@ export function EntityTable<T extends { id: number | string }>({
           ))}
         </tbody>
       </table>
+      
+      {totalCount !== undefined && currentPage !== undefined && pageSize !== undefined && onPageChange && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', alignItems: 'center', borderTop: '1px solid var(--border-color)' }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+            Showing {totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount}
+          </span>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              className="btn btn-outline" 
+              disabled={currentPage <= 1} 
+              onClick={() => onPageChange(currentPage - 1)}
+              style={{ padding: "4px 12px" }}>
+              Previous
+            </button>
+            <button 
+              className="btn btn-outline" 
+              disabled={currentPage * pageSize >= totalCount} 
+              onClick={() => onPageChange(currentPage + 1)}
+              style={{ padding: "4px 12px" }}>
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

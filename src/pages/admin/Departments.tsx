@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
 import { departmentService } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
@@ -8,26 +7,38 @@ import type { Department } from "../../types/user";
 
 export default function Departments() {
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   const [loading, setLoading] = useState(true);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   
   const [deleteConfirm, setDeleteConfirm] = useState<Department | null>(null);
-  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [formData, setFormData] = useState({ name: "", code: "", description: "", is_active: true });
 
-  const loadData = () => {
+  const loadData = (signal?: AbortSignal) => {
     setLoading(true);
-    departmentService.getAll()
-      .then(setDepartments)
-      .catch(console.error)
+    departmentService.getList(currentPage, pageSize, signal)
+      .then(res => {
+        setDepartments(res.results);
+        setTotalCount(res.total_count);
+      })
+      .catch(err => {
+        if (err.name === 'AbortError') return;
+        console.error(err);
+      })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const controller = new AbortController();
+    loadData(controller.signal);
+    return () => controller.abort();
+  }, [currentPage]);
 
   const handleOpenModal = (dept?: Department) => {
     if (dept) {
@@ -42,6 +53,8 @@ export default function Departments() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       if (editingDept) {
         await departmentService.update(editingDept.id, formData);
@@ -52,7 +65,9 @@ export default function Departments() {
       loadData();
     } catch (error) {
       console.error(error);
-      alert("Failed to save department.");
+      alert(error instanceof Error ? error.message : "Failed to save department.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -69,7 +84,7 @@ export default function Departments() {
   };
 
   return (
-    <DashboardLayout title="Manage Departments">
+    <>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h2>Departments</h2>
@@ -97,6 +112,10 @@ export default function Departments() {
           ]}
           onEdit={handleOpenModal}
           onDelete={setDeleteConfirm}
+          totalCount={totalCount}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
         />
       </div>
 
@@ -120,7 +139,7 @@ export default function Departments() {
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px" }}>
             <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline">Cancel</button>
-            <button type="submit" className="btn btn-primary">Save</button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save"}</button>
           </div>
         </form>
       </Modal>
@@ -132,6 +151,6 @@ export default function Departments() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
       />
-    </DashboardLayout>
+    </>
   );
 }

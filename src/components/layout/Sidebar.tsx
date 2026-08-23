@@ -33,6 +33,7 @@ export default function Sidebar() {
           { to: "/admin/students", label: "Students", icon: "🎓" },
           { to: "/admin/teachers", label: "Teachers", icon: "👨‍🏫" },
           { to: "/admin/departments", label: "Departments", icon: "🏢" },
+          { to: "/admin/sections", label: "Sections", icon: "🏫" },
           { to: "/admin/courses", label: "Courses", icon: "📚" },
           { to: "/admin/course-offerings", label: "Offerings", icon: "🗓️" },
           { to: "/admin/enrollments", label: "Enrollments", icon: "📝" },

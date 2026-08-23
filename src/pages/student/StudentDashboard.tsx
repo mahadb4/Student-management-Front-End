@@ -1,49 +1,41 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import DashboardLayout from "../../components/layout/DashboardLayout";
 import { getCurrentUser } from "../../services/auth";
-import { studentService, enrollmentService, attendanceService } from "../../services/entities";
-import type { Student, Enrollment, Attendance } from "../../types/user";
+import { getMyStudentProfile, getMyEnrollments, getMyStudentAttendance } from "../../services/entities";
+import type { Student, EnrollmentListItem, AttendanceListItem } from "../../types/user";
 
 export default function StudentDashboard() {
   const user = getCurrentUser();
   const [student, setStudent] = useState<Student | null>(null);
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-  const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [enrollments, setEnrollments] = useState<EnrollmentListItem[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceListItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !user.student_id) {
+    if (!user) {
       setLoading(false);
       return;
     }
-    
-    // Fetch the specific student using ID
-    studentService.getById(user.student_id).then(myStudent => {
+
+    getMyStudentProfile().then(myStudent => {
       setStudent(myStudent);
-      
-      // Fetch enrollments and attendance for this student
+
       Promise.all([
-        enrollmentService.getAll(),
-        attendanceService.getAll()
+        getMyEnrollments(1, 500),
+        getMyStudentAttendance(1, 500),
       ]).then(([e, a]) => {
-        const myEnrollments = e.filter(x => x.student === myStudent.id);
-        setEnrollments(myEnrollments);
-        
-        const myEnrollmentIds = myEnrollments.map(x => x.id);
-        const myAttendance = a.filter(x => myEnrollmentIds.includes(x.enrollment));
-        setAttendance(myAttendance);
+        setEnrollments(e.results);
+        setAttendance(a.results);
       }).finally(() => setLoading(false));
-      
-    }).catch(console.error);
-  }, [user]);
+    }).catch(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const presentCount = attendance.filter(a => a.status === "PRESENT").length;
   const absentCount = attendance.filter(a => a.status === "ABSENT").length;
-  // const lateCount = attendance.filter(a => a.status === "LATE").length;
 
   return (
-    <DashboardLayout title="Student Dashboard">
+    <>
       <div className="page-header">
         <h2>Welcome, {user?.name}</h2>
         <p>Your academic overview</p>
@@ -98,7 +90,7 @@ export default function StudentDashboard() {
                 <Link to="/student/profile" className="btn btn-outline" style={{ justifyContent: "flex-start" }}>👤 View Profile</Link>
               </div>
             </div>
-            
+
             <div className="content-card">
               <div className="card-header">
                 <h3>Recent Activity</h3>
@@ -120,6 +112,6 @@ export default function StudentDashboard() {
           </div>
         </>
       )}
-    </DashboardLayout>
+    </>
   );
 }

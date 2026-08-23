@@ -1,55 +1,92 @@
-import { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
-import { courseService, departmentService, teacherService } from "../../services/entities";
+import { useEffect, useRef, useState } from "react";
+import { courseService, getCourseList, departmentService, teacherService } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { Course, Department, Teacher } from "../../types/user";
+import type { Course, CourseListItem, Department, Teacher } from "../../types/user";
 
 export default function Courses() {
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [courses, setCourses] = useState<CourseListItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  // Departments/Teachers are only needed for the Add/Edit form dropdowns —
+  // not for the table (the list API already returns resolved names).
   const [departments, setDepartments] = useState<Department[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<Course | null>(null);
-  
-  const [formData, setFormData] = useState({ 
-    name: "", code: "", description: "", credits: 3, 
-    department: "" as number | "", teacher: "" as number | "", is_active: true 
+  const [deleteConfirm, setDeleteConfirm] = useState<CourseListItem | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: "", code: "", description: "", credits: 3,
+    department: "" as number | "", teacher: "" as number | "", is_active: true
   });
 
-  const loadData = () => {
+  const loadCourses = (signal?: AbortSignal) => {
     setLoading(true);
-    Promise.all([
-      courseService.getAll(),
-      departmentService.getAll(),
-      teacherService.getAll()
-    ]).then(([c, d, t]) => {
-      setCourses(c);
-      setDepartments(d);
-      setTeachers(t);
-    }).catch(console.error).finally(() => setLoading(false));
+    getCourseList(currentPage, pageSize, signal).then(res => {
+      setCourses(res.results);
+      setTotalCount(res.total_count);
+    }).catch(err => {
+      if (err.name === 'AbortError') return;
+      console.error(err);
+    }).finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const controller = new AbortController();
+    loadCourses(controller.signal);
+    return () => controller.abort();
+  }, [currentPage]);
 
-  const handleOpenModal = (course?: Course) => {
-    if (course) {
-      setEditingCourse(course);
-      setFormData({ 
-        name: course.name, 
-        code: course.code, 
-        description: course.description, 
-        credits: course.credits,
-        department: course.department || "",
-        teacher: course.teacher || "",
-        is_active: course.is_active 
-      });
+  // Department/Teacher options are only needed for the Add/Edit form — loaded
+  // lazily, once, on first actual use.
+  const dropdownsRequested = useRef(false);
+
+  const loadDropdownData = () => {
+    if (dropdownsRequested.current) return;
+    dropdownsRequested.current = true;
+
+    Promise.all([
+      departmentService.getAll(),
+      teacherService.getAll()
+    ]).then(([d, t]) => {
+      setDepartments(d);
+      setTeachers(t);
+    }).catch(err => {
+      console.error(err);
+      dropdownsRequested.current = false;
+    });
+  };
+
+  // The Courses list only carries the narrow CourseListItem projection, so editing
+  // fetches the full Course record (detail endpoint, unchanged) to populate the form.
+  const handleOpenModal = async (row?: CourseListItem) => {
+    loadDropdownData();
+
+    if (row) {
+      try {
+        const course = await courseService.getById(row.id);
+        setEditingCourse(course);
+        setFormData({
+          name: course.name,
+          code: course.code,
+          description: course.description,
+          credits: course.credits,
+          department: course.department || "",
+          teacher: course.teacher || "",
+          is_active: course.is_active
+        });
+      } catch (error) {
+        console.error(error);
+        alert(error instanceof Error ? error.message : "Failed to load course.");
+        return;
+      }
     } else {
       setEditingCourse(null);
       setFormData({ name: "", code: "", description: "", credits: 3, department: "", teacher: "", is_active: true });
@@ -59,23 +96,27 @@ export default function Courses() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const payload = {
         ...formData,
         department: formData.department === "" ? null : Number(formData.department),
         teacher: formData.teacher === "" ? null : Number(formData.teacher),
       };
-      
+
       if (editingCourse) {
         await courseService.update(editingCourse.id, payload);
       } else {
         await courseService.create(payload);
       }
       setIsModalOpen(false);
-      loadData();
+      loadCourses();
     } catch (error) {
       console.error(error);
-      alert("Failed to save course.");
+      alert(error instanceof Error ? error.message : "Failed to save course.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -84,7 +125,7 @@ export default function Courses() {
     try {
       await courseService.remove(deleteConfirm.id);
       setDeleteConfirm(null);
-      loadData();
+      loadCourses();
     } catch (error) {
       console.error(error);
       alert("Failed to delete course.");
@@ -92,7 +133,7 @@ export default function Courses() {
   };
 
   return (
-    <DashboardLayout title="Manage Courses">
+    <>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h2>Courses</h2>
@@ -104,7 +145,7 @@ export default function Courses() {
       </div>
 
       <div className="content-card">
-        <EntityTable<Course>
+        <EntityTable<CourseListItem>
           data={courses}
           loading={loading}
           resourceName="courses"
@@ -112,22 +153,23 @@ export default function Courses() {
             { key: "code", label: "Code" },
             { key: "name", label: "Name" },
             { key: "credits", label: "Credits" },
-            { 
-              key: "department", 
+            {
+              key: "department",
               label: "Department",
-              render: (c) => departments.find(d => d.id === c.department)?.name || "-"
+              render: (c) => c.department?.name || "-"
             },
-            { 
-              key: "teacher", 
+            {
+              key: "teacher",
               label: "Teacher",
-              render: (c) => {
-                const t = teachers.find(t => t.id === c.teacher);
-                return t ? `${t.first_name} ${t.last_name}` : "-";
-              }
+              render: (c) => c.teacher ? `${c.teacher.first_name} ${c.teacher.last_name}` : "-"
             }
           ]}
           onEdit={handleOpenModal}
           onDelete={setDeleteConfirm}
+          totalCount={totalCount}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
         />
       </div>
 
@@ -145,7 +187,7 @@ export default function Courses() {
             <label className="form-label">Credits</label>
             <input type="number" required className="form-control" value={formData.credits} onChange={(e) => setFormData({...formData, credits: parseInt(e.target.value) || 0})} />
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Department</label>
             <select className="form-control" value={formData.department} onChange={(e) => setFormData({...formData, department: Number(e.target.value)})}>
@@ -166,10 +208,10 @@ export default function Courses() {
             <label className="form-label">Description</label>
             <textarea className="form-control" rows={3} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}></textarea>
           </div>
-          
+
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px" }}>
             <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline">Cancel</button>
-            <button type="submit" className="btn btn-primary">Save</button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save"}</button>
           </div>
         </form>
       </Modal>
@@ -181,6 +223,6 @@ export default function Courses() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
       />
-    </DashboardLayout>
+    </>
   );
 }

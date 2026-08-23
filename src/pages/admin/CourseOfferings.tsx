@@ -1,60 +1,81 @@
-import { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
-import { offeringService, courseService, teacherService } from "../../services/entities";
+import { useEffect, useRef, useState } from "react";
+import { offeringService, courseService, teacherService, sectionService, getCourseOfferingList } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { CourseOffering, Course, Teacher, Semester } from "../../types/user";
+import type { CourseOfferingListItem, Course, Teacher, Semester, Section } from "../../types/user";
 
 export default function CourseOfferings() {
-  const [offerings, setOfferings] = useState<CourseOffering[]>([]);
+  const [offerings, setOfferings] = useState<CourseOfferingListItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
   const [courses, setCourses] = useState<Course[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const dropdownsLoaded = useRef(false);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingOffering, setEditingOffering] = useState<CourseOffering | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<CourseOffering | null>(null);
-  
-  const [formData, setFormData] = useState({ 
-    course: "" as number | "", teacher: "" as number | "", 
-    semester: "FALL" as Semester, academic_year: new Date().getFullYear(), 
-    section: "", is_active: true 
+  const [editingOffering, setEditingOffering] = useState<CourseOfferingListItem | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<CourseOfferingListItem | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [formData, setFormData] = useState({
+    course: "" as number | "", teacher: "" as number | "",
+    semester: "FALL" as Semester, academic_year: new Date().getFullYear(),
+    section: "" as number | "", is_active: true
   });
 
-  const loadData = () => {
+  const loadData = (signal?: AbortSignal) => {
     setLoading(true);
+    getCourseOfferingList(currentPage, pageSize, signal).then(oRes => {
+      setOfferings(oRes.results);
+      setTotalCount(oRes.total_count);
+    }).catch(err => {
+      if (err.name === 'AbortError') return;
+      console.error(err);
+    }).finally(() => setLoading(false));
+  };
+
+  const loadDropdownData = () => {
+    if (dropdownsLoaded.current) return;
+    dropdownsLoaded.current = true;
     Promise.all([
-      offeringService.getAll(),
       courseService.getAll(),
-      teacherService.getAll()
-    ]).then(([o, c, t]) => {
-      setOfferings(o);
+      teacherService.getAll(),
+      sectionService.getAll()
+    ]).then(([c, t, s]) => {
       setCourses(c);
       setTeachers(t);
-    }).catch(console.error).finally(() => setLoading(false));
+      setSections(s);
+    }).catch(err => console.error(err));
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const controller = new AbortController();
+    loadData(controller.signal);
+    return () => controller.abort();
+  }, [currentPage]);
 
-  const handleOpenModal = (offering?: CourseOffering) => {
+  const handleOpenModal = (offering?: CourseOfferingListItem) => {
+    loadDropdownData();
     if (offering) {
       setEditingOffering(offering);
-      setFormData({ 
-        course: offering.course, 
-        teacher: offering.teacher, 
-        semester: offering.semester, 
+      setFormData({
+        course: offering.course?.id ?? "",
+        teacher: offering.teacher?.id ?? "",
+        semester: offering.semester,
         academic_year: offering.academic_year,
-        section: offering.section,
-        is_active: offering.is_active 
+        section: offering.section?.id ?? "",
+        is_active: offering.is_active
       });
     } else {
       setEditingOffering(null);
-      setFormData({ 
-        course: "", teacher: "", semester: "FALL", 
-        academic_year: new Date().getFullYear(), section: "", is_active: true 
+      setFormData({
+        course: "", teacher: "", semester: "FALL",
+        academic_year: new Date().getFullYear(), section: "", is_active: true
       });
     }
     setIsModalOpen(true);
@@ -62,13 +83,16 @@ export default function CourseOfferings() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const payload = {
         ...formData,
         course: Number(formData.course),
         teacher: Number(formData.teacher),
+        section: formData.section === "" ? null : Number(formData.section),
       };
-      
+
       if (editingOffering) {
         await offeringService.update(editingOffering.id, payload);
       } else {
@@ -78,7 +102,9 @@ export default function CourseOfferings() {
       loadData();
     } catch (error) {
       console.error(error);
-      alert("Failed to save course offering.");
+      alert(error instanceof Error ? error.message : "Failed to save course offering.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -90,12 +116,12 @@ export default function CourseOfferings() {
       loadData();
     } catch (error) {
       console.error(error);
-      alert("Failed to delete course offering.");
+      alert(error instanceof Error ? error.message : "Failed to delete course offering.");
     }
   };
 
   return (
-    <DashboardLayout title="Course Offerings">
+    <>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h2>Course Offerings</h2>
@@ -107,38 +133,40 @@ export default function CourseOfferings() {
       </div>
 
       <div className="content-card">
-        <EntityTable<CourseOffering>
+        <EntityTable<CourseOfferingListItem>
           data={offerings}
           loading={loading}
           resourceName="course_offerings"
           columns={[
-            { 
-              key: "course", 
+            {
+              key: "course",
               label: "Course",
-              render: (o) => {
-                const c = courses.find(c => c.id === o.course);
-                return c ? `${c.name} (${c.code})` : o.course.toString();
-              }
+              render: (o) => o.course ? `${o.course.name} (${o.course.code})` : "-"
             },
-            { 
-              key: "teacher", 
+            {
+              key: "teacher",
               label: "Teacher",
-              render: (o) => {
-                const t = teachers.find(t => t.id === o.teacher);
-                return t ? `${t.first_name} ${t.last_name}` : o.teacher.toString();
-              }
+              render: (o) => o.teacher ? `${o.teacher.first_name} ${o.teacher.last_name}` : "-"
             },
             { key: "semester", label: "Semester" },
             { key: "academic_year", label: "Year" },
-            { key: "section", label: "Section" },
-            { 
-              key: "is_active", 
+            {
+              key: "section",
+              label: "Section",
+              render: (o) => o.section?.name || "-"
+            },
+            {
+              key: "is_active",
               label: "Status",
               render: (o) => <span className={`badge ${o.is_active ? 'badge-success' : 'badge-warning'}`}>{o.is_active ? 'Active' : 'Inactive'}</span>
             }
           ]}
           onEdit={handleOpenModal}
           onDelete={setDeleteConfirm}
+          totalCount={totalCount}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
         />
       </div>
 
@@ -158,7 +186,7 @@ export default function CourseOfferings() {
               {teachers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
             </select>
           </div>
-          
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
             <div className="form-group">
               <label className="form-label">Semester</label>
@@ -173,20 +201,23 @@ export default function CourseOfferings() {
               <input type="number" required className="form-control" value={formData.academic_year} onChange={(e) => setFormData({...formData, academic_year: parseInt(e.target.value) || new Date().getFullYear()})} />
             </div>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Section</label>
-            <input required className="form-control" value={formData.section} onChange={(e) => setFormData({...formData, section: e.target.value})} />
+            <select className="form-control" value={formData.section} onChange={(e) => setFormData({...formData, section: e.target.value === "" ? "" : Number(e.target.value)})}>
+              <option value="">-- No Section --</option>
+              {sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
           </div>
-          
+
           <div className="form-group" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <input type="checkbox" checked={formData.is_active} onChange={(e) => setFormData({...formData, is_active: e.target.checked})} />
             <label style={{ margin: 0 }}>Active</label>
           </div>
-          
+
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px" }}>
             <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline">Cancel</button>
-            <button type="submit" className="btn btn-primary">Save</button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save"}</button>
           </div>
         </form>
       </Modal>
@@ -198,6 +229,6 @@ export default function CourseOfferings() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
       />
-    </DashboardLayout>
+    </>
   );
 }

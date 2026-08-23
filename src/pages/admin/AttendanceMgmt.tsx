@@ -1,13 +1,18 @@
-import { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
-import { attendanceService, enrollmentService, studentService, offeringService, courseService } from "../../services/entities";
+import { useEffect, useRef, useState } from "react";
+import { attendanceService, getAttendanceList, enrollmentService, studentService, offeringService, courseService } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { Attendance, Enrollment, Student, CourseOffering, Course, AttendanceStatus } from "../../types/user";
+import type { Attendance, AttendanceListItem, Enrollment, Student, CourseOffering, Course, AttendanceStatus } from "../../types/user";
 
 export default function AttendanceMgmt() {
-  const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceListItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  // Enrollments/Students/Offerings/Courses are only needed for the Add/Edit form
+  // dropdown (to resolve enrollment display labels) — not for the table.
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [offerings, setOfferings] = useState<CourseOffering[]>([]);
@@ -16,7 +21,9 @@ export default function AttendanceMgmt() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<Attendance | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<Attendance | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<AttendanceListItem | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const today = new Date().toISOString().split('T')[0];
   
   const [formData, setFormData] = useState({ 
     enrollment: "" as number | "", 
@@ -25,33 +32,55 @@ export default function AttendanceMgmt() {
     remarks: "" 
   });
 
-  const loadData = () => {
+  const loadData = (signal?: AbortSignal) => {
     setLoading(true);
+    getAttendanceList(currentPage, pageSize, signal).then(res => {
+      setAttendance(res.results);
+      setTotalCount(res.total_count);
+    }).catch(err => {
+      if (err.name === 'AbortError') return;
+      console.error(err);
+    }).finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadData(controller.signal);
+    return () => controller.abort();
+  }, [currentPage]);
+
+  // Enrollment options are only needed for the Add/Edit form — loaded lazily,
+  // once, on first actual use.
+  const dropdownsRequested = useRef(false);
+
+  const loadDropdownData = () => {
+    if (dropdownsRequested.current) return;
+    dropdownsRequested.current = true;
+
     Promise.all([
-      attendanceService.getAll(),
       enrollmentService.getAll(),
       studentService.getAll(),
       offeringService.getAll(),
       courseService.getAll()
-    ]).then(([a, e, s, o, c]) => {
-      setAttendance(a);
+    ]).then(([e, s, o, c]) => {
       setEnrollments(e);
       setStudents(s);
       setOfferings(o);
       setCourses(c);
-    }).catch(console.error).finally(() => setLoading(false));
+    }).catch(err => {
+      console.error(err);
+      dropdownsRequested.current = false;
+    });
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const handleOpenModal = (record?: AttendanceListItem) => {
+    loadDropdownData();
 
-  const handleOpenModal = (record?: Attendance) => {
     if (record) {
-      setEditingRecord(record);
-      setFormData({ 
-        enrollment: record.enrollment, 
-        date: record.date, 
+      setEditingRecord(record as unknown as Attendance);
+      setFormData({
+        enrollment: record.enrollment ? record.enrollment.id : "",
+        date: record.date,
         status: record.status,
         remarks: record.remarks || ""
       });
@@ -67,22 +96,27 @@ export default function AttendanceMgmt() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
+      const { enrollment, ...rest } = formData;
       const payload = {
-        ...formData,
-        enrollment: Number(formData.enrollment),
+        ...rest,
+        enrollment_id: Number(enrollment),
       };
-      
+
       if (editingRecord) {
-        await attendanceService.update(editingRecord.id, payload);
+        await attendanceService.update(editingRecord.id, payload as unknown as Partial<Attendance>);
       } else {
-        await attendanceService.create(payload);
+        await attendanceService.create(payload as unknown as Partial<Attendance>);
       }
       setIsModalOpen(false);
       loadData();
     } catch (error) {
       console.error(error);
-      alert("Failed to save attendance.");
+      alert(error instanceof Error ? error.message : "Failed to save attendance.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -111,7 +145,7 @@ export default function AttendanceMgmt() {
   };
 
   return (
-    <DashboardLayout title="Attendance Management">
+    <>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h2>Attendance Records</h2>
@@ -123,15 +157,17 @@ export default function AttendanceMgmt() {
       </div>
 
       <div className="content-card">
-        <EntityTable<Attendance>
+        <EntityTable<AttendanceListItem>
           data={attendance}
           loading={loading}
           resourceName="attendance"
           columns={[
-            { 
-              key: "enrollment", 
+            {
+              key: "enrollment",
               label: "Student & Course",
-              render: (a) => getEnrollmentDisplay(a.enrollment)
+              render: (a) => a.enrollment
+                ? `${a.enrollment.student.first_name} ${a.enrollment.student.last_name} - ${a.enrollment.course.code}`
+                : "Unknown"
             },
             { key: "date", label: "Date" },
             { 
@@ -148,6 +184,10 @@ export default function AttendanceMgmt() {
           ]}
           onEdit={handleOpenModal}
           onDelete={setDeleteConfirm}
+          totalCount={totalCount}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
         />
       </div>
 
@@ -162,7 +202,7 @@ export default function AttendanceMgmt() {
           </div>
           <div className="form-group">
             <label className="form-label">Date</label>
-            <input required type="date" className="form-control" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
+            <input required type="date" max={today} className="form-control" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
           </div>
           <div className="form-group">
             <label className="form-label">Status</label>
@@ -179,7 +219,7 @@ export default function AttendanceMgmt() {
           
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px" }}>
             <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline">Cancel</button>
-            <button type="submit" className="btn btn-primary">Save</button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save"}</button>
           </div>
         </form>
       </Modal>
@@ -191,6 +231,6 @@ export default function AttendanceMgmt() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
       />
-    </DashboardLayout>
+    </>
   );
 }

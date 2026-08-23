@@ -1,4 +1,5 @@
 import { apiRequest } from "./api";
+import { clearScheduledTokenRefresh } from "./tokenScheduler";
 import type { User } from "../types/user";
 
 export interface LoginCredentials {
@@ -30,7 +31,6 @@ interface RegisterApiResponse {
   user: User;
 }
 
-interface UsersApiResponse extends Array<User> {}
 
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
@@ -104,27 +104,34 @@ export async function registerUser(
   }
 }
 
-export async function getUsers(): Promise<User[]> {
+export async function getUsers(signal?: AbortSignal): Promise<User[]> {
   const token = getAccessToken();
-  return await apiRequest<UsersApiResponse>("/users/", {
+  const res = await apiRequest<any>("/users/?page=1&page_size=500", {
     method: "GET",
     token: token || undefined,
+    signal,
   });
+  return res.results || [];
 }
 
-export async function getMockUsers(): Promise<User[]> {
-  return getUsers();
+export async function getMockUsers(signal?: AbortSignal): Promise<User[]> {
+  return getUsers(signal);
 }
 
 // Fetches only users with status=pending from the dedicated backend endpoint.
-export async function getPendingUsers(): Promise<User[]> {
+export async function getPendingUsers(signal?: AbortSignal): Promise<User[]> {
   const token = getAccessToken();
-  return await apiRequest<UsersApiResponse>("/users/pending/", {
+  const res = await apiRequest<any>("/users/pending/?page=1&page_size=500", {
     method: "GET",
     token: token || undefined,
+    signal,
   });
+  return res.results || [];
 }
 
+// One-click for every role - approval only grants login + Group access.
+// Student/Teacher profile completion happens separately, by the user
+// themself, via the onboarding flow after their first login.
 export async function approveUser(userId: string): Promise<boolean> {
   try {
     const token = getAccessToken();
@@ -137,6 +144,30 @@ export async function approveUser(userId: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+// Called by a newly-approved student/teacher on their first login to create
+// and link their own Student/Teacher profile. Updates the cached user so
+// ProtectedRoute immediately sees student_id/teacher_id without a re-login.
+export async function completeOnboarding(profile: Record<string, unknown>): Promise<AuthResponse> {
+  try {
+    const token = getAccessToken();
+
+    const response = await apiRequest<{ user: User }>("/users/onboarding/", {
+      method: "POST",
+      token: token || undefined,
+      body: JSON.stringify(profile),
+    });
+
+    localStorage.setItem(USER_KEY, JSON.stringify(response.user));
+
+    return { success: true, user: response.user };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to complete onboarding.",
+    };
   }
 }
 
@@ -168,6 +199,7 @@ export async function logoutUser(): Promise<void> {
       });
     }
   } finally {
+    clearScheduledTokenRefresh();
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);

@@ -1,72 +1,56 @@
 import { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
 import { getCurrentUser } from "../../services/auth";
-import { studentService, enrollmentService, attendanceService, offeringService, courseService } from "../../services/entities";
-import type { Student, Enrollment, Attendance, CourseOffering, Course } from "../../types/user";
+import { getMyStudentProfile, getMyEnrollments, getMyStudentAttendance } from "../../services/entities";
+import type { Student, EnrollmentListItem, AttendanceListItem } from "../../types/user";
 
 export default function StudentAttendance() {
   const user = getCurrentUser();
   const [student, setStudent] = useState<Student | null>(null);
-  
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-  const [attendance, setAttendance] = useState<Attendance[]>([]);
-  const [offerings, setOfferings] = useState<CourseOffering[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  
+
+  const [enrollments, setEnrollments] = useState<EnrollmentListItem[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceListItem[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [courseFilter, setCourseFilter] = useState<string>("all");
 
   useEffect(() => {
-    if (!user || !user.student_id) {
+    if (!user) {
       setLoading(false);
       return;
     }
-    
-    studentService.getById(user.student_id).then(myStudent => {
+
+    getMyStudentProfile().then(myStudent => {
       setStudent(myStudent);
-      
+
       Promise.all([
-        enrollmentService.getAll(),
-        attendanceService.getAll(),
-        offeringService.getAll(),
-        courseService.getAll()
-      ]).then(([e, a, o, c]) => {
-        const myEnrollments = e.filter(x => x.student === myStudent.id);
-        setEnrollments(myEnrollments);
-        
-        const myEnrollmentIds = myEnrollments.map(x => x.id);
-        setAttendance(a.filter(x => myEnrollmentIds.includes(x.enrollment)));
-        
-        setOfferings(o);
-        setCourses(c);
+        getMyEnrollments(1, 500),
+        getMyStudentAttendance(1, 500),
+      ]).then(([e, a]) => {
+        setEnrollments(e.results);
+        setAttendance(a.results);
       }).finally(() => setLoading(false));
-    }).catch(console.error);
-  }, [user]);
+    }).catch(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getCourseInfo = (enrollmentId: number) => {
     const e = enrollments.find(x => x.id === enrollmentId);
-    if (!e) return "Unknown";
-    
-    const o = offerings.find(x => x.id === e.course_offering);
-    if (!o) return "Unknown";
-    
-    const c = courses.find(x => x.id === o.course);
-    return c ? `${c.name} (${c.code})` : "Unknown Course";
+    return e ? `${e.course_offering.course.name} (${e.course_offering.course.code})` : "Unknown Course";
   };
 
-  const filteredAttendance = courseFilter === "all" 
-    ? attendance 
-    : attendance.filter(a => a.enrollment.toString() === courseFilter);
+  const filteredAttendance = courseFilter === "all"
+    ? attendance
+    : attendance.filter(a => a.enrollment?.id.toString() === courseFilter);
 
   // Sort by date descending
   filteredAttendance.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   if (loading) {
-    return <DashboardLayout title="My Attendance"><div style={{ padding: "40px", textAlign: "center" }}>Loading attendance...</div></DashboardLayout>;
+    return <><div style={{ padding: "40px", textAlign: "center" }}>Loading attendance...</div></>;
   }
 
   return (
-    <DashboardLayout title="My Attendance">
+    <>
       <div className="page-header">
         <h2>Attendance Records</h2>
         <p>Track your presence across all enrolled courses</p>
@@ -109,10 +93,10 @@ export default function StudentAttendance() {
                   filteredAttendance.map(a => (
                     <tr key={a.id}>
                       <td><strong>{a.date}</strong></td>
-                      <td>{getCourseInfo(a.enrollment)}</td>
+                      <td>{a.enrollment ? `${a.enrollment.course.code}` : "Unknown"}</td>
                       <td>
                         <span className={`badge ${
-                          a.status === 'PRESENT' ? 'badge-success' : 
+                          a.status === 'PRESENT' ? 'badge-success' :
                           a.status === 'ABSENT' ? 'badge-danger' : 'badge-warning'
                         }`}>
                           {a.status}
@@ -127,6 +111,6 @@ export default function StudentAttendance() {
           </div>
         </>
       )}
-    </DashboardLayout>
+    </>
   );
 }

@@ -1,83 +1,130 @@
-import { useEffect, useState, useMemo } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
-import { teacherService, departmentService } from "../../services/entities";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { teacherService, getTeacherList, departmentService } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { Teacher, Department } from "../../types/user";
+import type { Teacher, TeacherListItem, Department } from "../../types/user";
 
 export default function Teachers() {
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [teachers, setTeachers] = useState<TeacherListItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  // Departments are still fetched here — not for the table (the list API
+  // already returns resolved department names per row), but because the
+  // Add/Edit form dropdown and the department filter need the full list.
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<Teacher | null>(null);
-  
-  const [formData, setFormData] = useState({ 
+  const [deleteConfirm, setDeleteConfirm] = useState<TeacherListItem | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [formData, setFormData] = useState({
     first_name: "", last_name: "", employee_id: "", email: "", phone_number: "",
     department: "" as number | "", designation: "", qualification: "", gender: "M",
-    date_of_birth: "", date_of_joining: "", salary: "", address: "", is_active: true 
+    date_of_birth: "", date_of_joining: "", salary: "", address: "", is_active: true
   });
 
-  const loadData = () => {
+  const loadTeachers = async (signal?: AbortSignal) => {
     setLoading(true);
-    Promise.all([
-      teacherService.getAll(),
-      departmentService.getAll()
-    ]).then(([t, d]) => {
-      setTeachers(t);
-      setDepartments(d);
-    }).catch(console.error).finally(() => setLoading(false));
+
+    try {
+      const result = await getTeacherList(currentPage,pageSize,signal);
+      setTeachers(result.results);
+      setTotalCount(result.total_count);
+    } catch (err:any) {
+      if (err.name === "AbortError") return;
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const controller = new AbortController();
+    loadTeachers(controller.signal);
 
-  const handleOpenModal = (teacher?: Teacher) => {
-    if (teacher) {
-      setEditingTeacher(teacher);
-      setFormData({ 
-        first_name: teacher.first_name, last_name: teacher.last_name, 
-        employee_id: teacher.employee_id, email: teacher.email, phone_number: teacher.phone_number,
-        department: teacher.department || "", designation: teacher.designation, qualification: teacher.qualification, 
-        gender: teacher.gender, date_of_birth: teacher.date_of_birth, date_of_joining: teacher.date_of_joining, 
-        salary: teacher.salary, address: teacher.address, is_active: teacher.is_active 
-      });
+    return () => controller.abort();
+  },[currentPage]);
+
+  // Department options are only needed for the Add/Edit form and the
+  // department filter — not for rendering the table (the list API already
+  // returns resolved names). Loaded lazily, once, on first actual use.
+  const dropdownsRequested = useRef(false);
+
+  const loadDropdownData = () => {
+    if (dropdownsRequested.current) return;
+    dropdownsRequested.current = true;
+
+    departmentService.getAll().then(d => {
+      setDepartments(d);
+    }).catch(err => {
+      console.error(err);
+      dropdownsRequested.current = false;
+    });
+  };
+
+  // The Teachers list only carries the narrow TeacherListItem projection, so editing
+  // fetches the full Teacher record (detail endpoint, unchanged) to populate the form.
+  const handleOpenModal = async (row?: TeacherListItem) => {
+    loadDropdownData();
+
+    if (row) {
+      try {
+        const teacher = await teacherService.getById(row.id);
+        setEditingTeacher(teacher);
+        setFormData({
+          first_name: teacher.first_name, last_name: teacher.last_name,
+          employee_id: teacher.employee_id, email: teacher.email, phone_number: teacher.phone_number,
+          department: teacher.department || "", designation: teacher.designation, qualification: teacher.qualification,
+          gender: teacher.gender, date_of_birth: teacher.date_of_birth, date_of_joining: teacher.date_of_joining,
+          salary: teacher.salary, address: teacher.address, is_active: teacher.is_active
+        });
+      } catch (error) {
+        console.error(error);
+        alert(error instanceof Error ? error.message : "Failed to load teacher.");
+        return;
+      }
     } else {
       setEditingTeacher(null);
-      setFormData({ 
+      setFormData({
         first_name: "", last_name: "", employee_id: "", email: "", phone_number: "",
         department: "", designation: "", qualification: "", gender: "M",
-        date_of_birth: "", date_of_joining: "", salary: "", address: "", is_active: true 
+        date_of_birth: "", date_of_joining: "", salary: "", address: "", is_active: true
       });
     }
+
     setIsModalOpen(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const payload = {
         ...formData,
         department: formData.department === "" ? null : Number(formData.department),
       };
-      
+
       if (editingTeacher) {
         await teacherService.update(editingTeacher.id, payload);
       } else {
         await teacherService.create(payload);
       }
       setIsModalOpen(false);
-      loadData();
+      loadTeachers();
     } catch (error) {
       console.error(error);
-      alert("Failed to save teacher.");
+      alert(error instanceof Error ? error.message : "Failed to save teacher.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -86,7 +133,7 @@ export default function Teachers() {
     try {
       await teacherService.remove(deleteConfirm.id);
       setDeleteConfirm(null);
-      loadData();
+      loadTeachers();
     } catch (error) {
       console.error(error);
       alert("Failed to delete teacher.");
@@ -95,15 +142,15 @@ export default function Teachers() {
 
   const filteredTeachers = useMemo(() => {
     return teachers.filter(t => {
-      const matchSearch = (t.first_name + " " + t.last_name).toLowerCase().includes(search.toLowerCase()) || 
+      const matchSearch = (t.first_name + " " + t.last_name).toLowerCase().includes(search.toLowerCase()) ||
                           t.email.toLowerCase().includes(search.toLowerCase());
-      const matchDept = deptFilter ? t.department?.toString() === deptFilter : true;
+      const matchDept = deptFilter ? t.department?.id.toString() === deptFilter : true;
       return matchSearch && matchDept;
     });
   }, [teachers, search, deptFilter]);
 
   return (
-    <DashboardLayout title="Manage Teachers">
+    <>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
           <h2>Teachers</h2>
@@ -116,14 +163,20 @@ export default function Teachers() {
 
       <div className="content-card" style={{ marginBottom: "24px", padding: "16px" }}>
         <div style={{ display: "flex", gap: "16px" }}>
-          <input 
-            type="text" 
-            placeholder="Search by name or email..." 
-            className="form-control" 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
+          <input
+            type="text"
+            placeholder="Search by name or email..."
+            className="form-control"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
           />
-          <select className="form-control" value={deptFilter} onChange={e => setDeptFilter(e.target.value)} style={{ maxWidth: "250px" }}>
+          <select
+            className="form-control"
+            value={deptFilter}
+            onChange={e => setDeptFilter(e.target.value)}
+            onFocus={loadDropdownData}
+            style={{ maxWidth: "250px" }}
+          >
             <option value="">All Departments</option>
             {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
@@ -131,27 +184,31 @@ export default function Teachers() {
       </div>
 
       <div className="content-card">
-        <EntityTable<Teacher>
+        <EntityTable<TeacherListItem>
           data={filteredTeachers}
           loading={loading}
           resourceName="teachers"
           columns={[
             { key: "employee_id", label: "Emp ID" },
-            { 
-              key: "name", 
+            {
+              key: "name",
               label: "Name",
               render: (t) => `${t.first_name} ${t.last_name}`
             },
             { key: "email", label: "Email" },
-            { 
-              key: "department", 
+            {
+              key: "department",
               label: "Department",
-              render: (t) => departments.find(d => d.id === t.department)?.name || "-"
+              render: (t) => t.department?.name || "-"
             },
             { key: "designation", label: "Designation" }
           ]}
           onEdit={handleOpenModal}
           onDelete={setDeleteConfirm}
+          totalCount={totalCount}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
         />
       </div>
 
@@ -180,7 +237,7 @@ export default function Teachers() {
             </div>
             <div className="form-group">
               <label className="form-label">Department</label>
-              <select required className="form-control" value={formData.department} onChange={(e) => setFormData({...formData, department: Number(e.target.value)})}>
+              <select required className="form-control" value={formData.department} onChange={(e) => setFormData({...formData, department: Number(e.target.value)})} onFocus={loadDropdownData}>
                 <option value="">-- Select Department --</option>
                 {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
@@ -213,15 +270,15 @@ export default function Teachers() {
               <input required type="number" step="0.01" className="form-control" value={formData.salary} onChange={(e) => setFormData({...formData, salary: e.target.value})} />
             </div>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Address</label>
             <textarea className="form-control" rows={2} value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})}></textarea>
           </div>
-          
+
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px" }}>
             <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline">Cancel</button>
-            <button type="submit" className="btn btn-primary">Save</button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save"}</button>
           </div>
         </form>
       </Modal>
@@ -233,6 +290,6 @@ export default function Teachers() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
       />
-    </DashboardLayout>
+    </>
   );
 }

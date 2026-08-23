@@ -1,56 +1,39 @@
 import { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
 import { getCurrentUser } from "../../services/auth";
-import { studentService, enrollmentService, offeringService, courseService, teacherService } from "../../services/entities";
-import type { Student, Enrollment, CourseOffering, Course, Teacher } from "../../types/user";
+import { getMyStudentProfile, getMyEnrollments, getCourseOfferingList, enrollmentService, invalidateMeCache } from "../../services/entities";
+import type { Student, EnrollmentListItem, CourseOfferingListItem } from "../../types/user";
 
 export default function StudentCourses() {
   const user = getCurrentUser();
   const [student, setStudent] = useState<Student | null>(null);
-  
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-  const [offerings, setOfferings] = useState<CourseOffering[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  
+
+  const [enrollments, setEnrollments] = useState<EnrollmentListItem[]>([]);
+  // Every active offering (already carries course/teacher/section nested) - used
+  // both to list available offerings and to resolve a teacher name for "my courses"
+  // (EnrollmentListItem's course_offering doesn't include teacher, this list does).
+  const [offerings, setOfferings] = useState<CourseOfferingListItem[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"my-courses" | "available">("my-courses");
   const [enrolling, setEnrolling] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (!user || !user.student_id) return;
-    
-    studentService.getById(user.student_id).then(myStudent => {
-      setStudent(myStudent);
-      
-      Promise.all([
-        enrollmentService.getAll(),
-        offeringService.getAll(),
-        courseService.getAll(),
-        teacherService.getAll()
-      ]).then(([e, o, c, t]) => {
-        setEnrollments(e.filter(x => x.student === myStudent.id));
-        setOfferings(o.filter(x => x.is_active));
-        setCourses(c);
-        setTeachers(t);
-      }).finally(() => setLoading(false));
-    }).catch(console.error);
-  }, [user]);
-
   const loadData = () => {
-    if (!student) return;
+    setLoading(true);
     Promise.all([
-      enrollmentService.getAll(),
-      offeringService.getAll(),
-      courseService.getAll(),
-      teacherService.getAll()
-    ]).then(([e, o, c, t]) => {
-      setEnrollments(e.filter(x => x.student === student.id));
-      setOfferings(o.filter(x => x.is_active));
-      setCourses(c);
-      setTeachers(t);
-    });
+      getMyEnrollments(1, 500),
+      getCourseOfferingList(1, 500),
+    ]).then(([e, o]) => {
+      setEnrollments(e.results);
+      setOfferings(o.results.filter(x => x.is_active));
+    }).finally(() => setLoading(false));
   };
+
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+    getMyStudentProfile().then(setStudent).catch(() => {});
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleEnroll = async (offeringId: number) => {
     if (!student) return;
@@ -61,63 +44,54 @@ export default function StudentCourses() {
         course_offering: offeringId,
         status: "ACTIVE"
       });
+      invalidateMeCache("enrollments:1:500");
       loadData();
       setActiveTab("my-courses");
     } catch (error) {
       console.error(error);
-      alert("Failed to enroll in course.");
+      alert(error instanceof Error ? error.message : "Failed to enroll in course.");
     } finally {
       setEnrolling(null);
     }
   };
 
-  const enrolledOfferingIds = enrollments.map(e => e.course_offering);
+  const enrolledOfferingIds = enrollments.map(e => e.course_offering.id);
   const availableOfferings = offerings.filter(o => !enrolledOfferingIds.includes(o.id));
-
-  const getCourseInfo = (offering: CourseOffering) => {
-    const c = courses.find(x => x.id === offering.course);
-    const t = teachers.find(x => x.id === offering.teacher);
-    return {
-      courseName: c ? c.name : "Unknown",
-      courseCode: c ? c.code : "---",
-      credits: c ? c.credits : 0,
-      teacherName: t ? `${t.first_name} ${t.last_name}` : "TBA",
-    };
-  };
+  const teacherByOffering = (offeringId: number) => offerings.find(o => o.id === offeringId)?.teacher;
 
   if (loading) {
     return (
-      <DashboardLayout title="My Courses">
+      <>
         <div style={{ padding: "40px", textAlign: "center" }}>Loading courses...</div>
-      </DashboardLayout>
+      </>
     );
   }
 
   if (!student) {
     return (
-      <DashboardLayout title="My Courses">
+      <>
         <div className="content-card" style={{ padding: "24px", color: "var(--color-danger)" }}>
           Student record not found.
         </div>
-      </DashboardLayout>
+      </>
     );
   }
 
   return (
-    <DashboardLayout title="My Courses & Enrollment">
+    <>
       <div className="page-header">
         <h2>Course Enrollment</h2>
         <p>Manage your classes for the current semester</p>
       </div>
 
       <div style={{ display: "flex", gap: "16px", marginBottom: "24px" }}>
-        <button 
+        <button
           className={`btn ${activeTab === 'my-courses' ? 'btn-primary' : 'btn-outline'}`}
           onClick={() => setActiveTab("my-courses")}
         >
           My Enrollments ({enrollments.length})
         </button>
-        <button 
+        <button
           className={`btn ${activeTab === 'available' ? 'btn-primary' : 'btn-outline'}`}
           onClick={() => setActiveTab("available")}
         >
@@ -131,23 +105,21 @@ export default function StudentCourses() {
             <p style={{ color: "var(--color-text-secondary)" }}>You are not enrolled in any courses yet.</p>
           ) : (
             enrollments.map(enrollment => {
-              const offering = offerings.find(o => o.id === enrollment.course_offering);
-              if (!offering) return null;
-              const info = getCourseInfo(offering);
-              
+              const co = enrollment.course_offering;
+              const teacher = teacherByOffering(co.id);
+
               return (
                 <div key={enrollment.id} className="stat-card" style={{ position: "relative" }}>
                   <div style={{ position: "absolute", top: "20px", right: "20px" }}>
                     <span className="badge badge-success">{enrollment.status}</span>
                   </div>
-                  <h3 style={{ margin: "0 0 8px 0" }}>{info.courseName}</h3>
-                  <p style={{ margin: "0 0 16px 0", color: "var(--color-primary)", fontWeight: 600 }}>{info.courseCode}</p>
-                  
+                  <h3 style={{ margin: "0 0 8px 0" }}>{co.course.name}</h3>
+                  <p style={{ margin: "0 0 16px 0", color: "var(--color-primary)", fontWeight: 600 }}>{co.course.code}</p>
+
                   <div style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)", display: "flex", flexDirection: "column", gap: "8px" }}>
-                    <div><strong>Teacher:</strong> {info.teacherName}</div>
-                    <div><strong>Semester:</strong> {offering.semester} {offering.academic_year}</div>
-                    <div><strong>Section:</strong> {offering.section}</div>
-                    <div><strong>Credits:</strong> {info.credits}</div>
+                    <div><strong>Teacher:</strong> {teacher ? `${teacher.first_name} ${teacher.last_name}` : "TBA"}</div>
+                    <div><strong>Semester:</strong> {co.semester} {co.academic_year}</div>
+                    <div><strong>Section:</strong> {co.section?.name || "No Section"}</div>
                   </div>
                 </div>
               );
@@ -176,19 +148,18 @@ export default function StudentCourses() {
                 </tr>
               ) : (
                 availableOfferings.map(offering => {
-                  const info = getCourseInfo(offering);
                   const isEnrolling = enrolling === offering.id;
-                  
+
                   return (
                     <tr key={offering.id}>
-                      <td><strong>{info.courseCode}</strong></td>
-                      <td>{info.courseName}</td>
-                      <td>{info.teacherName}</td>
+                      <td><strong>{offering.course?.code || "---"}</strong></td>
+                      <td>{offering.course?.name || "Unknown"}</td>
+                      <td>{offering.teacher ? `${offering.teacher.first_name} ${offering.teacher.last_name}` : "TBA"}</td>
                       <td>{offering.semester} {offering.academic_year}</td>
-                      <td>{offering.section}</td>
+                      <td>{offering.section?.name || "No Section"}</td>
                       <td>
-                        <button 
-                          className="btn btn-primary" 
+                        <button
+                          className="btn btn-primary"
                           onClick={() => handleEnroll(offering.id)}
                           disabled={isEnrolling}
                         >
@@ -203,6 +174,6 @@ export default function StudentCourses() {
           </table>
         </div>
       )}
-    </DashboardLayout>
+    </>
   );
 }

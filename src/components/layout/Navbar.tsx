@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { getCurrentUser, logoutUser } from "../../services/auth";
+import { invalidateMeCache } from "../../services/entities";
 
 interface NavbarProps {
   title: string;
@@ -11,6 +12,7 @@ export default function Navbar({ title }: NavbarProps) {
 
   const handleLogout = () => {
     logoutUser();
+    invalidateMeCache();
     navigate("/");
   };
 

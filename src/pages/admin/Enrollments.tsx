@@ -1,59 +1,82 @@
-import { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
-import { enrollmentService, studentService, offeringService, courseService } from "../../services/entities";
+import { useEffect, useRef, useState } from "react";
+import { enrollmentService, studentService, offeringService, courseService, sectionService, getEnrollmentList } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { Enrollment, Student, CourseOffering, Course, EnrollmentStatus } from "../../types/user";
+import type { EnrollmentListItem, Student, CourseOffering, Course, EnrollmentStatus, Section } from "../../types/user";
 
 export default function Enrollments() {
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [enrollments, setEnrollments] = useState<EnrollmentListItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
   const [students, setStudents] = useState<Student[]>([]);
   const [offerings, setOfferings] = useState<CourseOffering[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const dropdownDataLoaded = useRef(false);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingEnrollment, setEditingEnrollment] = useState<Enrollment | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<Enrollment | null>(null);
-  
-  const [formData, setFormData] = useState({ 
-    student: "" as number | "", 
-    course_offering: "" as number | "", 
-    status: "ACTIVE" as EnrollmentStatus 
+  const [editingEnrollment, setEditingEnrollment] = useState<EnrollmentListItem | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<EnrollmentListItem | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [formData, setFormData] = useState({
+    student: "" as number | "",
+    course_offering: "" as number | "",
+    status: "ACTIVE" as EnrollmentStatus
   });
 
-  const loadData = () => {
+  const loadData = (signal?: AbortSignal) => {
     setLoading(true);
+    getEnrollmentList(currentPage, pageSize, signal).then(eRes => {
+      setEnrollments(eRes.results);
+      setTotalCount(eRes.total_count);
+    }).catch(err => {
+      if (err.name === 'AbortError') return;
+      console.error(err);
+    }).finally(() => setLoading(false));
+  };
+
+  const loadDropdownData = () => {
+    if (dropdownDataLoaded.current) return;
+    dropdownDataLoaded.current = true;
     Promise.all([
-      enrollmentService.getAll(),
       studentService.getAll(),
       offeringService.getAll(),
-      courseService.getAll()
-    ]).then(([e, s, o, c]) => {
-      setEnrollments(e);
+      courseService.getAll(),
+      sectionService.getAll()
+    ]).then(([s, o, c, sec]) => {
       setStudents(s);
       setOfferings(o);
       setCourses(c);
-    }).catch(console.error).finally(() => setLoading(false));
+      setSections(sec);
+    }).catch(err => {
+      console.error(err);
+    });
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const controller = new AbortController();
+    loadData(controller.signal);
+    return () => controller.abort();
+  }, [currentPage]);
 
-  const handleOpenModal = (enrollment?: Enrollment) => {
+  const handleOpenModal = (enrollment?: EnrollmentListItem) => {
+    loadDropdownData();
     if (enrollment) {
       setEditingEnrollment(enrollment);
-      setFormData({ 
-        student: enrollment.student, 
-        course_offering: enrollment.course_offering, 
+      setFormData({
+        student: enrollment.student.id,
+        course_offering: enrollment.course_offering.id,
         status: enrollment.status
       });
     } else {
       setEditingEnrollment(null);
-      setFormData({ 
-        student: "", course_offering: "", status: "ACTIVE" 
+      setFormData({
+        student: "", course_offering: "", status: "ACTIVE"
       });
     }
     setIsModalOpen(true);
@@ -61,13 +84,15 @@ export default function Enrollments() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const payload = {
         ...formData,
         student: Number(formData.student),
         course_offering: Number(formData.course_offering),
       };
-      
+
       if (editingEnrollment) {
         await enrollmentService.update(editingEnrollment.id, payload);
       } else {
@@ -77,7 +102,9 @@ export default function Enrollments() {
       loadData();
     } catch (error) {
       console.error(error);
-      alert("Failed to save enrollment.");
+      alert(error instanceof Error ? error.message : "Failed to save enrollment.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -98,11 +125,12 @@ export default function Enrollments() {
     if (!o) return offeringId.toString();
     const c = courses.find(x => x.id === o.course);
     const courseName = c ? c.name : "Unknown Course";
-    return `${courseName} - Sec ${o.section} (${o.semester} ${o.academic_year})`;
+    const sectionName = sections.find(s => s.id === o.section)?.name || "No Section";
+    return `${courseName} - ${sectionName} (${o.semester} ${o.academic_year})`;
   };
 
   return (
-    <DashboardLayout title="Enrollments">
+    <>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h2>Student Enrollments</h2>
@@ -114,26 +142,23 @@ export default function Enrollments() {
       </div>
 
       <div className="content-card">
-        <EntityTable<Enrollment>
+        <EntityTable<EnrollmentListItem>
           data={enrollments}
           loading={loading}
           resourceName="enrollments"
           columns={[
-            { 
-              key: "student", 
+            {
+              key: "student",
               label: "Student",
-              render: (e) => {
-                const s = students.find(s => s.id === e.student);
-                return s ? `${s.first_name} ${s.last_name} (${s.student_email})` : e.student.toString();
-              }
+              render: (e) => `${e.student.first_name} ${e.student.last_name} (${e.student.student_email})`
             },
-            { 
-              key: "course_offering", 
+            {
+              key: "course_offering",
               label: "Course Offering",
-              render: (e) => getOfferingDisplay(e.course_offering)
+              render: (e) => `${e.course_offering.course.name} - ${e.course_offering.section?.name || "No Section"} (${e.course_offering.semester} ${e.course_offering.academic_year})`
             },
-            { 
-              key: "status", 
+            {
+              key: "status",
               label: "Status",
               render: (e) => {
                 let badgeClass = "badge-warning";
@@ -145,6 +170,10 @@ export default function Enrollments() {
           ]}
           onEdit={handleOpenModal}
           onDelete={setDeleteConfirm}
+          totalCount={totalCount}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
         />
       </div>
 
@@ -172,10 +201,10 @@ export default function Enrollments() {
               <option value="COMPLETED">Completed</option>
             </select>
           </div>
-          
+
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px" }}>
             <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline">Cancel</button>
-            <button type="submit" className="btn btn-primary">Save</button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save"}</button>
           </div>
         </form>
       </Modal>
@@ -187,6 +216,6 @@ export default function Enrollments() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
       />
-    </DashboardLayout>
+    </>
   );
 }
