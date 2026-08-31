@@ -80,7 +80,7 @@ export default function TeacherAttendance() {
 
   const filteredAttendance = attendance.filter(a => {
     if (!courseFilter) return true;
-    return a.enrollment && enrollments.find(e => e.id === a.enrollment!.id)?.course_offering.id.toString() === courseFilter;
+    return a.enrollment_id !== null && enrollments.find(e => e.id === a.enrollment_id)?.course_offering.id.toString() === courseFilter;
   });
 
   filteredAttendance.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -143,7 +143,7 @@ export default function TeacherAttendance() {
                   filteredAttendance.map(a => (
                     <tr key={a.id}>
                       <td><strong>{a.date}</strong></td>
-                      <td>{a.enrollment ? a.enrollment.student.name : "Unknown"}</td>
+                      <td>{a.enrollment_id ? a.student_name : "Unknown"}</td>
                       <td>
                         <span className={`badge ${
                           a.status === 'PRESENT' ? 'badge-success' :

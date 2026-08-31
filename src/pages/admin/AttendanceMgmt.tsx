@@ -86,7 +86,7 @@ export default function AttendanceMgmt() {
     if (record) {
       setEditingRecord(record as unknown as Attendance);
       setFormData({
-        enrollment: record.enrollment ? record.enrollment.id : "",
+        enrollment: record.enrollment_id ?? "",
         date: record.date,
         status: record.status,
         remarks: record.remarks || ""
@@ -175,8 +175,8 @@ export default function AttendanceMgmt() {
             {
               key: "enrollment",
               label: "Student & Course",
-              render: (a) => a.enrollment
-                ? `${a.enrollment.student.name} - ${a.enrollment.course.code}`
+              render: (a) => a.enrollment_id
+                ? `${a.student_name} - ${a.course_code}`
                 : "Unknown"
             },
             { key: "date", label: "Date" },

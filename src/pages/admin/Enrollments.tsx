@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { enrollmentService, getStudentList, offeringService, courseService, sectionService, getEnrollmentList } from "../../services/entities";
+import { enrollmentService, getStudentReference, offeringService, getCourseReference, getSectionReference, getEnrollmentList } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { EnrollmentListItem, StudentListItem, CourseOffering, Course, EnrollmentStatus, Section } from "../../types/user";
+import type { EnrollmentListItem, StudentReference, CourseOffering, CourseReference, EnrollmentStatus, SectionReference } from "../../types/user";
 import { useToast } from "../../context/ToastContext";
 
 export default function Enrollments() {
@@ -13,10 +13,10 @@ export default function Enrollments() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const [students, setStudents] = useState<StudentListItem[]>([]);
+  const [students, setStudents] = useState<StudentReference[]>([]);
   const [offerings, setOfferings] = useState<CourseOffering[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [sections, setSections] = useState<Section[]>([]);
+  const [courses, setCourses] = useState<CourseReference[]>([]);
+  const [sections, setSections] = useState<SectionReference[]>([]);
   const [loading, setLoading] = useState(true);
   const dropdownDataLoaded = useRef(false);
 
@@ -50,10 +50,10 @@ export default function Enrollments() {
     if (dropdownDataLoaded.current) return;
     dropdownDataLoaded.current = true;
     Promise.all([
-      getStudentList(1, 500).then(res => res.results),
+      getStudentReference(),
       offeringService.getAll(),
-      courseService.getAll(),
-      sectionService.getAll()
+      getCourseReference(),
+      getSectionReference()
     ]).then(([s, o, c, sec]) => {
       setStudents(s);
       setOfferings(o);

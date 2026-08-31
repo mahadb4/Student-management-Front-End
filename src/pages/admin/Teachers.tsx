@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useMemo } from "react";
-import { teacherService, getTeacherList, departmentService } from "../../services/entities";
+import { teacherService, getTeacherList, getDepartmentReference } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { Teacher, TeacherListItem, Department } from "../../types/user";
+import type { Teacher, TeacherListItem, DepartmentReference } from "../../types/user";
 import { useToast } from "../../context/ToastContext";
 
 export default function Teachers() {
@@ -16,7 +16,7 @@ export default function Teachers() {
   // Departments are still fetched here — not for the table (the list API
   // already returns resolved department names per row), but because the
   // Add/Edit form dropdown and the department filter need the full list.
-  const [departments, setDepartments] = useState<Department[]>([]);
+  const [departments, setDepartments] = useState<DepartmentReference[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
@@ -84,7 +84,7 @@ export default function Teachers() {
     if (dropdownsRequested.current) return;
     dropdownsRequested.current = true;
 
-    departmentService.getAll().then(d => {
+    getDepartmentReference().then(d => {
       setDepartments(d);
     }).catch(err => {
       console.error(err);
@@ -172,7 +172,7 @@ export default function Teachers() {
 
   const filteredTeachers = useMemo(() => {
     if (!deptFilter) return teachers;
-    return teachers.filter(t => t.department?.id.toString() === deptFilter);
+    return teachers.filter(t => t.department_id?.toString() === deptFilter);
   }, [teachers, deptFilter]);
 
   return (
@@ -225,7 +225,7 @@ export default function Teachers() {
             {
               key: "department",
               label: "Department",
-              render: (t) => t.department?.name || "-"
+              render: (t) => t.department_name || "-"
             },
             { key: "designation", label: "Designation" }
           ]}

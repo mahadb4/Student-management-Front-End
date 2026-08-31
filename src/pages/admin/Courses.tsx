@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { courseService, getCourseList, departmentService, getTeacherList } from "../../services/entities";
+import { courseService, getCourseList, getDepartmentReference, getTeacherReference } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { Course, CourseListItem, Department, TeacherListItem } from "../../types/user";
+import type { Course, CourseListItem, DepartmentReference, TeacherReference } from "../../types/user";
 import { useToast } from "../../context/ToastContext";
 
 export default function Courses() {
@@ -15,8 +15,8 @@ export default function Courses() {
 
   // Departments/Teachers are only needed for the Add/Edit form dropdowns —
   // not for the table (the list API already returns resolved names).
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [teachers, setTeachers] = useState<TeacherListItem[]>([]);
+  const [departments, setDepartments] = useState<DepartmentReference[]>([]);
+  const [teachers, setTeachers] = useState<TeacherReference[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
@@ -77,8 +77,8 @@ export default function Courses() {
     dropdownsRequested.current = true;
 
     Promise.all([
-      departmentService.getAll(),
-      getTeacherList(1, 500).then(res => res.results)
+      getDepartmentReference(),
+      getTeacherReference()
     ]).then(([d, t]) => {
       setDepartments(d);
       setTeachers(t);
@@ -198,12 +198,12 @@ export default function Courses() {
             {
               key: "department",
               label: "Department",
-              render: (c) => c.department?.name || "-"
+              render: (c) => c.department_name || "-"
             },
             {
               key: "teacher",
               label: "Teacher",
-              render: (c) => c.teacher ? c.teacher.name : "-"
+              render: (c) => c.teacher_name || "-"
             }
           ]}
           onEdit={handleOpenModal}

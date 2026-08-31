@@ -43,15 +43,18 @@ export interface Student {
 }
 
 // Shape returned by the Students LIST endpoint (GET /students/): a narrower
-// projection than Student, with department/section already resolved to
-// {id, name} via the backend's StudentListDTO — no separate lookup needed.
+// projection than Student, with department/section resolved to flat
+// id/name fields (no nested object for a single extra field) via the
+// backend's StudentListDTO.
 export interface StudentListItem {
   id: number;
   name: string;
   student_email: string;
   is_active: boolean;
-  department: { id: number; name: string } | null;
-  section: { id: number; name: string } | null;
+  department_id: number | null;
+  department_name: string | null;
+  section_id: number | null;
+  section_name: string | null;
 }
 
 export interface Section {
@@ -66,14 +69,15 @@ export interface Section {
 }
 
 // Shape returned by the Sections LIST endpoint (GET /sections/): department
-// already resolved to {id, name} via the backend's SectionListDTO.
+// resolved to flat id/name fields via the backend's SectionListDTO.
 export interface SectionListItem {
   id: number;
   name: string;
   semester_number: number;
   academic_year: number;
   is_active: boolean;
-  department: { id: number; name: string } | null;
+  department_id: number | null;
+  department_name: string | null;
 }
 
 export interface Teacher {
@@ -97,15 +101,16 @@ export interface Teacher {
 }
 
 // Shape returned by the Teachers LIST endpoint (GET /teachers/): a narrower
-// projection than Teacher, with department already resolved to {id, name}
-// via the backend's TeacherListDTO — no separate lookup needed.
+// projection than Teacher, with department resolved to flat id/name fields
+// via the backend's TeacherListDTO.
 export interface TeacherListItem {
   id: number;
   employee_id: string;
   name: string;
   email: string;
   designation: string;
-  department: { id: number; name: string } | null;
+  department_id: number | null;
+  department_name: string | null;
 }
 
 export interface Department {
@@ -116,6 +121,45 @@ export interface Department {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// Shape returned by the Departments REFERENCE endpoint (GET /departments/reference/):
+// only what a foreign-key dropdown needs, via the backend's DepartmentReferenceDTO.
+export interface DepartmentReference {
+  id: number;
+  name: string;
+}
+
+// Shape returned by the Sections REFERENCE endpoint (GET /sections/reference/):
+// department filtering happens server-side via ?department_id=, so the
+// response itself doesn't need to repeat it — via the backend's
+// SectionReferenceDTO.
+export interface SectionReference {
+  id: number;
+  name: string;
+}
+
+// Shape returned by the Teachers REFERENCE endpoint (GET /teachers/reference/),
+// via the backend's TeacherReferenceDTO.
+export interface TeacherReference {
+  id: number;
+  name: string;
+}
+
+// Shape returned by the Courses REFERENCE endpoint (GET /courses/reference/),
+// via the backend's CourseReferenceDTO.
+export interface CourseReference {
+  id: number;
+  name: string;
+  code: string;
+}
+
+// Shape returned by the Students REFERENCE endpoint (GET /students/reference/),
+// via the backend's StudentReferenceDTO.
+export interface StudentReference {
+  id: number;
+  name: string;
+  student_email: string;
 }
 
 export interface Course {
@@ -132,15 +176,16 @@ export interface Course {
 }
 
 // Shape returned by the Courses LIST endpoint (GET /courses/): a narrower
-// projection than Course, with department/teacher already resolved to
-// {name}/{name} via the backend's CourseListDTO (no ids on these nested objects).
+// projection than Course, with department/teacher resolved to display names
+// only — no raw ids, since editing re-fetches the full Course detail record
+// instead of using the list item's ids — via the backend's CourseListDTO.
 export interface CourseListItem {
   id: number;
   code: string;
   name: string;
   credits: number;
-  department: { name: string } | null;
-  teacher: { name: string } | null;
+  department_name: string | null;
+  teacher_name: string | null;
 }
 
 export type Semester = "FALL" | "SPRING" | "SUMMER";
@@ -189,26 +234,26 @@ export interface EnrollmentListItem {
     id: number;
     semester: Semester;
     academic_year: number;
-    course: { id: number; name: string; code: string };
-    section: { id: number; name: string } | null;
+    course: { name: string; code: string };
+    section: { name: string } | null;
   };
 }
 
 export type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE";
 
 // Shape returned by the Attendance LIST endpoint (GET /attendance/): a narrower
-// projection than Attendance, with enrollment already resolved to nested
-// student/course info via the backend's AttendanceListDTO.
+// projection than Attendance, with enrollment/student/course resolved to flat
+// id/name fields via the backend's AttendanceListDTO.
 export interface AttendanceListItem {
   id: number;
   date: string;
   status: AttendanceStatus;
   remarks: string;
-  enrollment: {
-    id: number;
-    student: { name: string };
-    course: { code: string };
-  } | null;
+  enrollment_id: number | null;
+  student_id: number | null;
+  student_name: string | null;
+  course_id: number | null;
+  course_code: string | null;
 }
 
 export interface Attendance {

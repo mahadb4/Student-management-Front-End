@@ -1,6 +1,6 @@
 import{apiRequest}from"./api";
 import{getAccessToken}from"./auth";
-import type{Student,Teacher,Department,Course,CourseOffering,Enrollment,Attendance,Section,StudentListItem,SectionListItem,TeacherListItem,CourseListItem,EnrollmentListItem,CourseOfferingListItem,AttendanceListItem}from"../types/user";
+import type{Student,Teacher,Department,Course,CourseOffering,Enrollment,Attendance,Section,StudentListItem,SectionListItem,TeacherListItem,CourseListItem,EnrollmentListItem,CourseOfferingListItem,AttendanceListItem,DepartmentReference,SectionReference,TeacherReference,CourseReference,StudentReference}from"../types/user";
 
 function authHeaders(signal?:AbortSignal){
   const token=getAccessToken();
@@ -17,7 +17,7 @@ export interface PaginatedResponse<T>{
 
 function createCrudService<T extends{id:number}>(base:string){
   return{
-    getList:(page:number=1,pageSize:number=50,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<T>>=>{
+    getList:(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<T>>=>{
       const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
       if(search&&search.trim())params.set("search",search.trim());
       return apiRequest<PaginatedResponse<T>>(`${base}/?${params.toString()}`,authHeaders(signal));
@@ -63,12 +63,12 @@ export const studentService=createCrudService<Student>("/students");
 // Students LIST endpoint returns a narrower projection (StudentListItem, with
 // department/section already resolved to {id, name}) than the Student entity
 // used by studentService's getById/create/update/remove.
-export const getStudentList=(page:number=1,pageSize:number=50,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<StudentListItem>>=>{
+export const getStudentList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<StudentListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(search&&search.trim())params.set("search",search.trim());
   return apiRequest<PaginatedResponse<StudentListItem>>(`/students/?${params.toString()}`,authHeaders(signal));
 };
-export const getTeacherList=(page:number=1,pageSize:number=50,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<TeacherListItem>>=>{
+export const getTeacherList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<TeacherListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(search&&search.trim())params.set("search",search.trim());
   return apiRequest<PaginatedResponse<TeacherListItem>>(`/teachers/?${params.toString()}`,authHeaders(signal));
@@ -77,10 +77,32 @@ export const teacherService=createCrudService<Teacher>("/teachers");
 export const departmentService=createCrudService<Department>("/departments");
 export const sectionService=createCrudService<Section>("/sections");
 
+// ── Reference (dropdown/foreign-key selection) endpoints ────────────────────
+// Return only {id, name[, ...]} — the minimal shape a <select> needs — as a
+// plain array, not the paginated list envelope. These exist alongside (not
+// instead of) the LIST endpoints above, whose fuller field set is still
+// required by each resource's own management page.
+export const getDepartmentReference=(signal?:AbortSignal):Promise<DepartmentReference[]>=>
+  apiRequest<DepartmentReference[]>("/departments/reference/",authHeaders(signal));
+
+export const getSectionReference=(departmentId?:number,signal?:AbortSignal):Promise<SectionReference[]>=>{
+  const query=departmentId!==undefined?`?department_id=${departmentId}`:"";
+  return apiRequest<SectionReference[]>(`/sections/reference/${query}`,authHeaders(signal));
+};
+
+export const getTeacherReference=(signal?:AbortSignal):Promise<TeacherReference[]>=>
+  apiRequest<TeacherReference[]>("/teachers/reference/",authHeaders(signal));
+
+export const getCourseReference=(signal?:AbortSignal):Promise<CourseReference[]>=>
+  apiRequest<CourseReference[]>("/courses/reference/",authHeaders(signal));
+
+export const getStudentReference=(signal?:AbortSignal):Promise<StudentReference[]>=>
+  apiRequest<StudentReference[]>("/students/reference/",authHeaders(signal));
+
 // Sections LIST endpoint returns a narrower projection (SectionListItem, with
 // department already resolved to {id, name}) than the Section entity used by
 // sectionService's getById/create/update/remove.
-export const getSectionList=(page:number=1,pageSize:number=50,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<SectionListItem>>=>{
+export const getSectionList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<SectionListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(search&&search.trim())params.set("search",search.trim());
   return apiRequest<PaginatedResponse<SectionListItem>>(`/sections/?${params.toString()}`,authHeaders(signal));
@@ -90,7 +112,7 @@ export const courseService=createCrudService<Course>("/courses");
 // Courses LIST endpoint returns a narrower projection (CourseListItem, with
 // department/teacher already resolved) than the Course entity used by
 // courseService's getById/create/update/remove.
-export const getCourseList=(page:number=1,pageSize:number=50,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<CourseListItem>>=>{
+export const getCourseList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<CourseListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(search&&search.trim())params.set("search",search.trim());
   return apiRequest<PaginatedResponse<CourseListItem>>(`/courses/?${params.toString()}`,authHeaders(signal));
@@ -100,7 +122,7 @@ export const offeringService=createCrudService<CourseOffering>("/course_offering
 // Course Offerings LIST endpoint returns a narrower projection (CourseOfferingListItem, with
 // course/teacher/section already resolved to nested objects) than the CourseOffering entity
 // used by offeringService's getById/create/update/remove.
-export const getCourseOfferingList=(page:number=1,pageSize:number=50,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<CourseOfferingListItem>>=>{
+export const getCourseOfferingList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<CourseOfferingListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(search&&search.trim())params.set("search",search.trim());
   return apiRequest<PaginatedResponse<CourseOfferingListItem>>(`/course_offerings/?${params.toString()}`,authHeaders(signal));
@@ -110,7 +132,7 @@ export const enrollmentService=createCrudService<Enrollment>("/enrollments");
 // Enrollments LIST endpoint returns a narrower projection (EnrollmentListItem, with
 // student/course_offering already resolved) than the Enrollment entity used by
 // enrollmentService's getById/create/update/remove.
-export const getEnrollmentList=(page:number=1,pageSize:number=50,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<EnrollmentListItem>>=>{
+export const getEnrollmentList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<EnrollmentListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(search&&search.trim())params.set("search",search.trim());
   return apiRequest<PaginatedResponse<EnrollmentListItem>>(`/enrollments/?${params.toString()}`,authHeaders(signal));
@@ -120,7 +142,7 @@ export const attendanceService=createCrudService<Attendance>("/attendance");
 // Attendance LIST endpoint returns a narrower projection (AttendanceListItem, with
 // enrollment already resolved to {id, student, course}) than the Attendance entity
 // used by attendanceService's getById/create/update/remove.
-export const getAttendanceList=(page:number=1,pageSize:number=50,signal?:AbortSignal):Promise<PaginatedResponse<AttendanceListItem>>=>
+export const getAttendanceList=(page:number=1,pageSize:number=10,signal?:AbortSignal):Promise<PaginatedResponse<AttendanceListItem>>=>
   apiRequest<PaginatedResponse<AttendanceListItem>>(`/attendance/?page=${page}&page_size=${pageSize}`,authHeaders(signal));
 
 export const getStudents=studentService.getAll;

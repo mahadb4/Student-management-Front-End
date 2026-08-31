@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useMemo } from "react";
-import { studentService, getStudentList, departmentService, sectionService } from "../../services/entities";
+import { studentService, getStudentList, getDepartmentReference, getSectionReference } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { Student, StudentListItem, Department, Section } from "../../types/user";
+import type { Student, StudentListItem, DepartmentReference, SectionReference } from "../../types/user";
 import { useToast } from "../../context/ToastContext";
 
 export default function Students() {
@@ -16,9 +16,19 @@ export default function Students() {
   // Departments/Sections are still fetched here — not for the table (the list
   // API already returns resolved department/section names per row), but
   // because the Add/Edit form dropdowns and the department filter need the
-  // full lists to choose from.
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [sections, setSections] = useState<Section[]>([]);
+  // id/name lists to choose from. Uses the dedicated reference endpoints
+  // (id/name[/department_id] only) since a dropdown doesn't need
+  // code/description/dates/semester info.
+  const [departments, setDepartments] = useState<DepartmentReference[]>([]);
+
+  // Sections are scoped to the currently selected department rather than
+  // fetched for every department up front — the Section dropdown only ever
+  // shows one department's sections at a time. Results are cached per
+  // department id (sectionsByDeptRef) so re-selecting a department already
+  // visited during this page visit reuses the earlier response instead of
+  // refetching, matching the fetch-once-then-reuse behavior used elsewhere.
+  const [sections, setSections] = useState<SectionReference[]>([]);
+  const sectionsByDeptRef = useRef<Record<number, SectionReference[]>>({});
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
@@ -94,22 +104,53 @@ export default function Students() {
     if (dropdownsRequested.current) return;
     dropdownsRequested.current = true;
 
-    Promise.all([
-      departmentService.getAll(),
-      sectionService.getAll()
-    ]).then(([d,s]) => {
+    getDepartmentReference().then(d => {
       setDepartments(d);
-      setSections(s);
     }).catch(err => {
       console.error(err);
       dropdownsRequested.current = false;
     });
   };
 
-  const sectionsForDepartment = useMemo(() => {
-    if (formData.department === "") return sections;
-    return sections.filter(s => s.department === formData.department);
-  },[sections,formData.department]);
+  // Tracks whichever department is currently selected in the form, so an
+  // in-flight sections request that resolves after the admin has already
+  // switched to a different department can be told to ignore its own result
+  // instead of overwriting the now-displayed department's sections.
+  const selectedDepartmentRef = useRef<number | "">("");
+
+  // Loads sections for one department, reusing a cached response if this
+  // department was already selected earlier in the page visit.
+  const loadSectionsForDepartment = (departmentId: number) => {
+    const cached = sectionsByDeptRef.current[departmentId];
+    if (cached) {
+      setSections(cached);
+      return;
+    }
+
+    getSectionReference(departmentId).then(s => {
+      sectionsByDeptRef.current[departmentId] = s;
+      // Only render this response if its department is still selected —
+      // otherwise a slower, stale request would overwrite whatever
+      // department the admin has since switched to.
+      if (selectedDepartmentRef.current === departmentId) {
+        setSections(s);
+      }
+    }).catch(err => {
+      console.error(err);
+    });
+  };
+
+  const handleDepartmentChange = (value: string) => {
+    const department = value === "" ? "" : Number(value);
+    selectedDepartmentRef.current = department;
+    setFormData(prev => ({ ...prev, department, section: "" }));
+
+    if (department === "") {
+      setSections([]);
+    } else {
+      loadSectionsForDepartment(department);
+    }
+  };
 
   // The Students list only carries the narrow StudentListItem projection, so editing
   // fetches the full Student record (detail endpoint, unchanged) to populate the form.
@@ -133,6 +174,14 @@ export default function Students() {
           date_of_enrollment:student.date_of_enrollment,
           is_active:student.is_active
         });
+
+        selectedDepartmentRef.current = student.department || "";
+
+        if (student.department) {
+          loadSectionsForDepartment(student.department);
+        } else {
+          setSections([]);
+        }
       } catch (error) {
         console.error(error);
         showToast(error instanceof Error ? error.message : "Failed to load student.", "error");
@@ -140,6 +189,8 @@ export default function Students() {
       }
     } else {
       setEditingStudent(null);
+      selectedDepartmentRef.current = "";
+      setSections([]);
       setFormData({
         first_name:"",
         last_name:"",
@@ -209,7 +260,7 @@ export default function Students() {
 
   const filteredStudents = useMemo(() => {
     if (!deptFilter) return students;
-    return students.filter(s => s.department?.id.toString() === deptFilter);
+    return students.filter(s => s.department_id?.toString() === deptFilter);
   },[students,deptFilter]);
 
   return (
@@ -265,12 +316,12 @@ export default function Students() {
             {
               key:"section",
               label:"Section",
-              render:s => s.section?.name || "-"
+              render:s => s.section_name || "-"
             },
             {
               key:"department",
               label:"Department",
-              render:s => s.department?.name || "-"
+              render:s => s.department_name || "-"
             }
           ]}
           onEdit={handleOpenModal}
@@ -325,7 +376,7 @@ export default function Students() {
 
             <div className="form-group">
               <label className="form-label">Department</label>
-              <select className="form-control" value={formData.department} onChange={e => setFormData({...formData,department:e.target.value === "" ? "" : Number(e.target.value),section:""})}>
+              <select className="form-control" value={formData.department} onChange={e => handleDepartmentChange(e.target.value)}>
                 <option value="">-- No Department --</option>
                 {departments.map(d => (
                   <option key={d.id} value={d.id}>{d.name}</option>
@@ -337,7 +388,7 @@ export default function Students() {
               <label className="form-label">Section</label>
               <select className="form-control" value={formData.section} onChange={e => setFormData({...formData,section:e.target.value === "" ? "" : Number(e.target.value)})}>
                 <option value="">-- No Section --</option>
-                {sectionsForDepartment.map(s => (
+                {sections.map(s => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>

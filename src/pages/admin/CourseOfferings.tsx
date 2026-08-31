@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { offeringService, courseService, getTeacherList, sectionService, getCourseOfferingList } from "../../services/entities";
+import { offeringService, getCourseReference, getTeacherReference, getSectionReference, getCourseOfferingList } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { CourseOfferingListItem, Course, TeacherListItem, Semester, Section } from "../../types/user";
+import type { CourseOfferingListItem, CourseReference, TeacherReference, Semester, SectionReference } from "../../types/user";
 import { useToast } from "../../context/ToastContext";
 
 export default function CourseOfferings() {
@@ -13,9 +13,9 @@ export default function CourseOfferings() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [teachers, setTeachers] = useState<TeacherListItem[]>([]);
-  const [sections, setSections] = useState<Section[]>([]);
+  const [courses, setCourses] = useState<CourseReference[]>([]);
+  const [teachers, setTeachers] = useState<TeacherReference[]>([]);
+  const [sections, setSections] = useState<SectionReference[]>([]);
   const [loading, setLoading] = useState(true);
   const dropdownsLoaded = useRef(false);
 
@@ -49,9 +49,9 @@ export default function CourseOfferings() {
     if (dropdownsLoaded.current) return;
     dropdownsLoaded.current = true;
     Promise.all([
-      courseService.getAll(),
-      getTeacherList(1, 500).then(res => res.results),
-      sectionService.getAll()
+      getCourseReference(),
+      getTeacherReference(),
+      getSectionReference()
     ]).then(([c, t, s]) => {
       setCourses(c);
       setTeachers(t);

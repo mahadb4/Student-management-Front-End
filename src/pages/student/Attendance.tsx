@@ -40,7 +40,7 @@ export default function StudentAttendance() {
 
   const filteredAttendance = courseFilter === "all"
     ? attendance
-    : attendance.filter(a => a.enrollment?.id.toString() === courseFilter);
+    : attendance.filter(a => a.enrollment_id?.toString() === courseFilter);
 
   // Sort by date descending
   filteredAttendance.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -93,7 +93,7 @@ export default function StudentAttendance() {
                   filteredAttendance.map(a => (
                     <tr key={a.id}>
                       <td><strong>{a.date}</strong></td>
-                      <td>{a.enrollment ? `${a.enrollment.course.code}` : "Unknown"}</td>
+                      <td>{a.enrollment_id ? a.course_code : "Unknown"}</td>
                       <td>
                         <span className={`badge ${
                           a.status === 'PRESENT' ? 'badge-success' :

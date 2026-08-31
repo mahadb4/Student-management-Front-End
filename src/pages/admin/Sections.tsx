@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { sectionService, getSectionList, departmentService } from "../../services/entities";
+import { sectionService, getSectionList, getDepartmentReference } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { SectionListItem, Department } from "../../types/user";
+import type { SectionListItem, DepartmentReference } from "../../types/user";
 import { useToast } from "../../context/ToastContext";
 
 export default function Sections() {
@@ -14,7 +14,7 @@ export default function Sections() {
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
 
-  const [departments, setDepartments] = useState<Department[]>([]);
+  const [departments, setDepartments] = useState<DepartmentReference[]>([]);
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -77,7 +77,7 @@ export default function Sections() {
     if (dropdownsRequested.current) return;
     dropdownsRequested.current = true;
 
-    departmentService.getAll().then(d => {
+    getDepartmentReference().then(d => {
       setDepartments(d);
     }).catch(err => {
       console.error(err);
@@ -92,7 +92,7 @@ export default function Sections() {
       setEditingSection(section);
       setFormData({
         name: section.name,
-        department: section.department?.id ?? "",
+        department: section.department_id ?? "",
         semester_number: section.semester_number,
         academic_year: section.academic_year,
         is_active: section.is_active
@@ -184,7 +184,7 @@ export default function Sections() {
             {
               key: "department",
               label: "Department",
-              render: (s) => s.department?.name || "-"
+              render: (s) => s.department_name || "-"
             },
             { key: "semester_number", label: "Semester" },
             { key: "academic_year", label: "Year" },
