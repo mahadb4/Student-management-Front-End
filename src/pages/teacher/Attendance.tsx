@@ -143,7 +143,7 @@ export default function TeacherAttendance() {
                   filteredAttendance.map(a => (
                     <tr key={a.id}>
                       <td><strong>{a.date}</strong></td>
-                      <td>{a.enrollment ? `${a.enrollment.student.first_name} ${a.enrollment.student.last_name}` : "Unknown"}</td>
+                      <td>{a.enrollment ? a.enrollment.student.name : "Unknown"}</td>
                       <td>
                         <span className={`badge ${
                           a.status === 'PRESENT' ? 'badge-success' :
@@ -167,7 +167,7 @@ export default function TeacherAttendance() {
                 <select required className="form-control" value={formData.enrollment} onChange={(e) => setFormData({...formData, enrollment: Number(e.target.value)})}>
                   <option value="">-- Select Student --</option>
                   {courseEnrollments.map(e => (
-                    <option key={e.id} value={e.id}>{e.student.first_name} {e.student.last_name}</option>
+                    <option key={e.id} value={e.id}>{e.student.name}</option>
                   ))}
                 </select>
               </div>

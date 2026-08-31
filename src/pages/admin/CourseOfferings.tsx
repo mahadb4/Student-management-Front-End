@@ -1,26 +1,32 @@
 import { useEffect, useRef, useState } from "react";
-import { offeringService, courseService, teacherService, sectionService, getCourseOfferingList } from "../../services/entities";
+import { offeringService, courseService, getTeacherList, sectionService, getCourseOfferingList } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { CourseOfferingListItem, Course, Teacher, Semester, Section } from "../../types/user";
+import type { CourseOfferingListItem, Course, TeacherListItem, Semester, Section } from "../../types/user";
+import { useToast } from "../../context/ToastContext";
 
 export default function CourseOfferings() {
+  const { showToast } = useToast();
   const [offerings, setOfferings] = useState<CourseOfferingListItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
 
   const [courses, setCourses] = useState<Course[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [teachers, setTeachers] = useState<TeacherListItem[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
   const dropdownsLoaded = useRef(false);
+
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOffering, setEditingOffering] = useState<CourseOfferingListItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<CourseOfferingListItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [formData, setFormData] = useState({
     course: "" as number | "", teacher: "" as number | "",
@@ -30,7 +36,7 @@ export default function CourseOfferings() {
 
   const loadData = (signal?: AbortSignal) => {
     setLoading(true);
-    getCourseOfferingList(currentPage, pageSize, signal).then(oRes => {
+    getCourseOfferingList(currentPage, pageSize, signal, debouncedSearch).then(oRes => {
       setOfferings(oRes.results);
       setTotalCount(oRes.total_count);
     }).catch(err => {
@@ -44,7 +50,7 @@ export default function CourseOfferings() {
     dropdownsLoaded.current = true;
     Promise.all([
       courseService.getAll(),
-      teacherService.getAll(),
+      getTeacherList(1, 500).then(res => res.results),
       sectionService.getAll()
     ]).then(([c, t, s]) => {
       setCourses(c);
@@ -54,10 +60,28 @@ export default function CourseOfferings() {
   };
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    },400);
+
+    return () => clearTimeout(timer);
+  },[search]);
+
+  useEffect(() => {
     const controller = new AbortController();
     loadData(controller.signal);
     return () => controller.abort();
-  }, [currentPage]);
+  }, [currentPage,pageSize,debouncedSearch]);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
 
   const handleOpenModal = (offering?: CourseOfferingListItem) => {
     loadDropdownData();
@@ -95,28 +119,36 @@ export default function CourseOfferings() {
 
       if (editingOffering) {
         await offeringService.update(editingOffering.id, payload);
+        showToast("Course offering updated successfully.", "success");
       } else {
         await offeringService.create(payload);
+        showToast("Course offering created successfully.", "success");
       }
       setIsModalOpen(false);
       loadData();
     } catch (error) {
       console.error(error);
-      alert(error instanceof Error ? error.message : "Failed to save course offering.");
+      showToast(error instanceof Error ? error.message : "Failed to save course offering.", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm || isDeleting) return;
+    setIsDeleting(true);
     try {
       await offeringService.remove(deleteConfirm.id);
       setDeleteConfirm(null);
+      showToast("Course offering deleted successfully.", "success");
       loadData();
     } catch (error) {
       console.error(error);
-      alert(error instanceof Error ? error.message : "Failed to delete course offering.");
+      showToast(error instanceof Error ? error.message : "Failed to delete course offering.", "error");
+      setDeleteConfirm(null);
+      loadData();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -130,6 +162,16 @@ export default function CourseOfferings() {
         <button onClick={() => handleOpenModal()} className="btn btn-primary">
           + Add Offering
         </button>
+      </div>
+
+      <div className="content-card" style={{ marginBottom: "24px", padding: "16px" }}>
+        <input
+          type="text"
+          placeholder="Search by course, teacher or section..."
+          className="form-control"
+          value={search}
+          onChange={e => handleSearchChange(e.target.value)}
+        />
       </div>
 
       <div className="content-card">
@@ -146,7 +188,7 @@ export default function CourseOfferings() {
             {
               key: "teacher",
               label: "Teacher",
-              render: (o) => o.teacher ? `${o.teacher.first_name} ${o.teacher.last_name}` : "-"
+              render: (o) => o.teacher ? o.teacher.name : "-"
             },
             { key: "semester", label: "Semester" },
             { key: "academic_year", label: "Year" },
@@ -167,6 +209,7 @@ export default function CourseOfferings() {
           currentPage={currentPage}
           pageSize={pageSize}
           onPageChange={setCurrentPage}
+          onPageSizeChange={handlePageSizeChange}
         />
       </div>
 
@@ -183,7 +226,7 @@ export default function CourseOfferings() {
             <label className="form-label">Teacher</label>
             <select required className="form-control" value={formData.teacher} onChange={(e) => setFormData({...formData, teacher: Number(e.target.value)})}>
               <option value="">-- Select Teacher --</option>
-              {teachers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
+              {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
 
@@ -228,6 +271,7 @@ export default function CourseOfferings() {
         message="Are you sure you want to delete this course offering?"
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
+        confirmDisabled={isDeleting}
       />
     </>
   );

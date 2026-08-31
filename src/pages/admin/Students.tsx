@@ -4,12 +4,14 @@ import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import type { Student, StudentListItem, Department, Section } from "../../types/user";
+import { useToast } from "../../context/ToastContext";
 
 export default function Students() {
+  const { showToast } = useToast();
   const [students, setStudents] = useState<StudentListItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
 
   // Departments/Sections are still fetched here — not for the table (the list
   // API already returns resolved department/section names per row), but
@@ -20,12 +22,14 @@ export default function Students() {
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<StudentListItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [formData, setFormData] = useState({
     first_name:"",
@@ -45,7 +49,7 @@ export default function Students() {
     setLoading(true);
 
     try {
-      const result = await getStudentList(currentPage,pageSize,signal);
+      const result = await getStudentList(currentPage,pageSize,signal,debouncedSearch);
       setStudents(result.results);
       setTotalCount(result.total_count);
     } catch (err:any) {
@@ -57,11 +61,29 @@ export default function Students() {
   };
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    },400);
+
+    return () => clearTimeout(timer);
+  },[search]);
+
+  useEffect(() => {
     const controller = new AbortController();
     loadStudents(controller.signal);
 
     return () => controller.abort();
-  },[currentPage]);
+  },[currentPage,pageSize,debouncedSearch]);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
 
   // Department/Section options are only needed for the Add/Edit form and the
   // department filter — not for rendering the table (the list API already
@@ -113,7 +135,7 @@ export default function Students() {
         });
       } catch (error) {
         console.error(error);
-        alert(error instanceof Error ? error.message : "Failed to load student.");
+        showToast(error instanceof Error ? error.message : "Failed to load student.", "error");
         return;
       }
     } else {
@@ -150,44 +172,45 @@ export default function Students() {
 
       if (editingStudent) {
         await studentService.update(editingStudent.id,payload);
+        showToast("Student updated successfully.", "success");
       } else {
         await studentService.create(payload);
+        showToast("Student created successfully.", "success");
       }
 
       setIsModalOpen(false);
       loadStudents();
     } catch (error) {
       console.error(error);
-      alert(error instanceof Error ? error.message : "Failed to save student.");
+      showToast(error instanceof Error ? error.message : "Failed to save student.", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm || isDeleting) return;
+    setIsDeleting(true);
 
     try {
       await studentService.remove(deleteConfirm.id);
       setDeleteConfirm(null);
+      showToast("Student deleted successfully.", "success");
       loadStudents();
     } catch (error) {
       console.error(error);
-      alert(error instanceof Error ? error.message : "Failed to delete student.");
+      showToast(error instanceof Error ? error.message : "Failed to delete student.", "error");
+      setDeleteConfirm(null);
+      loadStudents();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const filteredStudents = useMemo(() => {
-    return students.filter(s => {
-      const matchSearch =
-        (s.first_name + " " + s.last_name).toLowerCase().includes(search.toLowerCase()) ||
-        s.student_email.toLowerCase().includes(search.toLowerCase());
-
-      const matchDept = deptFilter ? s.department?.id.toString() === deptFilter : true;
-
-      return matchSearch && matchDept;
-    });
-  },[students,search,deptFilter]);
+    if (!deptFilter) return students;
+    return students.filter(s => s.department?.id.toString() === deptFilter);
+  },[students,deptFilter]);
 
   return (
     <>
@@ -209,7 +232,7 @@ export default function Students() {
             placeholder="Search by name or email..."
             className="form-control"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => handleSearchChange(e.target.value)}
           />
 
           <select
@@ -236,7 +259,7 @@ export default function Students() {
             {
               key:"name",
               label:"Name",
-              render:s => `${s.first_name} ${s.last_name}`
+              render:s => s.name
             },
             { key:"student_email",label:"Email" },
             {
@@ -256,6 +279,7 @@ export default function Students() {
           currentPage={currentPage}
           pageSize={pageSize}
           onPageChange={setCurrentPage}
+          onPageSizeChange={handlePageSizeChange}
         />
       </div>
 
@@ -340,9 +364,10 @@ export default function Students() {
       <ConfirmDialog
         isOpen={!!deleteConfirm}
         title="Delete Student"
-        message={`Are you sure you want to delete ${deleteConfirm?.first_name} ${deleteConfirm?.last_name}?`}
+        message={`Are you sure you want to delete ${deleteConfirm?.name}?`}
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
+        confirmDisabled={isDeleting}
       />
     </>
   );

@@ -92,7 +92,7 @@ export default function TeacherStudents() {
                 ) : (
                   filteredEnrollments.map(e => (
                     <tr key={e.id}>
-                      <td><strong>{e.student.first_name} {e.student.last_name}</strong></td>
+                      <td><strong>{e.student.name}</strong></td>
                       <td>{e.student.student_email}</td>
                       <td>{e.course_offering.course.name} ({e.course_offering.course.code}) - {e.course_offering.section?.name || "No Section"}</td>
                       <td>

@@ -116,3 +116,34 @@ button:disabled {
 .bg-warning { background-color: var(--color-warning-bg); }
 .bg-danger { background-color: var(--color-danger-bg); }
 .bg-info { background-color: var(--color-info-bg); }
+
+/*Toast Notifications*/
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 360px;
+}
+
+.toast {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-surface);
+  cursor: pointer;
+  animation: toast-slide-in var(--transition-normal);
+}
+
+.toast-success { background-color: var(--color-success); }
+.toast-error { background-color: var(--color-danger); }
+
+@keyframes toast-slide-in {
+  from { transform: translateX(30px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}

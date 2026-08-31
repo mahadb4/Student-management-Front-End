@@ -117,7 +117,7 @@ export default function StudentCourses() {
                   <p style={{ margin: "0 0 16px 0", color: "var(--color-primary)", fontWeight: 600 }}>{co.course.code}</p>
 
                   <div style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)", display: "flex", flexDirection: "column", gap: "8px" }}>
-                    <div><strong>Teacher:</strong> {teacher ? `${teacher.first_name} ${teacher.last_name}` : "TBA"}</div>
+                    <div><strong>Teacher:</strong> {teacher ? teacher.name : "TBA"}</div>
                     <div><strong>Semester:</strong> {co.semester} {co.academic_year}</div>
                     <div><strong>Section:</strong> {co.section?.name || "No Section"}</div>
                   </div>
@@ -154,7 +154,7 @@ export default function StudentCourses() {
                     <tr key={offering.id}>
                       <td><strong>{offering.course?.code || "---"}</strong></td>
                       <td>{offering.course?.name || "Unknown"}</td>
-                      <td>{offering.teacher ? `${offering.teacher.first_name} ${offering.teacher.last_name}` : "TBA"}</td>
+                      <td>{offering.teacher ? offering.teacher.name : "TBA"}</td>
                       <td>{offering.semester} {offering.academic_year}</td>
                       <td>{offering.section?.name || "No Section"}</td>
                       <td>

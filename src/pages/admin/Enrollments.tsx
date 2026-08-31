@@ -1,27 +1,33 @@
 import { useEffect, useRef, useState } from "react";
-import { enrollmentService, studentService, offeringService, courseService, sectionService, getEnrollmentList } from "../../services/entities";
+import { enrollmentService, getStudentList, offeringService, courseService, sectionService, getEnrollmentList } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { EnrollmentListItem, Student, CourseOffering, Course, EnrollmentStatus, Section } from "../../types/user";
+import type { EnrollmentListItem, StudentListItem, CourseOffering, Course, EnrollmentStatus, Section } from "../../types/user";
+import { useToast } from "../../context/ToastContext";
 
 export default function Enrollments() {
+  const { showToast } = useToast();
   const [enrollments, setEnrollments] = useState<EnrollmentListItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
 
-  const [students, setStudents] = useState<Student[]>([]);
+  const [students, setStudents] = useState<StudentListItem[]>([]);
   const [offerings, setOfferings] = useState<CourseOffering[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
   const dropdownDataLoaded = useRef(false);
 
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEnrollment, setEditingEnrollment] = useState<EnrollmentListItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<EnrollmentListItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [formData, setFormData] = useState({
     student: "" as number | "",
@@ -31,7 +37,7 @@ export default function Enrollments() {
 
   const loadData = (signal?: AbortSignal) => {
     setLoading(true);
-    getEnrollmentList(currentPage, pageSize, signal).then(eRes => {
+    getEnrollmentList(currentPage, pageSize, signal, debouncedSearch).then(eRes => {
       setEnrollments(eRes.results);
       setTotalCount(eRes.total_count);
     }).catch(err => {
@@ -44,7 +50,7 @@ export default function Enrollments() {
     if (dropdownDataLoaded.current) return;
     dropdownDataLoaded.current = true;
     Promise.all([
-      studentService.getAll(),
+      getStudentList(1, 500).then(res => res.results),
       offeringService.getAll(),
       courseService.getAll(),
       sectionService.getAll()
@@ -59,10 +65,28 @@ export default function Enrollments() {
   };
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    },400);
+
+    return () => clearTimeout(timer);
+  },[search]);
+
+  useEffect(() => {
     const controller = new AbortController();
     loadData(controller.signal);
     return () => controller.abort();
-  }, [currentPage]);
+  }, [currentPage,pageSize,debouncedSearch]);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
 
   const handleOpenModal = (enrollment?: EnrollmentListItem) => {
     loadDropdownData();
@@ -95,28 +119,36 @@ export default function Enrollments() {
 
       if (editingEnrollment) {
         await enrollmentService.update(editingEnrollment.id, payload);
+        showToast("Enrollment updated successfully.", "success");
       } else {
         await enrollmentService.create(payload);
+        showToast("Enrollment created successfully.", "success");
       }
       setIsModalOpen(false);
       loadData();
     } catch (error) {
       console.error(error);
-      alert(error instanceof Error ? error.message : "Failed to save enrollment.");
+      showToast(error instanceof Error ? error.message : "Failed to save enrollment.", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm || isDeleting) return;
+    setIsDeleting(true);
     try {
       await enrollmentService.remove(deleteConfirm.id);
       setDeleteConfirm(null);
+      showToast("Enrollment deleted successfully.", "success");
       loadData();
     } catch (error) {
       console.error(error);
-      alert("Failed to delete enrollment.");
+      showToast("Failed to delete enrollment.", "error");
+      setDeleteConfirm(null);
+      loadData();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -141,6 +173,16 @@ export default function Enrollments() {
         </button>
       </div>
 
+      <div className="content-card" style={{ marginBottom: "24px", padding: "16px" }}>
+        <input
+          type="text"
+          placeholder="Search by student or course..."
+          className="form-control"
+          value={search}
+          onChange={e => handleSearchChange(e.target.value)}
+        />
+      </div>
+
       <div className="content-card">
         <EntityTable<EnrollmentListItem>
           data={enrollments}
@@ -150,7 +192,7 @@ export default function Enrollments() {
             {
               key: "student",
               label: "Student",
-              render: (e) => `${e.student.first_name} ${e.student.last_name} (${e.student.student_email})`
+              render: (e) => `${e.student.name} (${e.student.student_email})`
             },
             {
               key: "course_offering",
@@ -174,6 +216,7 @@ export default function Enrollments() {
           currentPage={currentPage}
           pageSize={pageSize}
           onPageChange={setCurrentPage}
+          onPageSizeChange={handlePageSizeChange}
         />
       </div>
 
@@ -183,7 +226,7 @@ export default function Enrollments() {
             <label className="form-label">Student</label>
             <select required className="form-control" value={formData.student} onChange={(e) => setFormData({...formData, student: Number(e.target.value)})}>
               <option value="">-- Select Student --</option>
-              {students.map(s => <option key={s.id} value={s.id}>{s.first_name} {s.last_name} ({s.student_email})</option>)}
+              {students.map(s => <option key={s.id} value={s.id}>{s.name} ({s.student_email})</option>)}
             </select>
           </div>
           <div className="form-group">
@@ -215,6 +258,7 @@ export default function Enrollments() {
         message="Are you sure you want to delete this enrollment?"
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
+        confirmDisabled={isDeleting}
       />
     </>
   );

@@ -4,20 +4,26 @@ import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import type { SectionListItem, Department } from "../../types/user";
+import { useToast } from "../../context/ToastContext";
 
 export default function Sections() {
+  const { showToast } = useToast();
   const [sections, setSections] = useState<SectionListItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
 
   const [departments, setDepartments] = useState<Department[]>([]);
+
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<SectionListItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<SectionListItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -29,7 +35,7 @@ export default function Sections() {
 
   const loadData = (signal?: AbortSignal) => {
     setLoading(true);
-    getSectionList(currentPage, pageSize, signal).then(sRes => {
+    getSectionList(currentPage, pageSize, signal, debouncedSearch).then(sRes => {
       setSections(sRes.results);
       setTotalCount(sRes.total_count);
     }).catch(err => {
@@ -39,10 +45,28 @@ export default function Sections() {
   };
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    },400);
+
+    return () => clearTimeout(timer);
+  },[search]);
+
+  useEffect(() => {
     const controller = new AbortController();
     loadData(controller.signal);
     return () => controller.abort();
-  }, [currentPage]);
+  }, [currentPage,pageSize,debouncedSearch]);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
 
   // Department options are only needed for the Add/Edit form — not for
   // rendering the table (the list API already returns the resolved name).
@@ -95,28 +119,36 @@ export default function Sections() {
 
       if (editingSection) {
         await sectionService.update(editingSection.id, payload);
+        showToast("Section updated successfully.", "success");
       } else {
         await sectionService.create(payload);
+        showToast("Section created successfully.", "success");
       }
       setIsModalOpen(false);
       loadData();
     } catch (error) {
       console.error(error);
-      alert(error instanceof Error ? error.message : "Failed to save section.");
+      showToast(error instanceof Error ? error.message : "Failed to save section.", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm || isDeleting) return;
+    setIsDeleting(true);
     try {
       await sectionService.remove(deleteConfirm.id);
       setDeleteConfirm(null);
+      showToast("Section deleted successfully.", "success");
       loadData();
     } catch (error) {
       console.error(error);
-      alert(error instanceof Error ? error.message : "Failed to delete section.");
+      showToast(error instanceof Error ? error.message : "Failed to delete section.", "error");
+      setDeleteConfirm(null);
+      loadData();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -130,6 +162,16 @@ export default function Sections() {
         <button onClick={() => handleOpenModal()} className="btn btn-primary">
           + Add Section
         </button>
+      </div>
+
+      <div className="content-card" style={{ marginBottom: "24px", padding: "16px" }}>
+        <input
+          type="text"
+          placeholder="Search by name or department..."
+          className="form-control"
+          value={search}
+          onChange={e => handleSearchChange(e.target.value)}
+        />
       </div>
 
       <div className="content-card">
@@ -158,6 +200,7 @@ export default function Sections() {
           currentPage={currentPage}
           pageSize={pageSize}
           onPageChange={setCurrentPage}
+          onPageSizeChange={handlePageSizeChange}
         />
       </div>
 
@@ -203,6 +246,7 @@ export default function Sections() {
         message={`Are you sure you want to delete ${deleteConfirm?.name}? This action cannot be undone.`}
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
+        confirmDisabled={isDeleting}
       />
     </>
   );

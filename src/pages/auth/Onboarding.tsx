@@ -63,7 +63,9 @@ export default function Onboarding() {
     setIsSubmitting(true);
     setError(null);
 
-    const [first_name, last_name] = user.name.split(" ", 2);
+    const spaceIndex = user.name.indexOf(" ");
+    const first_name = spaceIndex === -1 ? user.name : user.name.slice(0, spaceIndex);
+    const last_name = spaceIndex === -1 ? "" : user.name.slice(spaceIndex + 1);
     const raw = isStudent ? studentProfile : teacherProfile;
 
     const profile: Record<string, unknown> = {

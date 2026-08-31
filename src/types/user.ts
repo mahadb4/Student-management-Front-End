@@ -47,8 +47,7 @@ export interface Student {
 // {id, name} via the backend's StudentListDTO — no separate lookup needed.
 export interface StudentListItem {
   id: number;
-  first_name: string;
-  last_name: string;
+  name: string;
   student_email: string;
   is_active: boolean;
   department: { id: number; name: string } | null;
@@ -103,8 +102,7 @@ export interface Teacher {
 export interface TeacherListItem {
   id: number;
   employee_id: string;
-  first_name: string;
-  last_name: string;
+  name: string;
   email: string;
   designation: string;
   department: { id: number; name: string } | null;
@@ -135,14 +133,14 @@ export interface Course {
 
 // Shape returned by the Courses LIST endpoint (GET /courses/): a narrower
 // projection than Course, with department/teacher already resolved to
-// {id, name}/{id, first_name, last_name} via the backend's CourseListDTO.
+// {name}/{name} via the backend's CourseListDTO (no ids on these nested objects).
 export interface CourseListItem {
   id: number;
   code: string;
   name: string;
   credits: number;
-  department: { id: number; name: string } | null;
-  teacher: { id: number; first_name: string; last_name: string } | null;
+  department: { name: string } | null;
+  teacher: { name: string } | null;
 }
 
 export type Semester = "FALL" | "SPRING" | "SUMMER";
@@ -153,7 +151,7 @@ export interface CourseOfferingListItem {
   academic_year: number;
   is_active: boolean;
   course: { id: number; name: string; code: string } | null;
-  teacher: { id: number; first_name: string; last_name: string } | null;
+  teacher: { id: number; name: string } | null;
   section: { id: number; name: string } | null;
 }
 
@@ -186,7 +184,7 @@ export interface Enrollment {
 export interface EnrollmentListItem {
   id: number;
   status: EnrollmentStatus;
-  student: { id: number; first_name: string; last_name: string; student_email: string };
+  student: { id: number; name: string; student_email: string };
   course_offering: {
     id: number;
     semester: Semester;
@@ -208,8 +206,8 @@ export interface AttendanceListItem {
   remarks: string;
   enrollment: {
     id: number;
-    student: { id: number; first_name: string; last_name: string };
-    course: { id: number; code: string };
+    student: { name: string };
+    course: { code: string };
   } | null;
 }
 

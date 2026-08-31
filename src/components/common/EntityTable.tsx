@@ -20,6 +20,7 @@ interface EntityTableProps<T> {
   currentPage?: number;
   pageSize?: number;
   onPageChange?: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
 }
 
 export function EntityTable<T extends { id: number | string }>({
@@ -35,6 +36,7 @@ export function EntityTable<T extends { id: number | string }>({
   currentPage,
   pageSize,
   onPageChange,
+  onPageSizeChange,
 }: EntityTableProps<T>) {
   const { canUpdate, canDelete } = usePermissions();
 
@@ -110,10 +112,26 @@ export function EntityTable<T extends { id: number | string }>({
           <span style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
             Showing {totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount}
           </span>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button 
-              className="btn btn-outline" 
-              disabled={currentPage <= 1} 
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {onPageSizeChange && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '8px' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>Rows per page</span>
+                <select
+                  className="form-control"
+                  value={pageSize}
+                  onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                  style={{ padding: "4px 8px", width: "auto" }}
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            )}
+            <button
+              className="btn btn-outline"
+              disabled={currentPage <= 1}
               onClick={() => onPageChange(currentPage - 1)}
               style={{ padding: "4px 12px" }}>
               Previous

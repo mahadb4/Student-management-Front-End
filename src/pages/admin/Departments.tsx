@@ -4,25 +4,31 @@ import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import type { Department } from "../../types/user";
+import { useToast } from "../../context/ToastContext";
 
 export default function Departments() {
+  const { showToast } = useToast();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
-  
+
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   
   const [deleteConfirm, setDeleteConfirm] = useState<Department | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [formData, setFormData] = useState({ name: "", code: "", description: "", is_active: true });
 
   const loadData = (signal?: AbortSignal) => {
     setLoading(true);
-    departmentService.getList(currentPage, pageSize, signal)
+    departmentService.getList(currentPage, pageSize, signal, debouncedSearch)
       .then(res => {
         setDepartments(res.results);
         setTotalCount(res.total_count);
@@ -35,10 +41,28 @@ export default function Departments() {
   };
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    },400);
+
+    return () => clearTimeout(timer);
+  },[search]);
+
+  useEffect(() => {
     const controller = new AbortController();
     loadData(controller.signal);
     return () => controller.abort();
-  }, [currentPage]);
+  }, [currentPage,pageSize,debouncedSearch]);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
 
   const handleOpenModal = (dept?: Department) => {
     if (dept) {
@@ -58,28 +82,36 @@ export default function Departments() {
     try {
       if (editingDept) {
         await departmentService.update(editingDept.id, formData);
+        showToast("Department updated successfully.", "success");
       } else {
         await departmentService.create(formData);
+        showToast("Department created successfully.", "success");
       }
       setIsModalOpen(false);
       loadData();
     } catch (error) {
       console.error(error);
-      alert(error instanceof Error ? error.message : "Failed to save department.");
+      showToast(error instanceof Error ? error.message : "Failed to save department.", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm || isDeleting) return;
+    setIsDeleting(true);
     try {
       await departmentService.remove(deleteConfirm.id);
       setDeleteConfirm(null);
+      showToast("Department deleted successfully.", "success");
       loadData();
     } catch (error) {
       console.error(error);
-      alert("Failed to delete department.");
+      showToast("Failed to delete department.", "error");
+      setDeleteConfirm(null);
+      loadData();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -93,6 +125,16 @@ export default function Departments() {
         <button onClick={() => handleOpenModal()} className="btn btn-primary">
           + Add Department
         </button>
+      </div>
+
+      <div className="content-card" style={{ marginBottom: "24px", padding: "16px" }}>
+        <input
+          type="text"
+          placeholder="Search by name or code..."
+          className="form-control"
+          value={search}
+          onChange={e => handleSearchChange(e.target.value)}
+        />
       </div>
 
       <div className="content-card">
@@ -116,6 +158,7 @@ export default function Departments() {
           currentPage={currentPage}
           pageSize={pageSize}
           onPageChange={setCurrentPage}
+          onPageSizeChange={handlePageSizeChange}
         />
       </div>
 
@@ -150,6 +193,7 @@ export default function Departments() {
         message={`Are you sure you want to delete ${deleteConfirm?.name}? This action cannot be undone.`}
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
+        confirmDisabled={isDeleting}
       />
     </>
   );

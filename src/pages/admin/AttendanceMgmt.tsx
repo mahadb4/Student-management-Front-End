@@ -4,12 +4,14 @@ import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import type { Attendance, AttendanceListItem, Enrollment, Student, CourseOffering, Course, AttendanceStatus } from "../../types/user";
+import { useToast } from "../../context/ToastContext";
 
 export default function AttendanceMgmt() {
+  const { showToast } = useToast();
   const [attendance, setAttendance] = useState<AttendanceListItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
 
   // Enrollments/Students/Offerings/Courses are only needed for the Add/Edit form
   // dropdown (to resolve enrollment display labels) — not for the table.
@@ -47,7 +49,12 @@ export default function AttendanceMgmt() {
     const controller = new AbortController();
     loadData(controller.signal);
     return () => controller.abort();
-  }, [currentPage]);
+  }, [currentPage,pageSize]);
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
 
   // Enrollment options are only needed for the Add/Edit form — loaded lazily,
   // once, on first actual use.
@@ -107,14 +114,16 @@ export default function AttendanceMgmt() {
 
       if (editingRecord) {
         await attendanceService.update(editingRecord.id, payload as unknown as Partial<Attendance>);
+        showToast("Attendance record updated successfully.", "success");
       } else {
         await attendanceService.create(payload as unknown as Partial<Attendance>);
+        showToast("Attendance record created successfully.", "success");
       }
       setIsModalOpen(false);
       loadData();
     } catch (error) {
       console.error(error);
-      alert(error instanceof Error ? error.message : "Failed to save attendance.");
+      showToast(error instanceof Error ? error.message : "Failed to save attendance.", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -125,10 +134,11 @@ export default function AttendanceMgmt() {
     try {
       await attendanceService.remove(deleteConfirm.id);
       setDeleteConfirm(null);
+      showToast("Attendance record deleted successfully.", "success");
       loadData();
     } catch (error) {
       console.error(error);
-      alert("Failed to delete attendance record.");
+      showToast("Failed to delete attendance record.", "error");
     }
   };
 
@@ -166,7 +176,7 @@ export default function AttendanceMgmt() {
               key: "enrollment",
               label: "Student & Course",
               render: (a) => a.enrollment
-                ? `${a.enrollment.student.first_name} ${a.enrollment.student.last_name} - ${a.enrollment.course.code}`
+                ? `${a.enrollment.student.name} - ${a.enrollment.course.code}`
                 : "Unknown"
             },
             { key: "date", label: "Date" },
@@ -188,6 +198,7 @@ export default function AttendanceMgmt() {
           currentPage={currentPage}
           pageSize={pageSize}
           onPageChange={setCurrentPage}
+          onPageSizeChange={handlePageSizeChange}
         />
       </div>
 

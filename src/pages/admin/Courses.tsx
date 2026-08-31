@@ -1,26 +1,32 @@
 import { useEffect, useRef, useState } from "react";
-import { courseService, getCourseList, departmentService, teacherService } from "../../services/entities";
+import { courseService, getCourseList, departmentService, getTeacherList } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { Course, CourseListItem, Department, Teacher } from "../../types/user";
+import type { Course, CourseListItem, Department, TeacherListItem } from "../../types/user";
+import { useToast } from "../../context/ToastContext";
 
 export default function Courses() {
+  const { showToast } = useToast();
   const [courses, setCourses] = useState<CourseListItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(10);
 
   // Departments/Teachers are only needed for the Add/Edit form dropdowns —
   // not for the table (the list API already returns resolved names).
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [teachers, setTeachers] = useState<TeacherListItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<CourseListItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "", code: "", description: "", credits: 3,
@@ -29,7 +35,7 @@ export default function Courses() {
 
   const loadCourses = (signal?: AbortSignal) => {
     setLoading(true);
-    getCourseList(currentPage, pageSize, signal).then(res => {
+    getCourseList(currentPage, pageSize, signal, debouncedSearch).then(res => {
       setCourses(res.results);
       setTotalCount(res.total_count);
     }).catch(err => {
@@ -39,10 +45,28 @@ export default function Courses() {
   };
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    },400);
+
+    return () => clearTimeout(timer);
+  },[search]);
+
+  useEffect(() => {
     const controller = new AbortController();
     loadCourses(controller.signal);
     return () => controller.abort();
-  }, [currentPage]);
+  }, [currentPage,pageSize,debouncedSearch]);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
 
   // Department/Teacher options are only needed for the Add/Edit form — loaded
   // lazily, once, on first actual use.
@@ -54,7 +78,7 @@ export default function Courses() {
 
     Promise.all([
       departmentService.getAll(),
-      teacherService.getAll()
+      getTeacherList(1, 500).then(res => res.results)
     ]).then(([d, t]) => {
       setDepartments(d);
       setTeachers(t);
@@ -84,7 +108,7 @@ export default function Courses() {
         });
       } catch (error) {
         console.error(error);
-        alert(error instanceof Error ? error.message : "Failed to load course.");
+        showToast(error instanceof Error ? error.message : "Failed to load course.", "error");
         return;
       }
     } else {
@@ -107,28 +131,36 @@ export default function Courses() {
 
       if (editingCourse) {
         await courseService.update(editingCourse.id, payload);
+        showToast("Course updated successfully.", "success");
       } else {
         await courseService.create(payload);
+        showToast("Course created successfully.", "success");
       }
       setIsModalOpen(false);
       loadCourses();
     } catch (error) {
       console.error(error);
-      alert(error instanceof Error ? error.message : "Failed to save course.");
+      showToast(error instanceof Error ? error.message : "Failed to save course.", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm || isDeleting) return;
+    setIsDeleting(true);
     try {
       await courseService.remove(deleteConfirm.id);
       setDeleteConfirm(null);
+      showToast("Course deleted successfully.", "success");
       loadCourses();
     } catch (error) {
       console.error(error);
-      alert("Failed to delete course.");
+      showToast("Failed to delete course.", "error");
+      setDeleteConfirm(null);
+      loadCourses();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -142,6 +174,16 @@ export default function Courses() {
         <button onClick={() => handleOpenModal()} className="btn btn-primary">
           + Add Course
         </button>
+      </div>
+
+      <div className="content-card" style={{ marginBottom: "24px", padding: "16px" }}>
+        <input
+          type="text"
+          placeholder="Search by name, code or department..."
+          className="form-control"
+          value={search}
+          onChange={e => handleSearchChange(e.target.value)}
+        />
       </div>
 
       <div className="content-card">
@@ -161,7 +203,7 @@ export default function Courses() {
             {
               key: "teacher",
               label: "Teacher",
-              render: (c) => c.teacher ? `${c.teacher.first_name} ${c.teacher.last_name}` : "-"
+              render: (c) => c.teacher ? c.teacher.name : "-"
             }
           ]}
           onEdit={handleOpenModal}
@@ -170,6 +212,7 @@ export default function Courses() {
           currentPage={currentPage}
           pageSize={pageSize}
           onPageChange={setCurrentPage}
+          onPageSizeChange={handlePageSizeChange}
         />
       </div>
 
@@ -200,7 +243,7 @@ export default function Courses() {
             <label className="form-label">Teacher</label>
             <select className="form-control" value={formData.teacher} onChange={(e) => setFormData({...formData, teacher: Number(e.target.value)})}>
               <option value="">-- Select Teacher --</option>
-              {teachers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
+              {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
 
@@ -222,6 +265,7 @@ export default function Courses() {
         message={`Are you sure you want to delete ${deleteConfirm?.name}?`}
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
+        confirmDisabled={isDeleting}
       />
     </>
   );

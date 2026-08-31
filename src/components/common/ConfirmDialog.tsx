@@ -7,6 +7,7 @@ interface ConfirmDialogProps {
   onConfirm: () => void;
   onCancel: () => void;
   isDanger?: boolean;
+  confirmDisabled?: boolean;
 }
 
 export function ConfirmDialog({
@@ -16,6 +17,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
   isDanger = true,
+  confirmDisabled = false,
 }: ConfirmDialogProps) {
   if (!isOpen) return null;
 
@@ -27,11 +29,11 @@ export function ConfirmDialog({
           {message}
         </p>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px" }}>
-          <button onClick={onCancel} className="btn btn-outline">
+          <button onClick={onCancel} className="btn btn-outline" disabled={confirmDisabled}>
             Cancel
           </button>
-          <button onClick={onConfirm} className={isDanger ? "btn btn-danger" : "btn btn-primary"}>
-            Confirm
+          <button onClick={onConfirm} className={isDanger ? "btn btn-danger" : "btn btn-primary"} disabled={confirmDisabled}>
+            {confirmDisabled ? "Deleting..." : "Confirm"}
           </button>
         </div>
       </div>

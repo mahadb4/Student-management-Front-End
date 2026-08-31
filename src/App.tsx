@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { ToastProvider } from "./context/ToastContext";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import PendingApproval from "./pages/auth/PendingApproval";
@@ -92,6 +93,7 @@ function ProtectedRoute({
 
 function App() {
   return (
+    <ToastProvider>
     <BrowserRouter>
       <Routes>
         {/* Public routes */}
@@ -141,6 +143,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+    </ToastProvider>
   );
 }
 
