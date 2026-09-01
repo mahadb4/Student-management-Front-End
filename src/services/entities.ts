@@ -1,6 +1,6 @@
 import{apiRequest}from"./api";
 import{getAccessToken}from"./auth";
-import type{Student,Teacher,Department,Course,CourseOffering,Enrollment,Attendance,Section,StudentListItem,SectionListItem,TeacherListItem,CourseListItem,EnrollmentListItem,CourseOfferingListItem,AttendanceListItem,DepartmentReference,SectionReference,TeacherReference,CourseReference,StudentReference}from"../types/user";
+import type{Student,Teacher,Department,Course,CourseOffering,Enrollment,Attendance,Section,StudentListItem,SectionListItem,TeacherListItem,CourseListItem,EnrollmentListItem,CourseOfferingListItem,CourseOfferingReference,CourseOfferingTeacherListItem,AttendanceListItem,StudentAttendanceListItem,TeacherAttendanceListItem,DepartmentReference,SectionReference,TeacherReference,CourseReference,StudentReference,StudentProfile,StudentSummary,StudentEnrollmentListItem,EnrollmentReference,EnrollmentTeacherListItem,TeacherDashboardSummary,TeacherProfile}from"../types/user";
 
 function authHeaders(signal?:AbortSignal){
   const token=getAccessToken();
@@ -78,26 +78,40 @@ export const departmentService=createCrudService<Department>("/departments");
 export const sectionService=createCrudService<Section>("/sections");
 
 // ── Reference (dropdown/foreign-key selection) endpoints ────────────────────
-// Return only {id, name[, ...]} — the minimal shape a <select> needs — as a
-// plain array, not the paginated list envelope. These exist alongside (not
-// instead of) the LIST endpoints above, whose fuller field set is still
-// required by each resource's own management page.
-export const getDepartmentReference=(signal?:AbortSignal):Promise<DepartmentReference[]>=>
-  apiRequest<DepartmentReference[]>("/departments/reference/",authHeaders(signal));
+// Return only {id, name[, ...]} — the minimal shape a <select>/scrollable
+// dropdown needs — using the same paginated envelope as the LIST endpoints
+// (page_size defaults to 10, matching backend default_page_size). These exist
+// alongside (not instead of) the LIST endpoints above, whose fuller field set
+// is still required by each resource's own management page.
+export const getDepartmentReference=(page:number=1,pageSize:number=10,signal?:AbortSignal):Promise<PaginatedResponse<DepartmentReference>>=>
+  apiRequest<PaginatedResponse<DepartmentReference>>(`/departments/reference/?page=${page}&page_size=${pageSize}`,authHeaders(signal));
 
-export const getSectionReference=(departmentId?:number,signal?:AbortSignal):Promise<SectionReference[]>=>{
-  const query=departmentId!==undefined?`?department_id=${departmentId}`:"";
-  return apiRequest<SectionReference[]>(`/sections/reference/${query}`,authHeaders(signal));
+export const getSectionReference=(departmentId?:number,page:number=1,pageSize:number=10,signal?:AbortSignal):Promise<PaginatedResponse<SectionReference>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
+  if(departmentId!==undefined)params.set("department_id",String(departmentId));
+  return apiRequest<PaginatedResponse<SectionReference>>(`/sections/reference/?${params.toString()}`,authHeaders(signal));
 };
 
-export const getTeacherReference=(signal?:AbortSignal):Promise<TeacherReference[]>=>
-  apiRequest<TeacherReference[]>("/teachers/reference/",authHeaders(signal));
+export const getTeacherReference=(page:number=1,pageSize:number=10,signal?:AbortSignal,departmentId?:number):Promise<PaginatedResponse<TeacherReference>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
+  if(departmentId!==undefined)params.set("department_id",String(departmentId));
+  return apiRequest<PaginatedResponse<TeacherReference>>(`/teachers/reference/?${params.toString()}`,authHeaders(signal));
+};
 
-export const getCourseReference=(signal?:AbortSignal):Promise<CourseReference[]>=>
-  apiRequest<CourseReference[]>("/courses/reference/",authHeaders(signal));
+export const getCourseReference=(page:number=1,pageSize:number=10,signal?:AbortSignal,departmentId?:number):Promise<PaginatedResponse<CourseReference>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
+  if(departmentId!==undefined)params.set("department_id",String(departmentId));
+  return apiRequest<PaginatedResponse<CourseReference>>(`/courses/reference/?${params.toString()}`,authHeaders(signal));
+};
 
-export const getStudentReference=(signal?:AbortSignal):Promise<StudentReference[]>=>
-  apiRequest<StudentReference[]>("/students/reference/",authHeaders(signal));
+export const getCourseOfferingReference=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<CourseOfferingReference>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
+  if(search&&search.trim())params.set("search",search.trim());
+  return apiRequest<PaginatedResponse<CourseOfferingReference>>(`/course_offerings/reference/?${params.toString()}`,authHeaders(signal));
+};
+
+export const getStudentReference=(page:number=1,pageSize:number=10,signal?:AbortSignal):Promise<PaginatedResponse<StudentReference>>=>
+  apiRequest<PaginatedResponse<StudentReference>>(`/students/reference/?page=${page}&page_size=${pageSize}`,authHeaders(signal));
 
 // Sections LIST endpoint returns a narrower projection (SectionListItem, with
 // department already resolved to {id, name}) than the Section entity used by
@@ -122,9 +136,10 @@ export const offeringService=createCrudService<CourseOffering>("/course_offering
 // Course Offerings LIST endpoint returns a narrower projection (CourseOfferingListItem, with
 // course/teacher/section already resolved to nested objects) than the CourseOffering entity
 // used by offeringService's getById/create/update/remove.
-export const getCourseOfferingList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<CourseOfferingListItem>>=>{
+export const getCourseOfferingList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,sectionId?:number):Promise<PaginatedResponse<CourseOfferingListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(search&&search.trim())params.set("search",search.trim());
+  if(sectionId!==undefined)params.set("section_id",String(sectionId));
   return apiRequest<PaginatedResponse<CourseOfferingListItem>>(`/course_offerings/?${params.toString()}`,authHeaders(signal));
 };
 export const enrollmentService=createCrudService<Enrollment>("/enrollments");
@@ -167,50 +182,56 @@ export const dashboardService={
 // ── Authenticated "me" endpoints ────────────────────────────────────────────
 // Resolve the caller's own Student/Teacher data server-side from request.user
 // - never a full-collection fetch filtered client-side to find "myself".
-//
-// Dashboard/Profile/Courses/Attendance all mount independently as the user
-// navigates the sidebar, and each needs overlapping "me" data (profile,
-// enrollments, ...). Without sharing, every navigation re-fetches it from
-// scratch. meCache holds one in-flight/resolved promise per key so a second
-// page asking for the same data within the same session reuses it instead of
-// firing another request. Cleared on logout and after mutations that would
-// make a cached entry stale.
-const meCache=new Map<string,Promise<unknown>>();
+// Each call performs a fresh authenticated request; no client-side caching.
 
-function cachedMeRequest<T>(key:string,fetcher:()=>Promise<T>):Promise<T>{
-  if(!meCache.has(key)){
-    meCache.set(key,fetcher().catch(err=>{meCache.delete(key);throw err;}));
-  }
-  return meCache.get(key) as Promise<T>;
+export function invalidateMeCache(_key?:string){
+  // No-op: retained so existing call sites (post-mutation refresh, logout)
+  // continue to compile without change. There is no cache to invalidate.
 }
 
-export function invalidateMeCache(key?:string){
-  if(key)meCache.delete(key);
-  else meCache.clear();
-}
+export const getMyStudentProfile=():Promise<StudentProfile>=>
+  apiRequest<StudentProfile>("/students/me/",authHeaders());
 
-export const getMyStudentProfile=():Promise<Student>=>
-  cachedMeRequest("student-profile",()=>apiRequest<Student>("/students/me/",authHeaders()));
+export const getMyStudentSummary=():Promise<StudentSummary>=>
+  apiRequest<StudentSummary>("/students/me/summary/",authHeaders());
 
-export const getMyEnrollments=(page:number=1,pageSize:number=500):Promise<PaginatedResponse<EnrollmentListItem>>=>
-  cachedMeRequest(`enrollments:${page}:${pageSize}`,()=>
-    apiRequest<PaginatedResponse<EnrollmentListItem>>(`/students/me/courses/?page=${page}&page_size=${pageSize}`,authHeaders()));
+export const getMyEnrollments=(page:number=1,pageSize:number=10):Promise<PaginatedResponse<StudentEnrollmentListItem>>=>
+  apiRequest<PaginatedResponse<StudentEnrollmentListItem>>(`/students/me/courses/?page=${page}&page_size=${pageSize}`,authHeaders());
 
-export const getMyStudentAttendance=(page:number=1,pageSize:number=500):Promise<PaginatedResponse<AttendanceListItem>>=>
-  cachedMeRequest(`student-attendance:${page}:${pageSize}`,()=>
-    apiRequest<PaginatedResponse<AttendanceListItem>>(`/students/me/attendance/?page=${page}&page_size=${pageSize}`,authHeaders()));
+// Student self-enrollment: the backend derives "student" from the
+// authenticated request.user's own student_profile - the frontend never
+// needs to know/send the student's own id, unlike enrollmentService.create()
+// (the generic Admin enrollment endpoint, which does require an explicit
+// student id since Admin can enroll any student).
+export const enrollInCourseOffering=(courseOfferingId:number):Promise<StudentEnrollmentListItem>=>{
+  const token=getAccessToken();
+  return apiRequest<StudentEnrollmentListItem>("/students/me/courses/",{
+    method:"POST",
+    token:token||undefined,
+    body:JSON.stringify({course_offering:courseOfferingId,status:"ACTIVE"})
+  });
+};
 
-export const getMyTeacherProfile=():Promise<Teacher>=>
-  cachedMeRequest("teacher-profile",()=>apiRequest<Teacher>("/teachers/me/",authHeaders()));
+export const getMyEnrollmentsReference=(page:number=1,pageSize:number=10):Promise<PaginatedResponse<EnrollmentReference>>=>
+  apiRequest<PaginatedResponse<EnrollmentReference>>(`/students/me/courses/reference/?page=${page}&page_size=${pageSize}`,authHeaders());
 
-export const getMyCourseOfferings=(page:number=1,pageSize:number=500):Promise<PaginatedResponse<CourseOfferingListItem>>=>
-  cachedMeRequest(`course-offerings:${page}:${pageSize}`,()=>
-    apiRequest<PaginatedResponse<CourseOfferingListItem>>(`/teachers/me/courses/?page=${page}&page_size=${pageSize}`,authHeaders()));
+export const getMyStudentAttendance=(page:number=1,pageSize:number=10):Promise<PaginatedResponse<StudentAttendanceListItem>>=>
+  apiRequest<PaginatedResponse<StudentAttendanceListItem>>(`/students/me/attendance/?page=${page}&page_size=${pageSize}`,authHeaders());
 
-export const getMyTeacherStudents=(page:number=1,pageSize:number=500):Promise<PaginatedResponse<StudentListItem>>=>
-  cachedMeRequest(`teacher-students:${page}:${pageSize}`,()=>
-    apiRequest<PaginatedResponse<StudentListItem>>(`/teachers/me/students/?page=${page}&page_size=${pageSize}`,authHeaders()));
+export const getMyTeacherProfile=():Promise<TeacherProfile>=>
+  apiRequest<TeacherProfile>("/teachers/me/",authHeaders());
 
-export const getMyTeacherAttendance=(page:number=1,pageSize:number=500):Promise<PaginatedResponse<AttendanceListItem>>=>
-  cachedMeRequest(`teacher-attendance:${page}:${pageSize}`,()=>
-    apiRequest<PaginatedResponse<AttendanceListItem>>(`/teachers/me/attendance/?page=${page}&page_size=${pageSize}`,authHeaders()));
+export const getMyTeacherDashboard=():Promise<TeacherDashboardSummary>=>
+  apiRequest<TeacherDashboardSummary>("/teachers/me/dashboard/",authHeaders());
+
+export const getMyCourseOfferings=(page:number=1,pageSize:number=10):Promise<PaginatedResponse<CourseOfferingTeacherListItem>>=>
+  apiRequest<PaginatedResponse<CourseOfferingTeacherListItem>>(`/teachers/me/courses/?page=${page}&page_size=${pageSize}`,authHeaders());
+
+export const getMyTeacherStudents=(page:number=1,pageSize:number=10,courseOfferingId?:number):Promise<PaginatedResponse<EnrollmentTeacherListItem>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
+  if(courseOfferingId!==undefined)params.set("course_offering_id",String(courseOfferingId));
+  return apiRequest<PaginatedResponse<EnrollmentTeacherListItem>>(`/teachers/me/students/?${params.toString()}`,authHeaders());
+};
+
+export const getMyTeacherAttendance=(page:number=1,pageSize:number=10):Promise<PaginatedResponse<TeacherAttendanceListItem>>=>
+  apiRequest<PaginatedResponse<TeacherAttendanceListItem>>(`/teachers/me/attendance/?page=${page}&page_size=${pageSize}`,authHeaders());

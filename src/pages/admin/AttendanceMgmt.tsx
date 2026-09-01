@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import { attendanceService, getAttendanceList, enrollmentService, studentService, offeringService, courseService } from "../../services/entities";
+import { useEffect, useState } from "react";
+import { attendanceService, getAttendanceList, getEnrollmentList } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { Attendance, AttendanceListItem, Enrollment, Student, CourseOffering, Course, AttendanceStatus } from "../../types/user";
+import { PaginatedSelect } from "../../components/common/PaginatedSelect";
+import type { Attendance, AttendanceListItem, AttendanceStatus } from "../../types/user";
 import { useToast } from "../../context/ToastContext";
 
 export default function AttendanceMgmt() {
@@ -13,14 +14,11 @@ export default function AttendanceMgmt() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // Enrollments/Students/Offerings/Courses are only needed for the Add/Edit form
-  // dropdown (to resolve enrollment display labels) — not for the table.
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [offerings, setOfferings] = useState<CourseOffering[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  // Label for the currently-edited record's Enrollment, shown until the
+  // paginated dropdown's own loaded page happens to include it.
+  const [editingEnrollmentLabel, setEditingEnrollmentLabel] = useState<string | undefined>(undefined);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<Attendance | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<AttendanceListItem | null>(null);
@@ -56,35 +54,12 @@ export default function AttendanceMgmt() {
     setCurrentPage(1);
   };
 
-  // Enrollment options are only needed for the Add/Edit form — loaded lazily,
-  // once, on first actual use.
-  const dropdownsRequested = useRef(false);
-
-  const loadDropdownData = () => {
-    if (dropdownsRequested.current) return;
-    dropdownsRequested.current = true;
-
-    Promise.all([
-      enrollmentService.getAll(),
-      studentService.getAll(),
-      offeringService.getAll(),
-      courseService.getAll()
-    ]).then(([e, s, o, c]) => {
-      setEnrollments(e);
-      setStudents(s);
-      setOfferings(o);
-      setCourses(c);
-    }).catch(err => {
-      console.error(err);
-      dropdownsRequested.current = false;
-    });
-  };
-
   const handleOpenModal = (record?: AttendanceListItem) => {
-    loadDropdownData();
-
     if (record) {
       setEditingRecord(record as unknown as Attendance);
+      setEditingEnrollmentLabel(
+        record.enrollment_id ? `${record.student_name} - ${record.course_code}` : undefined
+      );
       setFormData({
         enrollment: record.enrollment_id ?? "",
         date: record.date,
@@ -93,9 +68,10 @@ export default function AttendanceMgmt() {
       });
     } else {
       setEditingRecord(null);
-      setFormData({ 
-        enrollment: "", date: new Date().toISOString().split('T')[0], 
-        status: "PRESENT", remarks: "" 
+      setEditingEnrollmentLabel(undefined);
+      setFormData({
+        enrollment: "", date: new Date().toISOString().split('T')[0],
+        status: "PRESENT", remarks: ""
       });
     }
     setIsModalOpen(true);
@@ -104,6 +80,10 @@ export default function AttendanceMgmt() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+    if (formData.enrollment === "") {
+      showToast("Please select an enrollment.", "error");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const { enrollment, ...rest } = formData;
@@ -140,18 +120,6 @@ export default function AttendanceMgmt() {
       console.error(error);
       showToast("Failed to delete attendance record.", "error");
     }
-  };
-
-  const getEnrollmentDisplay = (enrollmentId: number) => {
-    const e = enrollments.find(x => x.id === enrollmentId);
-    if (!e) return enrollmentId.toString();
-    const s = students.find(x => x.id === e.student);
-    const o = offerings.find(x => x.id === e.course_offering);
-    const c = o ? courses.find(x => x.id === o.course) : null;
-    
-    const stuName = s ? `${s.first_name} ${s.last_name}` : "Unknown Student";
-    const courseName = c ? c.code : "Unknown Course";
-    return `${stuName} - ${courseName}`;
   };
 
   return (
@@ -206,10 +174,17 @@ export default function AttendanceMgmt() {
         <form onSubmit={handleSave}>
           <div className="form-group">
             <label className="form-label">Enrollment</label>
-            <select required className="form-control" value={formData.enrollment} onChange={(e) => setFormData({...formData, enrollment: Number(e.target.value)})}>
-              <option value="">-- Select Enrollment --</option>
-              {enrollments.map(e => <option key={e.id} value={e.id}>{getEnrollmentDisplay(e.id)}</option>)}
-            </select>
+            <PaginatedSelect
+              fetchPage={(page, pageSize, signal, search) => getEnrollmentList(page, pageSize, signal, search)}
+              getId={e => e.id}
+              getLabel={e => `${e.student_name} - ${e.course_code}`}
+              value={formData.enrollment}
+              onChange={id => setFormData({...formData, enrollment: id})}
+              selectedLabel={editingEnrollmentLabel}
+              placeholder="-- Select Enrollment --"
+              serverSearch
+              searchPlaceholder="Search student or course..."
+            />
           </div>
           <div className="form-group">
             <label className="form-label">Date</label>

@@ -1,17 +1,40 @@
 import { useEffect, useState } from "react";
 import { getCurrentUser } from "../../services/auth";
-import { getMyTeacherProfile, getMyCourseOfferings, getEnrollmentList, getMyTeacherAttendance, attendanceService, invalidateMeCache } from "../../services/entities";
+import { getCourseOfferingReference, getMyTeacherStudents, getMyTeacherAttendance, attendanceService, invalidateMeCache } from "../../services/entities";
 import { Modal } from "../../components/common/Modal";
-import type { Teacher, CourseOfferingListItem, EnrollmentListItem, AttendanceListItem, AttendanceStatus, Attendance } from "../../types/user";
+import type { CourseOfferingReference, EnrollmentTeacherListItem, TeacherAttendanceListItem, AttendanceStatus, Attendance } from "../../types/user";
+
+// Marking attendance must offer every student in the selected class, not
+// just whichever page of the teacher's cross-class enrollment list happens
+// to be loaded - so the full roster for one specific class is fetched here
+// page by page (still page_size=10 per request, never a large single call).
+async function fetchFullClassRoster(courseOfferingId: number): Promise<EnrollmentTeacherListItem[]> {
+  let page = 1;
+  let all: EnrollmentTeacherListItem[] = [];
+
+  while (true) {
+    const res = await getMyTeacherStudents(page, 10, courseOfferingId);
+    all = all.concat(res.results);
+    if (res.current_page >= res.total_pages) break;
+    page += 1;
+  }
+
+  return all;
+}
 
 export default function TeacherAttendance() {
   const user = getCurrentUser();
-  const [teacher, setTeacher] = useState<Teacher | null>(null);
 
-  const [offerings, setOfferings] = useState<CourseOfferingListItem[]>([]);
-  const [enrollments, setEnrollments] = useState<EnrollmentListItem[]>([]);
-  const [attendance, setAttendance] = useState<AttendanceListItem[]>([]);
+  const [offerings, setOfferings] = useState<CourseOfferingReference[]>([]);
+  const [classRoster, setClassRoster] = useState<EnrollmentTeacherListItem[]>([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [attendance, setAttendance] = useState<TeacherAttendanceListItem[]>([]);
 
+  const [attendancePage, setAttendancePage] = useState(1);
+  const [attendanceTotalPages, setAttendanceTotalPages] = useState(1);
+  const [loadingMoreAttendance, setLoadingMoreAttendance] = useState(false);
+
+  const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
   const [courseFilter, setCourseFilter] = useState("");
 
@@ -32,30 +55,52 @@ export default function TeacherAttendance() {
     }
     setLoading(true);
 
-    getMyTeacherProfile().then(myTeacher => {
-      setTeacher(myTeacher);
+    // course_offerings/reference/ is already scoped by apply_data_scope to
+    // this teacher's own offerings.
+    Promise.all([
+      getCourseOfferingReference(1, 10),
+      getMyTeacherAttendance(1, 10),
+    ]).then(([o, a]) => {
+      setOfferings(o.results);
+      setAttendance(a.results);
+      setAttendancePage(a.current_page);
+      setAttendanceTotalPages(a.total_pages);
 
-      // enrollments/ is already server-scoped to this teacher's own offerings.
-      Promise.all([
-        getMyCourseOfferings(1, 500),
-        getEnrollmentList(1, 500),
-        getMyTeacherAttendance(1, 500),
-      ]).then(([o, e, a]) => {
-        setOfferings(o.results);
-        setEnrollments(e.results);
-        setAttendance(a.results);
-
-        if (o.results.length > 0 && !courseFilter) {
-          setCourseFilter(o.results[0].id.toString());
-        }
-      }).finally(() => setLoading(false));
-    }).catch(() => setLoading(false));
+      if (o.results.length > 0 && !courseFilter) {
+        setCourseFilter(o.results[0].id.toString());
+      }
+    }).catch(() => setNotFound(true))
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!courseFilter) {
+      setClassRoster([]);
+      return;
+    }
+
+    setRosterLoading(true);
+    fetchFullClassRoster(Number(courseFilter))
+      .then(setClassRoster)
+      .finally(() => setRosterLoading(false));
+  }, [courseFilter]);
+
+  const loadMoreAttendance = () => {
+    if (loadingMoreAttendance || attendancePage >= attendanceTotalPages) return;
+    setLoadingMoreAttendance(true);
+    const nextPage = attendancePage + 1;
+
+    getMyTeacherAttendance(nextPage, 10).then(a => {
+      setAttendance(prev => [...prev, ...a.results]);
+      setAttendancePage(a.current_page);
+      setAttendanceTotalPages(a.total_pages);
+    }).finally(() => setLoadingMoreAttendance(false));
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +112,7 @@ export default function TeacherAttendance() {
         ...rest,
         enrollment_id: Number(enrollment),
       } as unknown as Partial<Attendance>);
-      invalidateMeCache("teacher-attendance:1:500");
+      invalidateMeCache("teacher-attendance:1:10");
       setIsModalOpen(false);
       loadData();
     } catch (error) {
@@ -78,17 +123,17 @@ export default function TeacherAttendance() {
     }
   };
 
-  const filteredAttendance = attendance.filter(a => {
-    if (!courseFilter) return true;
-    return a.enrollment_id !== null && enrollments.find(e => e.id === a.enrollment_id)?.course_offering.id.toString() === courseFilter;
-  });
+  // classRoster is already scoped to the selected class (course_offering_id
+  // filter applied server-side), so matching against it directly filters
+  // attendance rows down to this class.
+  const filteredAttendance = attendance.filter(a =>
+    a.enrollment_id !== null && classRoster.some(e => e.enrollment_id === a.enrollment_id)
+  );
 
   filteredAttendance.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const getCourseInfo = (offering: CourseOfferingListItem) =>
-    `${offering.course?.name || "Unknown Course"} - ${offering.section?.name || "No Section"}`;
-
-  const courseEnrollments = enrollments.filter(e => e.course_offering.id.toString() === courseFilter);
+  const getCourseInfo = (offering: CourseOfferingReference) =>
+    `${offering.course_name || "Unknown Course"} - ${offering.section_name || "No Section"}`;
 
   if (loading) {
     return <><div style={{ padding: "40px", textAlign: "center" }}>Loading...</div></>;
@@ -101,12 +146,12 @@ export default function TeacherAttendance() {
           <h2>Attendance</h2>
           <p>Mark and view attendance for your classes</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="btn btn-primary" disabled={!courseFilter || courseEnrollments.length === 0}>
+        <button onClick={() => setIsModalOpen(true)} className="btn btn-primary" disabled={!courseFilter || rosterLoading || classRoster.length === 0}>
           + Mark Attendance
         </button>
       </div>
 
-      {!teacher ? (
+      {notFound ? (
         <div className="content-card" style={{ padding: "24px", color: "var(--color-danger)" }}>
           Teacher record not found.
         </div>
@@ -160,14 +205,22 @@ export default function TeacherAttendance() {
             </table>
           </div>
 
+          {attendancePage < attendanceTotalPages && (
+            <div style={{ textAlign: "center", marginTop: "16px" }}>
+              <button className="btn btn-outline" onClick={loadMoreAttendance} disabled={loadingMoreAttendance}>
+                {loadingMoreAttendance ? "Loading..." : "Load More"}
+              </button>
+            </div>
+          )}
+
           <Modal isOpen={isModalOpen} title="Mark Attendance" onClose={() => setIsModalOpen(false)}>
             <form onSubmit={handleSave}>
               <div className="form-group">
                 <label className="form-label">Student</label>
                 <select required className="form-control" value={formData.enrollment} onChange={(e) => setFormData({...formData, enrollment: Number(e.target.value)})}>
                   <option value="">-- Select Student --</option>
-                  {courseEnrollments.map(e => (
-                    <option key={e.id} value={e.id}>{e.student.name}</option>
+                  {classRoster.map(e => (
+                    <option key={e.enrollment_id} value={e.enrollment_id}>{e.student_name}</option>
                   ))}
                 </select>
               </div>

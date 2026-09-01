@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import { enrollmentService, getStudentReference, offeringService, getCourseReference, getSectionReference, getEnrollmentList } from "../../services/entities";
+import { useEffect, useState } from "react";
+import { enrollmentService, getStudentReference, getCourseOfferingList, getEnrollmentList } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { EnrollmentListItem, StudentReference, CourseOffering, CourseReference, EnrollmentStatus, SectionReference } from "../../types/user";
+import { PaginatedSelect } from "../../components/common/PaginatedSelect";
+import type { EnrollmentListItem, EnrollmentStatus, StudentReference } from "../../types/user";
 import { useToast } from "../../context/ToastContext";
 
 export default function Enrollments() {
@@ -13,12 +14,10 @@ export default function Enrollments() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const [students, setStudents] = useState<StudentReference[]>([]);
-  const [offerings, setOfferings] = useState<CourseOffering[]>([]);
-  const [courses, setCourses] = useState<CourseReference[]>([]);
-  const [sections, setSections] = useState<SectionReference[]>([]);
   const [loading, setLoading] = useState(true);
-  const dropdownDataLoaded = useRef(false);
+  // Labels for the currently-edited enrollment's Student/Course Offering,
+  // shown until the paginated dropdowns' own loaded pages happen to include them.
+  const [editingLabels, setEditingLabels] = useState<{ student?: string; offering?: string }>({});
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -35,6 +34,11 @@ export default function Enrollments() {
     status: "ACTIVE" as EnrollmentStatus
   });
 
+  // The selected Student's own section - drives the Course Offering dropdown
+  // below so only offerings compatible with that section are shown. undefined
+  // = no student selected yet (or its section is still being looked up).
+  const [selectedStudentSectionId, setSelectedStudentSectionId] = useState<number | null | undefined>(undefined);
+
   const loadData = (signal?: AbortSignal) => {
     setLoading(true);
     getEnrollmentList(currentPage, pageSize, signal, debouncedSearch).then(eRes => {
@@ -44,24 +48,6 @@ export default function Enrollments() {
       if (err.name === 'AbortError') return;
       console.error(err);
     }).finally(() => setLoading(false));
-  };
-
-  const loadDropdownData = () => {
-    if (dropdownDataLoaded.current) return;
-    dropdownDataLoaded.current = true;
-    Promise.all([
-      getStudentReference(),
-      offeringService.getAll(),
-      getCourseReference(),
-      getSectionReference()
-    ]).then(([s, o, c, sec]) => {
-      setStudents(s);
-      setOfferings(o);
-      setCourses(c);
-      setSections(sec);
-    }).catch(err => {
-      console.error(err);
-    });
   };
 
   useEffect(() => {
@@ -89,26 +75,54 @@ export default function Enrollments() {
   };
 
   const handleOpenModal = (enrollment?: EnrollmentListItem) => {
-    loadDropdownData();
     if (enrollment) {
       setEditingEnrollment(enrollment);
+      setEditingLabels({
+        student: `${enrollment.student_name} (${enrollment.student_email})`,
+        offering: `${enrollment.course_name} - ${enrollment.section_name || "No Section"} (${enrollment.semester} ${enrollment.academic_year})`,
+      });
       setFormData({
-        student: enrollment.student.id,
-        course_offering: enrollment.course_offering.id,
+        student: enrollment.student_id,
+        course_offering: enrollment.course_offering_id,
         status: enrollment.status
       });
+      // Deliberately not resolving the student's section here: an existing
+      // enrollment's student may since have been deleted (student detail
+      // lookups exclude deleted students by design, returning 403) while the
+      // enrollment referencing them still exists and remains editable. The
+      // dependent Course Offering filter only needs to apply when the admin
+      // actively changes the student (see handleStudentChange) - editing
+      // with the student left as-is shows the unfiltered offering list,
+      // same as before this filter existed.
+      setSelectedStudentSectionId(undefined);
     } else {
       setEditingEnrollment(null);
+      setEditingLabels({});
       setFormData({
         student: "", course_offering: "", status: "ACTIVE"
       });
+      setSelectedStudentSectionId(undefined);
     }
     setIsModalOpen(true);
+  };
+
+  // Student changed (or newly selected): reset the Course Offering choice.
+  // The Student reference row already carries section_id (no extra request,
+  // no async lookup, no race with resetKey - both updates land in the same
+  // render).
+  const handleStudentChange = (id: number, student: StudentReference) => {
+    setFormData(prev => ({ ...prev, student: id, course_offering: "" }));
+    setEditingLabels(prev => ({ ...prev, offering: undefined }));
+    setSelectedStudentSectionId(student.section_id);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+    if (formData.student === "" || formData.course_offering === "") {
+      showToast("Please select a student and a course offering.", "error");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const payload = {
@@ -152,15 +166,6 @@ export default function Enrollments() {
     }
   };
 
-  const getOfferingDisplay = (offeringId: number) => {
-    const o = offerings.find(x => x.id === offeringId);
-    if (!o) return offeringId.toString();
-    const c = courses.find(x => x.id === o.course);
-    const courseName = c ? c.name : "Unknown Course";
-    const sectionName = sections.find(s => s.id === o.section)?.name || "No Section";
-    return `${courseName} - ${sectionName} (${o.semester} ${o.academic_year})`;
-  };
-
   return (
     <>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -192,12 +197,12 @@ export default function Enrollments() {
             {
               key: "student",
               label: "Student",
-              render: (e) => `${e.student.name} (${e.student.student_email})`
+              render: (e) => `${e.student_name} (${e.student_email})`
             },
             {
               key: "course_offering",
               label: "Course Offering",
-              render: (e) => `${e.course_offering.course.name} - ${e.course_offering.section?.name || "No Section"} (${e.course_offering.semester} ${e.course_offering.academic_year})`
+              render: (e) => `${e.course_name} - ${e.section_name || "No Section"} (${e.semester} ${e.academic_year})`
             },
             {
               key: "status",
@@ -224,17 +229,38 @@ export default function Enrollments() {
         <form onSubmit={handleSave}>
           <div className="form-group">
             <label className="form-label">Student</label>
-            <select required className="form-control" value={formData.student} onChange={(e) => setFormData({...formData, student: Number(e.target.value)})}>
-              <option value="">-- Select Student --</option>
-              {students.map(s => <option key={s.id} value={s.id}>{s.name} ({s.student_email})</option>)}
-            </select>
+            <PaginatedSelect
+              fetchPage={(page, pageSize, signal) => getStudentReference(page, pageSize, signal)}
+              getId={s => s.id}
+              getLabel={s => `${s.name} (${s.student_email})`}
+              value={formData.student}
+              onChange={handleStudentChange}
+              selectedLabel={editingLabels.student}
+              placeholder="-- Select Student --"
+              searchPlaceholder="Search loaded students..."
+            />
           </div>
           <div className="form-group">
             <label className="form-label">Course Offering</label>
-            <select required className="form-control" value={formData.course_offering} onChange={(e) => setFormData({...formData, course_offering: Number(e.target.value)})}>
-              <option value="">-- Select Offering --</option>
-              {offerings.map(o => <option key={o.id} value={o.id}>{getOfferingDisplay(o.id)}</option>)}
-            </select>
+            <PaginatedSelect
+              // Scoped to the selected student's own section - resetKey on
+              // formData.student discards previously loaded pages and
+              // re-fetches page 1 whenever the student changes, exactly like
+              // the existing Department -> Section dependent dropdown.
+              fetchPage={(page, pageSize, signal, search) =>
+                getCourseOfferingList(page, pageSize, signal, search, selectedStudentSectionId ?? undefined)
+              }
+              resetKey={formData.student}
+              getId={o => o.id}
+              getLabel={o => `${o.course_name} - ${o.section_name || "No Section"} (${o.semester} ${o.academic_year})`}
+              value={formData.course_offering}
+              onChange={id => setFormData({...formData, course_offering: id})}
+              selectedLabel={editingLabels.offering}
+              placeholder={formData.student === "" ? "-- Select a Student First --" : "-- Select Offering --"}
+              disabled={formData.student === ""}
+              serverSearch
+              searchPlaceholder="Search course or teacher..."
+            />
           </div>
           <div className="form-group">
             <label className="form-label">Status</label>

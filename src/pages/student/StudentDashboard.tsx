@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCurrentUser } from "../../services/auth";
-import { getMyStudentProfile, getMyEnrollments, getMyStudentAttendance } from "../../services/entities";
-import type { Student, EnrollmentListItem, AttendanceListItem } from "../../types/user";
+import { getMyStudentSummary } from "../../services/entities";
+import type { StudentSummary } from "../../types/user";
 
 export default function StudentDashboard() {
   const user = getCurrentUser();
-  const [student, setStudent] = useState<Student | null>(null);
-  const [enrollments, setEnrollments] = useState<EnrollmentListItem[]>([]);
-  const [attendance, setAttendance] = useState<AttendanceListItem[]>([]);
+  const [summary, setSummary] = useState<StudentSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -17,22 +15,17 @@ export default function StudentDashboard() {
       return;
     }
 
-    getMyStudentProfile().then(myStudent => {
-      setStudent(myStudent);
-
-      Promise.all([
-        getMyEnrollments(1, 500),
-        getMyStudentAttendance(1, 500),
-      ]).then(([e, a]) => {
-        setEnrollments(e.results);
-        setAttendance(a.results);
-      }).finally(() => setLoading(false));
-    }).catch(() => setLoading(false));
+    getMyStudentSummary()
+      .then(setSummary)
+      .catch(() => setSummary(null))
+      .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const presentCount = attendance.filter(a => a.status === "PRESENT").length;
-  const absentCount = attendance.filter(a => a.status === "ABSENT").length;
+  const activeEnrollmentsCount = summary?.active_enrollments_count ?? 0;
+  const presentCount = summary?.present_count ?? 0;
+  const absentCount = summary?.absent_count ?? 0;
+  const recentAttendance = summary?.recent_attendance ?? [];
 
   return (
     <>
@@ -43,7 +36,7 @@ export default function StudentDashboard() {
 
       {loading ? (
         <p>Loading dashboard...</p>
-      ) : !student ? (
+      ) : !summary ? (
         <div className="content-card" style={{ padding: "24px", color: "var(--color-danger)" }}>
           <h3>Student Record Not Found</h3>
           <p>We could not find a student record matching your email ({user?.email}). Please contact administration.</p>
@@ -56,7 +49,7 @@ export default function StudentDashboard() {
                 <div className="stat-icon primary">📚</div>
                 <div className="stat-title">Active Enrollments</div>
               </div>
-              <div className="stat-value">{enrollments.filter(e => e.status === "ACTIVE").length}</div>
+              <div className="stat-value">{activeEnrollmentsCount}</div>
               <div className="stat-desc">Courses you are taking</div>
             </div>
 
@@ -96,9 +89,9 @@ export default function StudentDashboard() {
                 <h3>Recent Activity</h3>
               </div>
               <div style={{ padding: "24px" }}>
-                {attendance.length > 0 ? (
+                {recentAttendance.length > 0 ? (
                   <ul style={{ paddingLeft: "20px", color: "var(--color-text-secondary)" }}>
-                    {attendance.slice(-3).map(a => (
+                    {recentAttendance.map(a => (
                       <li key={a.id} style={{ marginBottom: "8px" }}>
                         Marked <strong>{a.status}</strong> on {a.date}
                       </li>

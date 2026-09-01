@@ -1,17 +1,24 @@
 import { useEffect, useState } from "react";
 import { getCurrentUser } from "../../services/auth";
-import { getMyStudentProfile, getMyEnrollments, getMyStudentAttendance } from "../../services/entities";
-import type { Student, EnrollmentListItem, AttendanceListItem } from "../../types/user";
+import { getMyEnrollmentsReference, getMyStudentAttendance } from "../../services/entities";
+import type { EnrollmentReference, StudentAttendanceListItem } from "../../types/user";
 
 export default function StudentAttendance() {
   const user = getCurrentUser();
-  const [student, setStudent] = useState<Student | null>(null);
 
-  const [enrollments, setEnrollments] = useState<EnrollmentListItem[]>([]);
-  const [attendance, setAttendance] = useState<AttendanceListItem[]>([]);
+  const [enrollments, setEnrollments] = useState<EnrollmentReference[]>([]);
+  const [attendance, setAttendance] = useState<StudentAttendanceListItem[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [courseFilter, setCourseFilter] = useState<string>("all");
+
+  // Attendance history grows without bound over a student's enrollment, so
+  // unlike the (small, bounded) enrollments list it's fetched page by page
+  // at the project-standard page_size=10 instead of in one large request.
+  const [attendancePage, setAttendancePage] = useState(1);
+  const [attendanceTotalPages, setAttendanceTotalPages] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -19,23 +26,34 @@ export default function StudentAttendance() {
       return;
     }
 
-    getMyStudentProfile().then(myStudent => {
-      setStudent(myStudent);
-
-      Promise.all([
-        getMyEnrollments(1, 500),
-        getMyStudentAttendance(1, 500),
-      ]).then(([e, a]) => {
-        setEnrollments(e.results);
-        setAttendance(a.results);
-      }).finally(() => setLoading(false));
-    }).catch(() => setLoading(false));
+    Promise.all([
+      getMyEnrollmentsReference(1, 10),
+      getMyStudentAttendance(1, 10),
+    ]).then(([e, a]) => {
+      setEnrollments(e.results);
+      setAttendance(a.results);
+      setAttendancePage(a.current_page);
+      setAttendanceTotalPages(a.total_pages);
+    }).catch(() => setNotFound(true))
+      .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const loadMoreAttendance = () => {
+    if (loadingMore || attendancePage >= attendanceTotalPages) return;
+    setLoadingMore(true);
+    const nextPage = attendancePage + 1;
+
+    getMyStudentAttendance(nextPage, 10).then(a => {
+      setAttendance(prev => [...prev, ...a.results]);
+      setAttendancePage(a.current_page);
+      setAttendanceTotalPages(a.total_pages);
+    }).finally(() => setLoadingMore(false));
+  };
+
   const getCourseInfo = (enrollmentId: number) => {
     const e = enrollments.find(x => x.id === enrollmentId);
-    return e ? `${e.course_offering.course.name} (${e.course_offering.course.code})` : "Unknown Course";
+    return e ? `${e.course_name} (${e.course_code})` : "Unknown Course";
   };
 
   const filteredAttendance = courseFilter === "all"
@@ -56,7 +74,7 @@ export default function StudentAttendance() {
         <p>Track your presence across all enrolled courses</p>
       </div>
 
-      {!student ? (
+      {notFound ? (
         <div className="content-card" style={{ padding: "24px", color: "var(--color-danger)" }}>
           Student record not found.
         </div>
@@ -109,6 +127,14 @@ export default function StudentAttendance() {
               </tbody>
             </table>
           </div>
+
+          {courseFilter === "all" && attendancePage < attendanceTotalPages && (
+            <div style={{ textAlign: "center", marginTop: "16px" }}>
+              <button className="btn btn-outline" onClick={loadMoreAttendance} disabled={loadingMore}>
+                {loadingMore ? "Loading..." : "Load More"}
+              </button>
+            </div>
+          )}
         </>
       )}
     </>

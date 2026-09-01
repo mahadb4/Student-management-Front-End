@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { sectionService, getSectionList, getDepartmentReference } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { SectionListItem, DepartmentReference } from "../../types/user";
+import { PaginatedSelect } from "../../components/common/PaginatedSelect";
+import type { SectionListItem } from "../../types/user";
 import { useToast } from "../../context/ToastContext";
 
 export default function Sections() {
@@ -13,8 +14,6 @@ export default function Sections() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
-
-  const [departments, setDepartments] = useState<DepartmentReference[]>([]);
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -68,26 +67,7 @@ export default function Sections() {
     setCurrentPage(1);
   };
 
-  // Department options are only needed for the Add/Edit form — not for
-  // rendering the table (the list API already returns the resolved name).
-  // Loaded lazily, once, on first actual use.
-  const dropdownsRequested = useRef(false);
-
-  const loadDropdownData = () => {
-    if (dropdownsRequested.current) return;
-    dropdownsRequested.current = true;
-
-    getDepartmentReference().then(d => {
-      setDepartments(d);
-    }).catch(err => {
-      console.error(err);
-      dropdownsRequested.current = false;
-    });
-  };
-
   const handleOpenModal = (section?: SectionListItem) => {
-    loadDropdownData();
-
     if (section) {
       setEditingSection(section);
       setFormData({
@@ -110,6 +90,10 @@ export default function Sections() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+    if (formData.department === "") {
+      showToast("Please select a department.", "error");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const payload = {
@@ -212,12 +196,15 @@ export default function Sections() {
           </div>
           <div className="form-group">
             <label className="form-label">Department</label>
-            <select required className="form-control" value={formData.department} onChange={(e) => setFormData({...formData, department: Number(e.target.value)})}>
-              <option value="">-- Select Department --</option>
-              {departments.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
+            <PaginatedSelect
+              fetchPage={(page, pageSize, signal) => getDepartmentReference(page, pageSize, signal)}
+              getId={d => d.id}
+              getLabel={d => d.name}
+              value={formData.department}
+              onChange={id => setFormData({...formData, department: id})}
+              selectedLabel={editingSection?.department_name || undefined}
+              placeholder="-- Select Department --"
+            />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
             <div className="form-group">

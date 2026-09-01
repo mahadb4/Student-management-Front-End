@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
 import { getCurrentUser } from "../../services/auth";
-import { getMyStudentProfile, departmentService, sectionService } from "../../services/entities";
-import type { Student, Department, Section } from "../../types/user";
+import { getMyStudentProfile } from "../../services/entities";
+import type { StudentProfile } from "../../types/user";
 
 export default function StudentProfile() {
   const user = getCurrentUser();
-  const [student, setStudent] = useState<Student | null>(null);
-
-  const [department, setDepartment] = useState<Department | null>(null);
-  const [section, setSection] = useState<Section | null>(null);
+  const [student, setStudent] = useState<StudentProfile | null>(null);
 
   const [loading, setLoading] = useState(true);
 
@@ -18,18 +15,10 @@ export default function StudentProfile() {
       return;
     }
 
-    getMyStudentProfile().then(myStudent => {
-      setStudent(myStudent);
-
-      // Single-record lookups (not full-collection fetches) to resolve names.
-      Promise.all([
-        myStudent.department ? departmentService.getById(myStudent.department) : Promise.resolve(null),
-        myStudent.section ? sectionService.getById(myStudent.section) : Promise.resolve(null),
-      ]).then(([d, s]) => {
-        setDepartment(d);
-        setSection(s);
-      }).finally(() => setLoading(false));
-    }).catch(() => setLoading(false));
+    getMyStudentProfile()
+      .then(setStudent)
+      .catch(() => {})
+      .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -70,11 +59,11 @@ export default function StudentProfile() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "16px", marginTop: "24px" }}>
                 <div>
                   <div className="form-label">Section</div>
-                  <div><strong>{section ? section.name : "Not Assigned"}</strong></div>
+                  <div><strong>{student.section_name || "Not Assigned"}</strong></div>
                 </div>
                 <div>
                   <div className="form-label">Department</div>
-                  <div><strong>{department ? department.name : "Not Assigned"}</strong></div>
+                  <div><strong>{student.department_name || "Not Assigned"}</strong></div>
                 </div>
                 <div>
                   <div className="form-label">Enrollment Date</div>

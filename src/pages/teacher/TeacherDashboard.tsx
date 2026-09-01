@@ -1,15 +1,12 @@
 import { useEffect, useState } from "react";
 import { getCurrentUser } from "../../services/auth";
-import { getMyTeacherProfile, getMyCourseOfferings, getEnrollmentList } from "../../services/entities";
+import { getMyTeacherDashboard } from "../../services/entities";
 import { Link } from "react-router-dom";
-import type { Teacher, CourseOfferingListItem } from "../../types/user";
+import type { TeacherDashboardSummary } from "../../types/user";
 
 export default function TeacherDashboard() {
   const user = getCurrentUser();
-  const [teacher, setTeacher] = useState<Teacher | null>(null);
-
-  const [offerings, setOfferings] = useState<CourseOfferingListItem[]>([]);
-  const [studentCount, setStudentCount] = useState(0);
+  const [summary, setSummary] = useState<TeacherDashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,19 +15,10 @@ export default function TeacherDashboard() {
       return;
     }
 
-    getMyTeacherProfile().then(myTeacher => {
-      setTeacher(myTeacher);
-
-      // enrollments/ is already server-scoped to this teacher's own offerings
-      // via apply_data_scope - not a full-table fetch despite the shared endpoint.
-      Promise.all([
-        getMyCourseOfferings(1, 500),
-        getEnrollmentList(1, 500),
-      ]).then(([o, e]) => {
-        setOfferings(o.results);
-        setStudentCount(e.results.length);
-      }).finally(() => setLoading(false));
-    }).catch(() => setLoading(false));
+    getMyTeacherDashboard()
+      .then(setSummary)
+      .catch(() => setSummary(null))
+      .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -43,7 +31,7 @@ export default function TeacherDashboard() {
 
       {loading ? (
         <p>Loading dashboard...</p>
-      ) : !teacher ? (
+      ) : !summary ? (
         <div className="content-card" style={{ padding: "24px", color: "var(--color-danger)" }}>
           <h3>Teacher Record Not Found</h3>
           <p>We could not find a teacher record matching your email ({user?.email}). Please contact administration.</p>
@@ -56,7 +44,7 @@ export default function TeacherDashboard() {
                 <div className="stat-icon primary">📚</div>
                 <div className="stat-title">Active Classes</div>
               </div>
-              <div className="stat-value">{offerings.filter(o => o.is_active).length}</div>
+              <div className="stat-value">{summary.active_classes}</div>
               <div className="stat-desc">Courses you are teaching</div>
             </div>
 
@@ -65,7 +53,7 @@ export default function TeacherDashboard() {
                 <div className="stat-icon success">👥</div>
                 <div className="stat-title">Total Students</div>
               </div>
-              <div className="stat-value">{studentCount}</div>
+              <div className="stat-value">{summary.total_students}</div>
               <div className="stat-desc">Across all your classes</div>
             </div>
 

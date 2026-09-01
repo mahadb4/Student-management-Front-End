@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { teacherService, getTeacherList, getDepartmentReference } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { Teacher, TeacherListItem, DepartmentReference } from "../../types/user";
+import { PaginatedSelect } from "../../components/common/PaginatedSelect";
+import type { Teacher, TeacherListItem } from "../../types/user";
 import { useToast } from "../../context/ToastContext";
 
 export default function Teachers() {
@@ -13,15 +14,14 @@ export default function Teachers() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // Departments are still fetched here — not for the table (the list API
-  // already returns resolved department names per row), but because the
-  // Add/Edit form dropdown and the department filter need the full list.
-  const [departments, setDepartments] = useState<DepartmentReference[]>([]);
   const [loading, setLoading] = useState(true);
+  // Label for the currently-edited row's Department, shown until the
+  // paginated dropdown's own loaded page happens to include that option.
+  const [editingDeptLabel, setEditingDeptLabel] = useState<string | undefined>(undefined);
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [deptFilter, setDeptFilter] = useState("");
+  const [deptFilter, setDeptFilter] = useState<number | "">("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
@@ -75,32 +75,14 @@ export default function Teachers() {
     setCurrentPage(1);
   };
 
-  // Department options are only needed for the Add/Edit form and the
-  // department filter — not for rendering the table (the list API already
-  // returns resolved names). Loaded lazily, once, on first actual use.
-  const dropdownsRequested = useRef(false);
-
-  const loadDropdownData = () => {
-    if (dropdownsRequested.current) return;
-    dropdownsRequested.current = true;
-
-    getDepartmentReference().then(d => {
-      setDepartments(d);
-    }).catch(err => {
-      console.error(err);
-      dropdownsRequested.current = false;
-    });
-  };
-
   // The Teachers list only carries the narrow TeacherListItem projection, so editing
   // fetches the full Teacher record (detail endpoint, unchanged) to populate the form.
   const handleOpenModal = async (row?: TeacherListItem) => {
-    loadDropdownData();
-
     if (row) {
       try {
         const teacher = await teacherService.getById(row.id);
         setEditingTeacher(teacher);
+        setEditingDeptLabel(row.department_name || undefined);
         setFormData({
           first_name: teacher.first_name, last_name: teacher.last_name,
           employee_id: teacher.employee_id, email: teacher.email, phone_number: teacher.phone_number,
@@ -115,6 +97,7 @@ export default function Teachers() {
       }
     } else {
       setEditingTeacher(null);
+      setEditingDeptLabel(undefined);
       setFormData({
         first_name: "", last_name: "", employee_id: "", email: "", phone_number: "",
         department: "", designation: "", qualification: "", gender: "M",
@@ -128,6 +111,10 @@ export default function Teachers() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+    if (formData.department === "") {
+      showToast("Please select a department.", "error");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const payload = {
@@ -171,8 +158,8 @@ export default function Teachers() {
   };
 
   const filteredTeachers = useMemo(() => {
-    if (!deptFilter) return teachers;
-    return teachers.filter(t => t.department_id?.toString() === deptFilter);
+    if (deptFilter === "") return teachers;
+    return teachers.filter(t => t.department_id === deptFilter);
   }, [teachers, deptFilter]);
 
   return (
@@ -187,7 +174,7 @@ export default function Teachers() {
         </button>
       </div>
 
-      <div className="content-card" style={{ marginBottom: "24px", padding: "16px" }}>
+      <div className="content-card" style={{ marginBottom: "24px", padding: "16px", overflow: "visible" }}>
         <div style={{ display: "flex", gap: "16px" }}>
           <input
             type="text"
@@ -196,16 +183,18 @@ export default function Teachers() {
             value={search}
             onChange={e => handleSearchChange(e.target.value)}
           />
-          <select
-            className="form-control"
-            value={deptFilter}
-            onChange={e => setDeptFilter(e.target.value)}
-            onFocus={loadDropdownData}
-            style={{ maxWidth: "250px" }}
-          >
-            <option value="">All Departments</option>
-            {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
+          <div style={{ maxWidth: "250px", width: "100%" }}>
+            <PaginatedSelect
+              fetchPage={(page, pageSize, signal) => getDepartmentReference(page, pageSize, signal)}
+              getId={d => d.id}
+              getLabel={d => d.name}
+              value={deptFilter}
+              onChange={id => setDeptFilter(id)}
+              onClear={() => setDeptFilter("")}
+              clearLabel="All Departments"
+              placeholder="All Departments"
+            />
+          </div>
         </div>
       </div>
 
@@ -264,10 +253,15 @@ export default function Teachers() {
             </div>
             <div className="form-group">
               <label className="form-label">Department</label>
-              <select required className="form-control" value={formData.department} onChange={(e) => setFormData({...formData, department: Number(e.target.value)})} onFocus={loadDropdownData}>
-                <option value="">-- Select Department --</option>
-                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              <PaginatedSelect
+                fetchPage={(page, pageSize, signal) => getDepartmentReference(page, pageSize, signal)}
+                getId={d => d.id}
+                getLabel={d => d.name}
+                value={formData.department}
+                onChange={id => setFormData({...formData, department: id})}
+                selectedLabel={editingDeptLabel}
+                placeholder="-- Select Department --"
+              />
             </div>
             <div className="form-group">
               <label className="form-label">Designation</label>

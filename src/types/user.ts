@@ -42,6 +42,34 @@ export interface Student {
   is_active: boolean;
 }
 
+// Shape returned by GET /students/me/: the authenticated Student's own
+// profile, with department/section already resolved to display names
+// server-side (no separate lookup needed) via the backend's
+// serialize_student_profile. Distinct from Student (used by the Admin
+// studentService CRUD against /students/<id>/, which still returns raw ids).
+export interface StudentProfile {
+  id: number;
+  first_name: string;
+  last_name: string;
+  student_email: string;
+  parents_phone_number: string;
+  date_of_birth: string;
+  gender: string;
+  address: string;
+  department_name: string | null;
+  section_name: string | null;
+  date_of_enrollment: string;
+}
+
+// Shape returned by GET /students/me/summary/: only the counts and recent
+// records the Student Dashboard renders, via the backend's my_summary_api.
+export interface StudentSummary {
+  active_enrollments_count: number;
+  present_count: number;
+  absent_count: number;
+  recent_attendance: { id: number; date: string; status: AttendanceStatus }[];
+}
+
 // Shape returned by the Students LIST endpoint (GET /students/): a narrower
 // projection than Student, with department/section resolved to flat
 // id/name fields (no nested object for a single extra field) via the
@@ -100,6 +128,22 @@ export interface Teacher {
   updated_at: string;
 }
 
+// Shape returned by GET /teachers/me/: the authenticated Teacher's own
+// profile - no salary/address/gender/date_of_birth/qualification/phone_number/
+// created_at/updated_at/is_active, none of which any Teacher page renders,
+// via the backend's serialize_teacher_profile. Distinct from Teacher (used by
+// Admin's teacherService CRUD against /teachers/<id>/, which still returns
+// the full record).
+export interface TeacherProfile {
+  id: number;
+  first_name: string;
+  last_name: string;
+  employee_id: string;
+  email: string;
+  department_name: string | null;
+  designation: string;
+}
+
 // Shape returned by the Teachers LIST endpoint (GET /teachers/): a narrower
 // projection than Teacher, with department resolved to flat id/name fields
 // via the backend's TeacherListDTO.
@@ -137,6 +181,7 @@ export interface DepartmentReference {
 export interface SectionReference {
   id: number;
   name: string;
+  department_name: string | null;
 }
 
 // Shape returned by the Teachers REFERENCE endpoint (GET /teachers/reference/),
@@ -152,6 +197,8 @@ export interface CourseReference {
   id: number;
   name: string;
   code: string;
+  department_id: number | null;
+  department_name: string | null;
 }
 
 // Shape returned by the Students REFERENCE endpoint (GET /students/reference/),
@@ -160,6 +207,7 @@ export interface StudentReference {
   id: number;
   name: string;
   student_email: string;
+  section_id: number | null;
 }
 
 export interface Course {
@@ -195,9 +243,47 @@ export interface CourseOfferingListItem {
   semester: Semester;
   academic_year: number;
   is_active: boolean;
-  course: { id: number; name: string; code: string } | null;
-  teacher: { id: number; name: string } | null;
-  section: { id: number; name: string } | null;
+  course_id: number | null;
+  course_name: string | null;
+  course_code: string | null;
+  teacher_id: number | null;
+  teacher_name: string | null;
+  section_id: number | null;
+  section_name: string | null;
+}
+
+// Shape returned by the Course Offerings REFERENCE endpoint (GET
+// /course_offerings/reference/): a read-only projection - no raw
+// course/teacher/section ids, since consumers here (Student/Teacher browse
+// and lookup screens) never edit an offering - via the backend's
+// CourseOfferingReferenceDTO. Distinct from CourseOfferingListItem, which
+// Admin's edit form still needs raw ids from.
+export interface CourseOfferingReference {
+  id: number;
+  semester: Semester;
+  academic_year: number;
+  is_active: boolean;
+  course_name: string | null;
+  course_code: string | null;
+  teacher_name: string | null;
+  section_name: string | null;
+}
+
+// Shape returned by GET /teachers/me/courses/ ("My Classes"): the
+// authenticated Teacher's own offerings - no teacher_name (it's their own)
+// and no raw ids, plus enrolled_students_count computed server-side (a
+// distinct-active-enrollment count) instead of the frontend downloading
+// every enrollment row just to count them - via the backend's
+// CourseOfferingMapper.to_teacher_list_dto.
+export interface CourseOfferingTeacherListItem {
+  id: number;
+  course_name: string | null;
+  course_code: string | null;
+  semester: Semester;
+  academic_year: number;
+  section_name: string | null;
+  is_active: boolean;
+  enrolled_students_count: number;
 }
 
 export interface CourseOffering {
@@ -212,7 +298,54 @@ export interface CourseOffering {
   updated_at: string;
 }
 
+// Shape returned by GET /students/me/courses/reference/: the minimal
+// projection the Student Attendance course filter dropdown needs - id is the
+// enrollment id (the dropdown's option value, matched against attendance
+// rows' enrollment_id), course_code/course_name make up the label. Via the
+// backend's EnrollmentMapper.to_reference_dto.
+export interface EnrollmentReference {
+  id: number;
+  course_code: string;
+  course_name: string;
+}
+
 export type EnrollmentStatus = "ACTIVE" | "DROPPED" | "COMPLETED";
+
+// Shape returned by GET /students/me/courses/: a narrower projection than
+// EnrollmentListItem, dropping student_id/student_name/student_email
+// (redundant echoes of the caller's own identity) and adding teacher_name
+// (resolved server-side from the enrollment's own course_offering) so the
+// Student My Courses UI never needs a separate course_offerings fetch just
+// to show who teaches an enrolled course - via the backend's
+// EnrollmentMapper.to_student_list_dto.
+export interface StudentEnrollmentListItem {
+  id: number;
+  status: EnrollmentStatus;
+  course_offering_id: number;
+  semester: Semester;
+  academic_year: number;
+  course_name: string;
+  course_code: string;
+  teacher_name: string | null;
+  section_name: string | null;
+}
+
+// Shape returned by GET /teachers/me/students/: one row per enrollment in
+// the authenticated Teacher's own classes. No teacher identity (it's their
+// own), no raw student id (student_email is a sufficient identifier for the
+// table); course_offering_id is kept because the Students/Attendance class
+// filter dropdown needs it to match rows against - via the backend's
+// EnrollmentMapper.to_teacher_list_dto.
+export interface EnrollmentTeacherListItem {
+  enrollment_id: number;
+  course_offering_id: number;
+  student_name: string;
+  student_email: string;
+  course_name: string;
+  course_code: string;
+  section_name: string | null;
+  status: EnrollmentStatus;
+}
 
 export interface Enrollment {
   id: number;
@@ -229,14 +362,15 @@ export interface Enrollment {
 export interface EnrollmentListItem {
   id: number;
   status: EnrollmentStatus;
-  student: { id: number; name: string; student_email: string };
-  course_offering: {
-    id: number;
-    semester: Semester;
-    academic_year: number;
-    course: { name: string; code: string };
-    section: { name: string } | null;
-  };
+  student_id: number;
+  student_name: string;
+  student_email: string;
+  course_offering_id: number;
+  semester: Semester;
+  academic_year: number;
+  course_name: string;
+  course_code: string;
+  section_name: string | null;
 }
 
 export type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE";
@@ -254,6 +388,40 @@ export interface AttendanceListItem {
   student_name: string | null;
   course_id: number | null;
   course_code: string | null;
+}
+
+// Shape returned by GET /students/me/attendance/: a narrower projection than
+// AttendanceListItem, dropping student_id/student_name/course_id since those
+// are redundant echoes of the caller's own identity - via the backend's
+// AttendanceMapper.to_student_list_dto.
+export interface StudentAttendanceListItem {
+  id: number;
+  date: string;
+  status: AttendanceStatus;
+  remarks: string;
+  enrollment_id: number | null;
+  course_code: string | null;
+}
+
+// Shape returned by GET /teachers/me/attendance/: a narrower projection than
+// AttendanceListItem, dropping student_id/course_id (unused by the
+// Attendance table) - enrollment_id is kept for the class filter, and
+// student_name identifies whose row it is - via the backend's
+// AttendanceMapper.to_teacher_list_dto.
+export interface TeacherAttendanceListItem {
+  id: number;
+  date: string;
+  status: AttendanceStatus;
+  remarks: string;
+  enrollment_id: number | null;
+  student_name: string | null;
+}
+
+// Shape returned by GET /teachers/me/dashboard/: only the counts the Teacher
+// Dashboard renders - via the backend's my_dashboard_api.
+export interface TeacherDashboardSummary {
+  active_classes: number;
+  total_students: number;
 }
 
 export interface Attendance {
