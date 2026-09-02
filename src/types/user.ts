@@ -181,6 +181,7 @@ export interface DepartmentReference {
 export interface SectionReference {
   id: number;
   name: string;
+  semester_number: number | null;
   department_name: string | null;
 }
 
@@ -197,6 +198,7 @@ export interface CourseReference {
   id: number;
   name: string;
   code: string;
+  semester_number: number | null;
   department_id: number | null;
   department_name: string | null;
 }
@@ -216,6 +218,7 @@ export interface Course {
   code: string;
   description: string;
   credits: number;
+  semester_number: number | null;
   department: number | null;
   teacher: number | null;
   is_active: boolean;
@@ -232,6 +235,7 @@ export interface CourseListItem {
   code: string;
   name: string;
   credits: number;
+  semester_number: number | null;
   department_name: string | null;
   teacher_name: string | null;
 }

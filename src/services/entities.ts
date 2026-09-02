@@ -86,9 +86,11 @@ export const sectionService=createCrudService<Section>("/sections");
 export const getDepartmentReference=(page:number=1,pageSize:number=10,signal?:AbortSignal):Promise<PaginatedResponse<DepartmentReference>>=>
   apiRequest<PaginatedResponse<DepartmentReference>>(`/departments/reference/?page=${page}&page_size=${pageSize}`,authHeaders(signal));
 
-export const getSectionReference=(departmentId?:number,page:number=1,pageSize:number=10,signal?:AbortSignal):Promise<PaginatedResponse<SectionReference>>=>{
+export const getSectionReference=(departmentId?:number,page:number=1,pageSize:number=10,signal?:AbortSignal,semesterNumber?:number,academicYear?:number):Promise<PaginatedResponse<SectionReference>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(departmentId!==undefined)params.set("department_id",String(departmentId));
+  if(semesterNumber!==undefined)params.set("semester_number",String(semesterNumber));
+  if(academicYear!==undefined)params.set("academic_year",String(academicYear));
   return apiRequest<PaginatedResponse<SectionReference>>(`/sections/reference/?${params.toString()}`,authHeaders(signal));
 };
 
@@ -98,9 +100,10 @@ export const getTeacherReference=(page:number=1,pageSize:number=10,signal?:Abort
   return apiRequest<PaginatedResponse<TeacherReference>>(`/teachers/reference/?${params.toString()}`,authHeaders(signal));
 };
 
-export const getCourseReference=(page:number=1,pageSize:number=10,signal?:AbortSignal,departmentId?:number):Promise<PaginatedResponse<CourseReference>>=>{
+export const getCourseReference=(page:number=1,pageSize:number=10,signal?:AbortSignal,departmentId?:number,semesterNumber?:number):Promise<PaginatedResponse<CourseReference>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(departmentId!==undefined)params.set("department_id",String(departmentId));
+  if(semesterNumber!==undefined)params.set("semester_number",String(semesterNumber));
   return apiRequest<PaginatedResponse<CourseReference>>(`/courses/reference/?${params.toString()}`,authHeaders(signal));
 };
 

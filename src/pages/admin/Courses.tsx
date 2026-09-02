@@ -29,7 +29,7 @@ export default function Courses() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: "", code: "", description: "", credits: 3,
+    name: "", code: "", description: "", credits: 3, semester_number: "" as number | "",
     department: "" as number | "", teacher: "" as number | "", is_active: true
   });
 
@@ -81,6 +81,7 @@ export default function Courses() {
           code: course.code,
           description: course.description,
           credits: course.credits,
+          semester_number: course.semester_number ?? "",
           department: course.department || "",
           teacher: course.teacher || "",
           is_active: course.is_active
@@ -93,7 +94,7 @@ export default function Courses() {
     } else {
       setEditingCourse(null);
       setEditingLabels({});
-      setFormData({ name: "", code: "", description: "", credits: 3, department: "", teacher: "", is_active: true });
+      setFormData({ name: "", code: "", description: "", credits: 3, semester_number: "", department: "", teacher: "", is_active: true });
     }
     setIsModalOpen(true);
   };
@@ -105,6 +106,7 @@ export default function Courses() {
     try {
       const payload = {
         ...formData,
+        semester_number: formData.semester_number === "" ? null : Number(formData.semester_number),
         department: formData.department === "" ? null : Number(formData.department),
         teacher: formData.teacher === "" ? null : Number(formData.teacher),
       };
@@ -176,6 +178,11 @@ export default function Courses() {
             { key: "name", label: "Name" },
             { key: "credits", label: "Credits" },
             {
+              key: "semester_number",
+              label: "Semester",
+              render: (c) => c.semester_number ? `Semester ${c.semester_number}` : "-"
+            },
+            {
               key: "department",
               label: "Department",
               render: (c) => c.department_name || "-"
@@ -209,6 +216,20 @@ export default function Courses() {
           <div className="form-group">
             <label className="form-label">Credits</label>
             <input type="number" required className="form-control" value={formData.credits} onChange={(e) => setFormData({...formData, credits: parseInt(e.target.value) || 0})} />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Semester Number</label>
+            <select
+              className="form-control"
+              value={formData.semester_number}
+              onChange={(e) => setFormData({...formData, semester_number: e.target.value === "" ? "" : parseInt(e.target.value)})}
+            >
+              <option value="">-- Not classified --</option>
+              {Array.from({ length: 8 }, (_, i) => i + 1).map(n => (
+                <option key={n} value={n}>Semester {n}</option>
+              ))}
+            </select>
           </div>
 
           <div className="form-group">

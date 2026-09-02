@@ -34,18 +34,20 @@ export default function CourseOfferings() {
     section: "" as number | "", is_active: true
   });
 
-  // The selected Course's own department - scopes the Section dropdown to
-  // sections that actually belong to it (sections are named "A"/"B"/"C"/"D"
-  // per department, so without this an admin sees every department's
-  // sections mixed together with no way to tell them apart).
-  const [selectedCourseDepartmentId, setSelectedCourseDepartmentId] = useState<number | null | undefined>(undefined);
-
-  // Top-level department picker: scopes both Teacher and Course to that
+  // Top-level department picker: scopes Teacher/Course/Section to that
   // department (a course offering is naturally "run by this department, for
-  // this department's own course, by one of this department's teachers").
-  // Not part of formData/the save payload - CourseOffering itself has no
-  // department field, this only drives which Teacher/Course options show.
+  // this department's own course, by one of this department's teachers, into
+  // one of this department's sections"). Not part of formData/the save
+  // payload - CourseOffering itself has no department field, this only
+  // drives which Teacher/Course/Section options show.
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | "">("");
+
+  // Program semester (1-8) picked right after Department: scopes the Course
+  // list to that semester's curriculum (Course.semester_number) and the
+  // Section list to Department+Semester+AcademicYear together. Distinct from
+  // formData.semester, which is the Fall/Spring/Summer academic TERM stored
+  // on the offering itself.
+  const [selectedSemesterNumber, setSelectedSemesterNumber] = useState<number | "">("");
 
   const loadData = (signal?: AbortSignal) => {
     setLoading(true);
@@ -98,13 +100,13 @@ export default function CourseOfferings() {
         section: offering.section_id ?? "",
         is_active: offering.is_active
       });
-      // Not resolving the course's department here - the existing
+      // Not resolving the offering's department/semester here - the existing
       // Teacher/Course/Section stay shown via editingLabels as-is; the
       // dependent filters only need to apply once the admin actively changes
-      // the Department/Course (see handleDepartmentChange/handleCourseChange),
+      // Department/Semester (see handleDepartmentChange/handleSemesterNumberChange),
       // same reasoning as the Enrollment form's student-section filter.
-      setSelectedCourseDepartmentId(undefined);
       setSelectedDepartmentId("");
+      setSelectedSemesterNumber("");
     } else {
       setEditingOffering(null);
       setEditingLabels({});
@@ -112,23 +114,27 @@ export default function CourseOfferings() {
         course: "", teacher: "", semester: "FALL",
         academic_year: new Date().getFullYear(), section: "", is_active: true
       });
-      setSelectedCourseDepartmentId(undefined);
       setSelectedDepartmentId("");
+      setSelectedSemesterNumber("");
     }
     setIsModalOpen(true);
   };
 
   const handleDepartmentChange = (id: number | "") => {
     setSelectedDepartmentId(id);
+    setSelectedSemesterNumber("");
     setFormData(prev => ({ ...prev, course: "", teacher: "", section: "" }));
     setEditingLabels(prev => ({ ...prev, course: undefined, teacher: undefined, section: undefined }));
-    setSelectedCourseDepartmentId(undefined);
   };
 
-  const handleCourseChange = (id: number, course: { department_id: number | null }) => {
-    setFormData(prev => ({ ...prev, course: id, section: "" }));
-    setEditingLabels(prev => ({ ...prev, section: undefined }));
-    setSelectedCourseDepartmentId(course.department_id);
+  const handleSemesterNumberChange = (value: number | "") => {
+    setSelectedSemesterNumber(value);
+    setFormData(prev => ({ ...prev, course: "", section: "" }));
+    setEditingLabels(prev => ({ ...prev, course: undefined, section: undefined }));
+  };
+
+  const handleCourseChange = (id: number) => {
+    setFormData(prev => ({ ...prev, course: id }));
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -259,20 +265,34 @@ export default function CourseOfferings() {
             />
           </div>
           <div className="form-group">
+            <label className="form-label">Semester Number</label>
+            <select
+              className="form-control"
+              value={selectedSemesterNumber}
+              onChange={(e) => handleSemesterNumberChange(e.target.value === "" ? "" : parseInt(e.target.value))}
+              disabled={!editingOffering && selectedDepartmentId === ""}
+            >
+              <option value="">{!editingOffering && selectedDepartmentId === "" ? "-- Select a Department First --" : "-- Select Semester --"}</option>
+              {Array.from({ length: 8 }, (_, i) => i + 1).map(n => (
+                <option key={n} value={n}>Semester {n}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
             <label className="form-label">Course</label>
             <PaginatedSelect
-              // Scoped to the selected Department - resetKey re-fetches page 1
-              // whenever it changes, same dependent-dropdown pattern used
-              // throughout the app (e.g. Department -> Section on the Students form).
-              fetchPage={(page, pageSize, signal) => getCourseReference(page, pageSize, signal, selectedDepartmentId === "" ? undefined : selectedDepartmentId)}
-              resetKey={selectedDepartmentId}
+              // Scoped to Department + Semester Number (Course.semester_number) -
+              // resetKey re-fetches page 1 whenever either changes, same
+              // dependent-dropdown pattern used throughout the app.
+              fetchPage={(page, pageSize, signal) => getCourseReference(page, pageSize, signal, selectedDepartmentId === "" ? undefined : selectedDepartmentId, selectedSemesterNumber === "" ? undefined : selectedSemesterNumber)}
+              resetKey={`${selectedDepartmentId}-${selectedSemesterNumber}`}
               getId={c => c.id}
               getLabel={c => c.department_name ? `${c.name} (${c.code}) - ${c.department_name}` : `${c.name} (${c.code})`}
               value={formData.course}
               onChange={handleCourseChange}
               selectedLabel={editingLabels.course}
-              placeholder={!editingOffering && selectedDepartmentId === "" ? "-- Select a Department First --" : "-- Select Course --"}
-              disabled={!editingOffering && selectedDepartmentId === ""}
+              placeholder={!editingOffering && selectedSemesterNumber === "" ? "-- Select a Semester First --" : "-- Select Course --"}
+              disabled={!editingOffering && selectedSemesterNumber === ""}
             />
           </div>
           <div className="form-group">
@@ -308,12 +328,19 @@ export default function CourseOfferings() {
           <div className="form-group">
             <label className="form-label">Section</label>
             <PaginatedSelect
-              // Scoped to the selected Course's own department - resetKey on
-              // formData.course discards previously loaded pages and
-              // re-fetches page 1 whenever the course changes, same pattern
-              // as the Student form's Department -> Section dropdown.
-              fetchPage={(page, pageSize, signal) => getSectionReference(selectedCourseDepartmentId ?? undefined, page, pageSize, signal)}
-              resetKey={formData.course}
+              // Scoped to Department + Semester Number + Academic Year together
+              // (never just Department alone - business rule: selecting a
+              // semester must narrow Sections to that exact Department+
+              // Semester+Year combination, e.g. "Computer Science, Semester 1,
+              // 2026" only shows that cohort's own A/B/C/D sections). The
+              // backend does not require course.department == section.department
+              // (see enrollment_service._validate_student_section, which only
+              // compares student.section_id to course_offering.section_id), so
+              // a course whose owning department differs from the section's
+              // can still be offered - this form just doesn't expose a way to
+              // pick a Course from outside the selected Department.
+              fetchPage={(page, pageSize, signal) => getSectionReference(selectedDepartmentId === "" ? undefined : selectedDepartmentId, page, pageSize, signal, selectedSemesterNumber === "" ? undefined : selectedSemesterNumber, formData.academic_year)}
+              resetKey={`${selectedDepartmentId}-${selectedSemesterNumber}-${formData.academic_year}`}
               getId={s => s.id}
               getLabel={s => s.department_name ? `${s.name} - ${s.department_name}` : s.name}
               value={formData.section}
@@ -321,8 +348,8 @@ export default function CourseOfferings() {
               onClear={() => setFormData({...formData, section: ""})}
               clearLabel="-- No Section --"
               selectedLabel={editingLabels.section}
-              placeholder={formData.course === "" ? "-- Select a Course First --" : "-- No Section --"}
-              disabled={formData.course === ""}
+              placeholder={!editingOffering && selectedSemesterNumber === "" ? "-- Select a Semester First --" : "-- No Section --"}
+              disabled={!editingOffering && selectedSemesterNumber === ""}
             />
           </div>
 
