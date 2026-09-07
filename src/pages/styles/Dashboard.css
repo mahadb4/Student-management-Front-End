@@ -346,6 +346,34 @@
   background-color: var(--color-background);
 }
 
+/*Sortable column headers (EntityTable)*/
+.data-table th.sortable-col {
+  padding: 0;
+}
+
+.data-table th.sortable-col .sort-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 24px;
+  cursor: pointer;
+  user-select: none;
+  color: inherit;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.data-table th.sortable-col .sort-label:hover,
+.data-table th.sortable-col .sort-label:focus-visible {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  outline: none;
+}
+
+.data-table th.sortable-col.active .sort-label {
+  color: var(--color-primary);
+}
+
 /*Badges*/
 .badge {
   display: inline-flex;
@@ -390,6 +418,15 @@
 
 .btn-danger:hover {
   background-color: var(--color-danger-bg);
+}
+
+.btn-warning {
+  background-color: var(--color-warning);
+  color: white;
+}
+
+.btn-warning:hover {
+  background-color: #d97706;
 }
 
 .btn-success {

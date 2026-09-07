@@ -4,7 +4,7 @@ import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { PaginatedSelect } from "../../components/common/PaginatedSelect";
-import type { CourseOfferingListItem, Semester } from "../../types/user";
+import type { CourseOffering, CourseOfferingListItem, Semester } from "../../types/user";
 import { useToast } from "../../context/ToastContext";
 
 export default function CourseOfferings() {
@@ -21,12 +21,16 @@ export default function CourseOfferings() {
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [ordering, setOrdering] = useState("name");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingOffering, setEditingOffering] = useState<CourseOfferingListItem | null>(null);
+  const [editingOffering, setEditingOffering] = useState<CourseOffering | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<CourseOfferingListItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Separate from the Delete ConfirmDialog: shown only when an edit flips an
+  // existing, currently-active Course Offering to inactive.
+  const [pendingDeactivation, setPendingDeactivation] = useState(false);
 
   const [formData, setFormData] = useState({
     course: "" as number | "", teacher: "" as number | "",
@@ -51,7 +55,7 @@ export default function CourseOfferings() {
 
   const loadData = (signal?: AbortSignal) => {
     setLoading(true);
-    getCourseOfferingList(currentPage, pageSize, signal, debouncedSearch).then(oRes => {
+    getCourseOfferingList(currentPage, pageSize, signal, debouncedSearch, undefined, undefined, ordering).then(oRes => {
       setOfferings(oRes.results);
       setTotalCount(oRes.total_count);
     }).catch(err => {
@@ -72,7 +76,7 @@ export default function CourseOfferings() {
     const controller = new AbortController();
     loadData(controller.signal);
     return () => controller.abort();
-  }, [currentPage,pageSize,debouncedSearch]);
+  }, [currentPage,pageSize,debouncedSearch,ordering]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -84,22 +88,37 @@ export default function CourseOfferings() {
     setCurrentPage(1);
   };
 
-  const handleOpenModal = (offering?: CourseOfferingListItem) => {
-    if (offering) {
-      setEditingOffering(offering);
-      setEditingLabels({
-        course: offering.course_name || undefined,
-        teacher: offering.teacher_name || undefined,
-        section: offering.section_name || undefined,
-      });
-      setFormData({
-        course: offering.course_id ?? "",
-        teacher: offering.teacher_id ?? "",
-        semester: offering.semester,
-        academic_year: offering.academic_year,
-        section: offering.section_id ?? "",
-        is_active: offering.is_active
-      });
+  const handleSortChange = (nextOrdering: string) => {
+    setOrdering(nextOrdering);
+    setCurrentPage(1);
+  };
+
+  // The Course Offerings list only carries the narrow CourseOfferingListItem
+  // projection, so editing fetches the full CourseOffering record (detail
+  // endpoint) to populate the form - same pattern as Students/Teachers/Courses.
+  const handleOpenModal = async (row?: CourseOfferingListItem) => {
+    if (row) {
+      try {
+        const offering = await offeringService.getById(row.id);
+        setEditingOffering(offering);
+        setEditingLabels({
+          course: row.course_name || undefined,
+          teacher: row.teacher_name || undefined,
+          section: row.section_name || undefined,
+        });
+        setFormData({
+          course: offering.course ?? "",
+          teacher: offering.teacher ?? "",
+          semester: offering.semester,
+          academic_year: offering.academic_year,
+          section: offering.section ?? "",
+          is_active: offering.is_active
+        });
+      } catch (error) {
+        console.error(error);
+        showToast(error instanceof Error ? error.message : "Failed to load course offering.", "error");
+        return;
+      }
       // Not resolving the offering's department/semester here - the existing
       // Teacher/Course/Section stay shown via editingLabels as-is; the
       // dependent filters only need to apply once the admin actively changes
@@ -144,6 +163,16 @@ export default function CourseOfferings() {
       showToast("Please select a course and teacher.", "error");
       return;
     }
+
+    if (editingOffering && editingOffering.is_active && !formData.is_active) {
+      setPendingDeactivation(true);
+      return;
+    }
+
+    await saveOffering();
+  };
+
+  const saveOffering = async () => {
     setIsSubmitting(true);
     try {
       const payload = {
@@ -160,6 +189,7 @@ export default function CourseOfferings() {
         await offeringService.create(payload);
         showToast("Course offering created successfully.", "success");
       }
+      setPendingDeactivation(false);
       setIsModalOpen(false);
       loadData();
     } catch (error) {
@@ -219,7 +249,8 @@ export default function CourseOfferings() {
             {
               key: "course",
               label: "Course",
-              render: (o) => o.course_name ? `${o.course_name} (${o.course_code})` : "-"
+              render: (o) => o.course_name ? `${o.course_name} (${o.course_code})` : "-",
+              sortKey: "name"
             },
             {
               key: "teacher",
@@ -246,6 +277,8 @@ export default function CourseOfferings() {
           pageSize={pageSize}
           onPageChange={setCurrentPage}
           onPageSizeChange={handlePageSizeChange}
+          ordering={ordering}
+          onSortChange={handleSortChange}
         />
       </div>
 
@@ -254,7 +287,7 @@ export default function CourseOfferings() {
           <div className="form-group">
             <label className="form-label">Department</label>
             <PaginatedSelect
-              fetchPage={(page, pageSize, signal) => getDepartmentReference(page, pageSize, signal)}
+              fetchPage={(page, pageSize, signal, search) => getDepartmentReference(page, pageSize, signal, search)}
               getId={d => d.id}
               getLabel={d => d.name}
               value={selectedDepartmentId}
@@ -262,6 +295,7 @@ export default function CourseOfferings() {
               onClear={() => handleDepartmentChange("")}
               clearLabel="-- Any Department --"
               placeholder="-- Select Department --"
+              serverSearch
             />
           </div>
           <div className="form-group">
@@ -372,6 +406,18 @@ export default function CourseOfferings() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
         confirmDisabled={isDeleting}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingDeactivation}
+        title="Deactivate Course Offering"
+        message="Deactivating this offering will make it unavailable for new Enrollments and Attendance. Existing enrollments and attendance records are not affected. Continue?"
+        onConfirm={saveOffering}
+        onCancel={() => setPendingDeactivation(false)}
+        variant="warning"
+        confirmDisabled={isSubmitting}
+        confirmLabel="Deactivate"
+        pendingLabel="Deactivating..."
       />
     </>
   );

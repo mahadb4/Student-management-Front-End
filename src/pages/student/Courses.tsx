@@ -21,18 +21,28 @@ export default function StudentCourses() {
   const [activeTab, setActiveTab] = useState<"my-courses" | "available">("my-courses");
   const [enrolling, setEnrolling] = useState<number | null>(null);
 
-  const loadData = () => {
+  // Available Offerings is a separate, on-demand fetch - not needed just to
+  // view My Enrollments, so it's only triggered the first time that tab is
+  // actually opened (see the activeTab effect below), not on initial mount.
+  const [offeringsLoaded, setOfferingsLoaded] = useState(false);
+  const [loadingOfferings, setLoadingOfferings] = useState(false);
+
+  const loadEnrollments = () => {
     setLoading(true);
-    Promise.all([
-      getMyEnrollments(1, 10),
-      getCourseOfferingReference(1, 10),
-    ]).then(([e, o]) => {
-      setEnrollments(e.results);
+    getMyEnrollments(1, 10)
+      .then(e => setEnrollments(e.results))
+      .catch(() => setNotFound(true))
+      .finally(() => setLoading(false));
+  };
+
+  const loadOfferings = () => {
+    setLoadingOfferings(true);
+    getCourseOfferingReference(1, 10).then(o => {
       setOfferings(o.results.filter(x => x.is_active));
       setOfferingsPage(o.current_page);
       setOfferingsTotalPages(o.total_pages);
-    }).catch(() => setNotFound(true))
-      .finally(() => setLoading(false));
+      setOfferingsLoaded(true);
+    }).finally(() => setLoadingOfferings(false));
   };
 
   const loadMoreOfferings = () => {
@@ -49,16 +59,28 @@ export default function StudentCourses() {
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
-    loadData();
+    loadEnrollments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "available" && !offeringsLoaded && !loadingOfferings) {
+      loadOfferings();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const handleEnroll = async (offeringId: number) => {
     setEnrolling(offeringId);
     try {
       await enrollInCourseOffering(offeringId);
       invalidateMeCache("enrollments:1:10");
-      loadData();
+      loadEnrollments();
+      // Drop the just-enrolled offering from the already-loaded Available
+      // Offerings list locally - the server already excludes it on the next
+      // real fetch, this just keeps the current page's list correct without
+      // an extra request.
+      setOfferings(prev => prev.filter(o => o.id !== offeringId));
       setActiveTab("my-courses");
     } catch (error) {
       console.error(error);
@@ -68,8 +90,11 @@ export default function StudentCourses() {
     }
   };
 
-  const enrolledOfferingIds = enrollments.map(e => e.course_offering_id);
-  const availableOfferings = offerings.filter(o => !enrolledOfferingIds.includes(o.id));
+  // Already-enrolled offerings are excluded server-side (see
+  // course_offering_service.py's _exclude_already_enrolled), so `offerings`
+  // is already the correct "available to enroll in" set - no client-side
+  // cross-referencing against `enrollments` needed.
+  const availableOfferings = offerings;
 
   if (loading) {
     return (
@@ -107,7 +132,7 @@ export default function StudentCourses() {
           className={`btn ${activeTab === 'available' ? 'btn-primary' : 'btn-outline'}`}
           onClick={() => setActiveTab("available")}
         >
-          Available Offerings ({availableOfferings.length})
+          Available Offerings{offeringsLoaded ? ` (${availableOfferings.length})` : ""}
         </button>
       </div>
 
@@ -135,7 +160,11 @@ export default function StudentCourses() {
         </div>
       )}
 
-      {activeTab === "available" && (
+      {activeTab === "available" && !offeringsLoaded && (
+        <div style={{ padding: "40px", textAlign: "center" }}>Loading available offerings...</div>
+      )}
+
+      {activeTab === "available" && offeringsLoaded && (
         <>
           <div className="table-responsive content-card">
             <table className="data-table">

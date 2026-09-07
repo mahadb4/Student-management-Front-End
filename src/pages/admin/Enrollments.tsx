@@ -4,7 +4,7 @@ import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { PaginatedSelect } from "../../components/common/PaginatedSelect";
-import type { EnrollmentListItem, EnrollmentStatus, StudentReference } from "../../types/user";
+import type { Enrollment, EnrollmentListItem, EnrollmentStatus, StudentReference } from "../../types/user";
 import { useToast } from "../../context/ToastContext";
 
 export default function Enrollments() {
@@ -21,9 +21,10 @@ export default function Enrollments() {
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [ordering, setOrdering] = useState("name");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingEnrollment, setEditingEnrollment] = useState<EnrollmentListItem | null>(null);
+  const [editingEnrollment, setEditingEnrollment] = useState<Enrollment | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<EnrollmentListItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -41,7 +42,7 @@ export default function Enrollments() {
 
   const loadData = (signal?: AbortSignal) => {
     setLoading(true);
-    getEnrollmentList(currentPage, pageSize, signal, debouncedSearch).then(eRes => {
+    getEnrollmentList(currentPage, pageSize, signal, debouncedSearch, ordering).then(eRes => {
       setEnrollments(eRes.results);
       setTotalCount(eRes.total_count);
     }).catch(err => {
@@ -62,7 +63,7 @@ export default function Enrollments() {
     const controller = new AbortController();
     loadData(controller.signal);
     return () => controller.abort();
-  }, [currentPage,pageSize,debouncedSearch]);
+  }, [currentPage,pageSize,debouncedSearch,ordering]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -74,18 +75,34 @@ export default function Enrollments() {
     setCurrentPage(1);
   };
 
-  const handleOpenModal = (enrollment?: EnrollmentListItem) => {
-    if (enrollment) {
-      setEditingEnrollment(enrollment);
-      setEditingLabels({
-        student: `${enrollment.student_name} (${enrollment.student_email})`,
-        offering: `${enrollment.course_name} - ${enrollment.section_name || "No Section"} (${enrollment.semester} ${enrollment.academic_year})`,
-      });
-      setFormData({
-        student: enrollment.student_id,
-        course_offering: enrollment.course_offering_id,
-        status: enrollment.status
-      });
+  const handleSortChange = (nextOrdering: string) => {
+    setOrdering(nextOrdering);
+    setCurrentPage(1);
+  };
+
+  // The Enrollments list only carries the narrow EnrollmentListItem projection,
+  // so editing fetches the full Enrollment record (detail endpoint) to populate
+  // the form - same pattern as Students/Teachers/Courses. This is a separate
+  // lookup from the referenced Student's own detail record (see note below).
+  const handleOpenModal = async (row?: EnrollmentListItem) => {
+    if (row) {
+      try {
+        const enrollment = await enrollmentService.getById(row.id);
+        setEditingEnrollment(enrollment);
+        setEditingLabels({
+          student: `${row.student_name} (${row.student_email})`,
+          offering: `${row.course_name} - ${row.section_name || "No Section"} (${row.semester} ${row.academic_year})`,
+        });
+        setFormData({
+          student: enrollment.student,
+          course_offering: enrollment.course_offering,
+          status: enrollment.status
+        });
+      } catch (error) {
+        console.error(error);
+        showToast(error instanceof Error ? error.message : "Failed to load enrollment.", "error");
+        return;
+      }
       // Deliberately not resolving the student's section here: an existing
       // enrollment's student may since have been deleted (student detail
       // lookups exclude deleted students by design, returning 403) while the
@@ -197,7 +214,8 @@ export default function Enrollments() {
             {
               key: "student",
               label: "Student",
-              render: (e) => `${e.student_name} (${e.student_email})`
+              render: (e) => `${e.student_name} (${e.student_email})`,
+              sortKey: "name"
             },
             {
               key: "course_offering",
@@ -222,6 +240,8 @@ export default function Enrollments() {
           pageSize={pageSize}
           onPageChange={setCurrentPage}
           onPageSizeChange={handlePageSizeChange}
+          ordering={ordering}
+          onSortChange={handleSortChange}
         />
       </div>
 
@@ -248,7 +268,7 @@ export default function Enrollments() {
               // re-fetches page 1 whenever the student changes, exactly like
               // the existing Department -> Section dependent dropdown.
               fetchPage={(page, pageSize, signal, search) =>
-                getCourseOfferingList(page, pageSize, signal, search, selectedStudentSectionId ?? undefined)
+                getCourseOfferingList(page, pageSize, signal, search, selectedStudentSectionId ?? undefined, true)
               }
               resetKey={formData.student}
               getId={o => o.id}

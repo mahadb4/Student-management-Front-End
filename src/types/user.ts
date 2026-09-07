@@ -78,10 +78,7 @@ export interface StudentListItem {
   id: number;
   name: string;
   student_email: string;
-  is_active: boolean;
-  department_id: number | null;
   department_name: string | null;
-  section_id: number | null;
   section_name: string | null;
 }
 
@@ -97,14 +94,14 @@ export interface Section {
 }
 
 // Shape returned by the Sections LIST endpoint (GET /sections/): department
-// resolved to flat id/name fields via the backend's SectionListDTO.
+// resolved to a display name only via the backend's SectionListDTO - no
+// department_id (Edit fetches the full Section detail record instead).
 export interface SectionListItem {
   id: number;
   name: string;
   semester_number: number;
   academic_year: number;
   is_active: boolean;
-  department_id: number | null;
   department_name: string | null;
 }
 
@@ -153,7 +150,6 @@ export interface TeacherListItem {
   name: string;
   email: string;
   designation: string;
-  department_id: number | null;
   department_name: string | null;
 }
 
@@ -242,17 +238,16 @@ export interface CourseListItem {
 
 export type Semester = "FALL" | "SPRING" | "SUMMER";
 
+// No course_id/teacher_id/section_id - Edit fetches the full CourseOffering
+// detail record instead of populating the form off the list row.
 export interface CourseOfferingListItem {
   id: number;
   semester: Semester;
   academic_year: number;
   is_active: boolean;
-  course_id: number | null;
   course_name: string | null;
   course_code: string | null;
-  teacher_id: number | null;
   teacher_name: string | null;
-  section_id: number | null;
   section_name: string | null;
 }
 
@@ -322,10 +317,13 @@ export type EnrollmentStatus = "ACTIVE" | "DROPPED" | "COMPLETED";
 // Student My Courses UI never needs a separate course_offerings fetch just
 // to show who teaches an enrolled course - via the backend's
 // EnrollmentMapper.to_student_list_dto.
+// No course_offering_id - "already enrolled" exclusion for Available
+// Offerings is applied server-side (see course_offering_service.py's
+// _exclude_already_enrolled), so this display-only list no longer needs to
+// carry an id purely for client-side cross-referencing.
 export interface StudentEnrollmentListItem {
   id: number;
   status: EnrollmentStatus;
-  course_offering_id: number;
   semester: Semester;
   academic_year: number;
   course_name: string;
@@ -342,7 +340,6 @@ export interface StudentEnrollmentListItem {
 // EnrollmentMapper.to_teacher_list_dto.
 export interface EnrollmentTeacherListItem {
   enrollment_id: number;
-  course_offering_id: number;
   student_name: string;
   student_email: string;
   course_name: string;
@@ -363,13 +360,13 @@ export interface Enrollment {
 // Shape returned by the Enrollments LIST endpoint (GET /enrollments/): a narrower
 // projection than Enrollment, with student/course_offering already resolved via
 // the backend's EnrollmentListDTO — no separate lookup needed.
+// No student_id/course_offering_id - Edit fetches the full Enrollment detail
+// record instead of populating the form off the list row.
 export interface EnrollmentListItem {
   id: number;
   status: EnrollmentStatus;
-  student_id: number;
   student_name: string;
   student_email: string;
-  course_offering_id: number;
   semester: Semester;
   academic_year: number;
   course_name: string;
@@ -388,9 +385,7 @@ export interface AttendanceListItem {
   status: AttendanceStatus;
   remarks: string;
   enrollment_id: number | null;
-  student_id: number | null;
   student_name: string | null;
-  course_id: number | null;
   course_code: string | null;
 }
 

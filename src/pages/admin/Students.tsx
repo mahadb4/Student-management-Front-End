@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { studentService, getStudentList, getDepartmentReference, getSectionReference } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
@@ -22,12 +22,16 @@ export default function Students() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState<number | "">("");
+  const [ordering, setOrdering] = useState("name");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<StudentListItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Separate from the Delete ConfirmDialog: shown only when an edit flips an
+  // existing, currently-active Student to inactive.
+  const [pendingDeactivation, setPendingDeactivation] = useState(false);
 
   const [formData, setFormData] = useState({
     first_name:"",
@@ -47,7 +51,7 @@ export default function Students() {
     setLoading(true);
 
     try {
-      const result = await getStudentList(currentPage,pageSize,signal,debouncedSearch);
+      const result = await getStudentList(currentPage,pageSize,signal,debouncedSearch,deptFilter === "" ? undefined : deptFilter,ordering);
       setStudents(result.results);
       setTotalCount(result.total_count);
     } catch (err:any) {
@@ -71,7 +75,7 @@ export default function Students() {
     loadStudents(controller.signal);
 
     return () => controller.abort();
-  },[currentPage,pageSize,debouncedSearch]);
+  },[currentPage,pageSize,debouncedSearch,deptFilter,ordering]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -80,6 +84,16 @@ export default function Students() {
 
   const handlePageSizeChange = (size: number) => {
     setPageSize(size);
+    setCurrentPage(1);
+  };
+
+  const handleDeptFilterChange = (id: number | "") => {
+    setDeptFilter(id);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (nextOrdering: string) => {
+    setOrdering(nextOrdering);
     setCurrentPage(1);
   };
 
@@ -138,6 +152,16 @@ export default function Students() {
   const handleSave = async (e:React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+
+    if (editingStudent && editingStudent.is_active && !formData.is_active) {
+      setPendingDeactivation(true);
+      return;
+    }
+
+    await saveStudent();
+  };
+
+  const saveStudent = async () => {
     setIsSubmitting(true);
 
     try {
@@ -155,6 +179,7 @@ export default function Students() {
         showToast("Student created successfully.", "success");
       }
 
+      setPendingDeactivation(false);
       setIsModalOpen(false);
       loadStudents();
     } catch (error) {
@@ -184,11 +209,6 @@ export default function Students() {
     }
   };
 
-  const filteredStudents = useMemo(() => {
-    if (deptFilter === "") return students;
-    return students.filter(s => s.department_id === deptFilter);
-  },[students,deptFilter]);
-
   return (
     <>
       <div className="page-header" style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-end" }}>
@@ -214,14 +234,15 @@ export default function Students() {
 
           <div style={{ maxWidth:"250px", width:"100%" }}>
             <PaginatedSelect
-              fetchPage={(page, pageSize, signal) => getDepartmentReference(page, pageSize, signal)}
+              fetchPage={(page, pageSize, signal, search) => getDepartmentReference(page, pageSize, signal, search)}
               getId={d => d.id}
               getLabel={d => d.name}
               value={deptFilter}
-              onChange={id => setDeptFilter(id)}
-              onClear={() => setDeptFilter("")}
+              onChange={id => handleDeptFilterChange(id)}
+              onClear={() => handleDeptFilterChange("")}
               clearLabel="All Departments"
               placeholder="All Departments"
+              serverSearch
             />
           </div>
         </div>
@@ -229,14 +250,15 @@ export default function Students() {
 
       <div className="content-card">
         <EntityTable<StudentListItem>
-          data={filteredStudents}
+          data={students}
           loading={loading}
           resourceName="students"
           columns={[
             {
               key:"name",
               label:"Name",
-              render:s => s.name
+              render:s => s.name,
+              sortKey:"name"
             },
             { key:"student_email",label:"Email" },
             {
@@ -257,6 +279,8 @@ export default function Students() {
           pageSize={pageSize}
           onPageChange={setCurrentPage}
           onPageSizeChange={handlePageSizeChange}
+          ordering={ordering}
+          onSortChange={handleSortChange}
         />
       </div>
 
@@ -303,7 +327,7 @@ export default function Students() {
             <div className="form-group">
               <label className="form-label">Department</label>
               <PaginatedSelect
-                fetchPage={(page, pageSize, signal) => getDepartmentReference(page, pageSize, signal)}
+                fetchPage={(page, pageSize, signal, search) => getDepartmentReference(page, pageSize, signal, search)}
                 getId={d => d.id}
                 getLabel={d => d.name}
                 value={formData.department}
@@ -312,6 +336,7 @@ export default function Students() {
                 clearLabel="-- No Department --"
                 selectedLabel={editingLabels.department}
                 placeholder="-- No Department --"
+                serverSearch
               />
             </div>
 
@@ -347,6 +372,11 @@ export default function Students() {
             <textarea className="form-control" rows={2} value={formData.address} onChange={e => setFormData({...formData,address:e.target.value})}></textarea>
           </div>
 
+          <div className="form-group" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <input type="checkbox" checked={formData.is_active} onChange={e => setFormData({...formData, is_active: e.target.checked})} />
+            <label style={{ margin: 0 }}>Active</label>
+          </div>
+
           <div style={{ display:"flex",justifyContent:"flex-end",gap:"12px",marginTop:"24px" }}>
             <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline">Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save"}</button>
@@ -361,6 +391,18 @@ export default function Students() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
         confirmDisabled={isDeleting}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingDeactivation}
+        title="Deactivate Student"
+        message="Deactivating this student will prevent new Enrollments for them. Existing enrollments and attendance records are not affected. Continue?"
+        onConfirm={saveStudent}
+        onCancel={() => setPendingDeactivation(false)}
+        variant="warning"
+        confirmDisabled={isSubmitting}
+        confirmLabel="Deactivate"
+        pendingLabel="Deactivating..."
       />
     </>
   );

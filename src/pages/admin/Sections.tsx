@@ -4,7 +4,7 @@ import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { PaginatedSelect } from "../../components/common/PaginatedSelect";
-import type { SectionListItem } from "../../types/user";
+import type { Section, SectionListItem } from "../../types/user";
 import { useToast } from "../../context/ToastContext";
 
 export default function Sections() {
@@ -17,12 +17,21 @@ export default function Sections() {
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [ordering, setOrdering] = useState("name");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingSection, setEditingSection] = useState<SectionListItem | null>(null);
+  const [editingSection, setEditingSection] = useState<Section | null>(null);
+  // Label for the currently-edited section's Department, shown until the
+  // paginated dropdown's own loaded page happens to include that option -
+  // same pattern as Courses.tsx/Teachers.tsx (the Section detail response
+  // only has the raw department id, not its display name).
+  const [editingDeptLabel, setEditingDeptLabel] = useState<string | undefined>(undefined);
   const [deleteConfirm, setDeleteConfirm] = useState<SectionListItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Separate from the Delete ConfirmDialog: shown only when an edit flips an
+  // existing, currently-active Section to inactive.
+  const [pendingDeactivation, setPendingDeactivation] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -34,7 +43,7 @@ export default function Sections() {
 
   const loadData = (signal?: AbortSignal) => {
     setLoading(true);
-    getSectionList(currentPage, pageSize, signal, debouncedSearch).then(sRes => {
+    getSectionList(currentPage, pageSize, signal, debouncedSearch, ordering).then(sRes => {
       setSections(sRes.results);
       setTotalCount(sRes.total_count);
     }).catch(err => {
@@ -55,7 +64,7 @@ export default function Sections() {
     const controller = new AbortController();
     loadData(controller.signal);
     return () => controller.abort();
-  }, [currentPage,pageSize,debouncedSearch]);
+  }, [currentPage,pageSize,debouncedSearch,ordering]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -67,18 +76,35 @@ export default function Sections() {
     setCurrentPage(1);
   };
 
-  const handleOpenModal = (section?: SectionListItem) => {
-    if (section) {
-      setEditingSection(section);
-      setFormData({
-        name: section.name,
-        department: section.department_id ?? "",
-        semester_number: section.semester_number,
-        academic_year: section.academic_year,
-        is_active: section.is_active
-      });
+  const handleSortChange = (nextOrdering: string) => {
+    setOrdering(nextOrdering);
+    setCurrentPage(1);
+  };
+
+  // The Sections list only carries the narrow SectionListItem projection, so editing
+  // fetches the full Section record (detail endpoint) to populate the form -
+  // same pattern as Students/Teachers/Courses.
+  const handleOpenModal = async (row?: SectionListItem) => {
+    if (row) {
+      try {
+        const section = await sectionService.getById(row.id);
+        setEditingSection(section);
+        setEditingDeptLabel(row.department_name || undefined);
+        setFormData({
+          name: section.name,
+          department: section.department ?? "",
+          semester_number: section.semester_number,
+          academic_year: section.academic_year,
+          is_active: section.is_active
+        });
+      } catch (error) {
+        console.error(error);
+        showToast(error instanceof Error ? error.message : "Failed to load section.", "error");
+        return;
+      }
     } else {
       setEditingSection(null);
+      setEditingDeptLabel(undefined);
       setFormData({
         name: "", department: "", semester_number: 1,
         academic_year: new Date().getFullYear(), is_active: true
@@ -94,6 +120,16 @@ export default function Sections() {
       showToast("Please select a department.", "error");
       return;
     }
+
+    if (editingSection && editingSection.is_active && !formData.is_active) {
+      setPendingDeactivation(true);
+      return;
+    }
+
+    await saveSection();
+  };
+
+  const saveSection = async () => {
     setIsSubmitting(true);
     try {
       const payload = {
@@ -108,6 +144,7 @@ export default function Sections() {
         await sectionService.create(payload);
         showToast("Section created successfully.", "success");
       }
+      setPendingDeactivation(false);
       setIsModalOpen(false);
       loadData();
     } catch (error) {
@@ -164,7 +201,7 @@ export default function Sections() {
           loading={loading}
           resourceName="sections"
           columns={[
-            { key: "name", label: "Name" },
+            { key: "name", label: "Name", sortKey: "name" },
             {
               key: "department",
               label: "Department",
@@ -185,6 +222,8 @@ export default function Sections() {
           pageSize={pageSize}
           onPageChange={setCurrentPage}
           onPageSizeChange={handlePageSizeChange}
+          ordering={ordering}
+          onSortChange={handleSortChange}
         />
       </div>
 
@@ -197,13 +236,14 @@ export default function Sections() {
           <div className="form-group">
             <label className="form-label">Department</label>
             <PaginatedSelect
-              fetchPage={(page, pageSize, signal) => getDepartmentReference(page, pageSize, signal)}
+              fetchPage={(page, pageSize, signal, search) => getDepartmentReference(page, pageSize, signal, search)}
               getId={d => d.id}
               getLabel={d => d.name}
               value={formData.department}
               onChange={id => setFormData({...formData, department: id})}
-              selectedLabel={editingSection?.department_name || undefined}
+              selectedLabel={editingDeptLabel}
               placeholder="-- Select Department --"
+              serverSearch
             />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
@@ -234,6 +274,18 @@ export default function Sections() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
         confirmDisabled={isDeleting}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingDeactivation}
+        title="Deactivate Section"
+        message={`Deactivating "${formData.name}" will make it unavailable for new Student assignments and new Course Offerings. Existing records already linked to it are not affected. Continue?`}
+        onConfirm={saveSection}
+        onCancel={() => setPendingDeactivation(false)}
+        variant="warning"
+        confirmDisabled={isSubmitting}
+        confirmLabel="Deactivate"
+        pendingLabel="Deactivating..."
       />
     </>
   );

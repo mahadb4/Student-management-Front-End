@@ -17,9 +17,10 @@ export interface PaginatedResponse<T>{
 
 function createCrudService<T extends{id:number}>(base:string){
   return{
-    getList:(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<T>>=>{
+    getList:(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,ordering?:string):Promise<PaginatedResponse<T>>=>{
       const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
       if(search&&search.trim())params.set("search",search.trim());
+      if(ordering)params.set("ordering",ordering);
       return apiRequest<PaginatedResponse<T>>(`${base}/?${params.toString()}`,authHeaders(signal));
     },
 
@@ -63,14 +64,18 @@ export const studentService=createCrudService<Student>("/students");
 // Students LIST endpoint returns a narrower projection (StudentListItem, with
 // department/section already resolved to {id, name}) than the Student entity
 // used by studentService's getById/create/update/remove.
-export const getStudentList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<StudentListItem>>=>{
+export const getStudentList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,departmentId?:number,ordering?:string):Promise<PaginatedResponse<StudentListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(search&&search.trim())params.set("search",search.trim());
+  if(departmentId!==undefined)params.set("department",String(departmentId));
+  if(ordering)params.set("ordering",ordering);
   return apiRequest<PaginatedResponse<StudentListItem>>(`/students/?${params.toString()}`,authHeaders(signal));
 };
-export const getTeacherList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<TeacherListItem>>=>{
+export const getTeacherList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,departmentId?:number,ordering?:string):Promise<PaginatedResponse<TeacherListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(search&&search.trim())params.set("search",search.trim());
+  if(departmentId!==undefined)params.set("department",String(departmentId));
+  if(ordering)params.set("ordering",ordering);
   return apiRequest<PaginatedResponse<TeacherListItem>>(`/teachers/?${params.toString()}`,authHeaders(signal));
 };
 export const teacherService=createCrudService<Teacher>("/teachers");
@@ -83,8 +88,11 @@ export const sectionService=createCrudService<Section>("/sections");
 // (page_size defaults to 10, matching backend default_page_size). These exist
 // alongside (not instead of) the LIST endpoints above, whose fuller field set
 // is still required by each resource's own management page.
-export const getDepartmentReference=(page:number=1,pageSize:number=10,signal?:AbortSignal):Promise<PaginatedResponse<DepartmentReference>>=>
-  apiRequest<PaginatedResponse<DepartmentReference>>(`/departments/reference/?page=${page}&page_size=${pageSize}`,authHeaders(signal));
+export const getDepartmentReference=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<DepartmentReference>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
+  if(search&&search.trim())params.set("search",search.trim());
+  return apiRequest<PaginatedResponse<DepartmentReference>>(`/departments/reference/?${params.toString()}`,authHeaders(signal));
+};
 
 export const getSectionReference=(departmentId?:number,page:number=1,pageSize:number=10,signal?:AbortSignal,semesterNumber?:number,academicYear?:number):Promise<PaginatedResponse<SectionReference>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
@@ -119,9 +127,10 @@ export const getStudentReference=(page:number=1,pageSize:number=10,signal?:Abort
 // Sections LIST endpoint returns a narrower projection (SectionListItem, with
 // department already resolved to {id, name}) than the Section entity used by
 // sectionService's getById/create/update/remove.
-export const getSectionList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<SectionListItem>>=>{
+export const getSectionList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,ordering?:string):Promise<PaginatedResponse<SectionListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(search&&search.trim())params.set("search",search.trim());
+  if(ordering)params.set("ordering",ordering);
   return apiRequest<PaginatedResponse<SectionListItem>>(`/sections/?${params.toString()}`,authHeaders(signal));
 };
 export const courseService=createCrudService<Course>("/courses");
@@ -129,9 +138,10 @@ export const courseService=createCrudService<Course>("/courses");
 // Courses LIST endpoint returns a narrower projection (CourseListItem, with
 // department/teacher already resolved) than the Course entity used by
 // courseService's getById/create/update/remove.
-export const getCourseList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<CourseListItem>>=>{
+export const getCourseList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,ordering?:string):Promise<PaginatedResponse<CourseListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(search&&search.trim())params.set("search",search.trim());
+  if(ordering)params.set("ordering",ordering);
   return apiRequest<PaginatedResponse<CourseListItem>>(`/courses/?${params.toString()}`,authHeaders(signal));
 };
 export const offeringService=createCrudService<CourseOffering>("/course_offerings");
@@ -139,10 +149,12 @@ export const offeringService=createCrudService<CourseOffering>("/course_offering
 // Course Offerings LIST endpoint returns a narrower projection (CourseOfferingListItem, with
 // course/teacher/section already resolved to nested objects) than the CourseOffering entity
 // used by offeringService's getById/create/update/remove.
-export const getCourseOfferingList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,sectionId?:number):Promise<PaginatedResponse<CourseOfferingListItem>>=>{
+export const getCourseOfferingList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,sectionId?:number,activeOnly?:boolean,ordering?:string):Promise<PaginatedResponse<CourseOfferingListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(search&&search.trim())params.set("search",search.trim());
   if(sectionId!==undefined)params.set("section_id",String(sectionId));
+  if(activeOnly)params.set("active_only","true");
+  if(ordering)params.set("ordering",ordering);
   return apiRequest<PaginatedResponse<CourseOfferingListItem>>(`/course_offerings/?${params.toString()}`,authHeaders(signal));
 };
 export const enrollmentService=createCrudService<Enrollment>("/enrollments");
@@ -150,9 +162,10 @@ export const enrollmentService=createCrudService<Enrollment>("/enrollments");
 // Enrollments LIST endpoint returns a narrower projection (EnrollmentListItem, with
 // student/course_offering already resolved) than the Enrollment entity used by
 // enrollmentService's getById/create/update/remove.
-export const getEnrollmentList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<EnrollmentListItem>>=>{
+export const getEnrollmentList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,ordering?:string):Promise<PaginatedResponse<EnrollmentListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(search&&search.trim())params.set("search",search.trim());
+  if(ordering)params.set("ordering",ordering);
   return apiRequest<PaginatedResponse<EnrollmentListItem>>(`/enrollments/?${params.toString()}`,authHeaders(signal));
 };
 export const attendanceService=createCrudService<Attendance>("/attendance");

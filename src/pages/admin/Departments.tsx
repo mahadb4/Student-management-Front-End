@@ -16,6 +16,7 @@ export default function Departments() {
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [ordering, setOrdering] = useState("name");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
@@ -23,12 +24,16 @@ export default function Departments() {
   const [deleteConfirm, setDeleteConfirm] = useState<Department | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Separate from the Delete ConfirmDialog: shown only when an edit flips an
+  // existing, currently-active Department to inactive (never on create, never
+  // when it's already inactive, never when reactivating).
+  const [pendingDeactivation, setPendingDeactivation] = useState(false);
 
   const [formData, setFormData] = useState({ name: "", code: "", description: "", is_active: true });
 
   const loadData = (signal?: AbortSignal) => {
     setLoading(true);
-    departmentService.getList(currentPage, pageSize, signal, debouncedSearch)
+    departmentService.getList(currentPage, pageSize, signal, debouncedSearch, ordering)
       .then(res => {
         setDepartments(res.results);
         setTotalCount(res.total_count);
@@ -52,7 +57,7 @@ export default function Departments() {
     const controller = new AbortController();
     loadData(controller.signal);
     return () => controller.abort();
-  }, [currentPage,pageSize,debouncedSearch]);
+  }, [currentPage,pageSize,debouncedSearch,ordering]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -61,6 +66,11 @@ export default function Departments() {
 
   const handlePageSizeChange = (size: number) => {
     setPageSize(size);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (nextOrdering: string) => {
+    setOrdering(nextOrdering);
     setCurrentPage(1);
   };
 
@@ -78,6 +88,16 @@ export default function Departments() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+
+    if (editingDept && editingDept.is_active && !formData.is_active) {
+      setPendingDeactivation(true);
+      return;
+    }
+
+    await saveDepartment();
+  };
+
+  const saveDepartment = async () => {
     setIsSubmitting(true);
     try {
       if (editingDept) {
@@ -87,6 +107,7 @@ export default function Departments() {
         await departmentService.create(formData);
         showToast("Department created successfully.", "success");
       }
+      setPendingDeactivation(false);
       setIsModalOpen(false);
       loadData();
     } catch (error) {
@@ -143,11 +164,11 @@ export default function Departments() {
           loading={loading}
           resourceName="departments"
           columns={[
-            { key: "name", label: "Name" },
+            { key: "name", label: "Name", sortKey: "name" },
             { key: "code", label: "Code" },
             { key: "description", label: "Description" },
-            { 
-              key: "is_active", 
+            {
+              key: "is_active",
               label: "Status",
               render: (d) => <span className={`badge ${d.is_active ? 'badge-success' : 'badge-warning'}`}>{d.is_active ? 'Active' : 'Inactive'}</span>
             }
@@ -159,6 +180,8 @@ export default function Departments() {
           pageSize={pageSize}
           onPageChange={setCurrentPage}
           onPageSizeChange={handlePageSizeChange}
+          ordering={ordering}
+          onSortChange={handleSortChange}
         />
       </div>
 
@@ -194,6 +217,18 @@ export default function Departments() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
         confirmDisabled={isDeleting}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingDeactivation}
+        title="Deactivate Department"
+        message={`Deactivating "${formData.name}" will make it unavailable for new Student, Teacher, Course, and Section assignments. Existing records already linked to it are not affected. Continue?`}
+        onConfirm={saveDepartment}
+        onCancel={() => setPendingDeactivation(false)}
+        variant="warning"
+        confirmDisabled={isSubmitting}
+        confirmLabel="Deactivate"
+        pendingLabel="Deactivating..."
       />
     </>
   );

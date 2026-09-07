@@ -21,12 +21,16 @@ export default function Courses() {
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [ordering, setOrdering] = useState("name");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<CourseListItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Separate from the Delete ConfirmDialog: shown only when an edit flips an
+  // existing, currently-active Course to inactive.
+  const [pendingDeactivation, setPendingDeactivation] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "", code: "", description: "", credits: 3, semester_number: "" as number | "",
@@ -35,7 +39,7 @@ export default function Courses() {
 
   const loadCourses = (signal?: AbortSignal) => {
     setLoading(true);
-    getCourseList(currentPage, pageSize, signal, debouncedSearch).then(res => {
+    getCourseList(currentPage, pageSize, signal, debouncedSearch, ordering).then(res => {
       setCourses(res.results);
       setTotalCount(res.total_count);
     }).catch(err => {
@@ -56,10 +60,15 @@ export default function Courses() {
     const controller = new AbortController();
     loadCourses(controller.signal);
     return () => controller.abort();
-  }, [currentPage,pageSize,debouncedSearch]);
+  }, [currentPage,pageSize,debouncedSearch,ordering]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (nextOrdering: string) => {
+    setOrdering(nextOrdering);
     setCurrentPage(1);
   };
 
@@ -102,6 +111,16 @@ export default function Courses() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+
+    if (editingCourse && editingCourse.is_active && !formData.is_active) {
+      setPendingDeactivation(true);
+      return;
+    }
+
+    await saveCourse();
+  };
+
+  const saveCourse = async () => {
     setIsSubmitting(true);
     try {
       const payload = {
@@ -118,6 +137,7 @@ export default function Courses() {
         await courseService.create(payload);
         showToast("Course created successfully.", "success");
       }
+      setPendingDeactivation(false);
       setIsModalOpen(false);
       loadCourses();
     } catch (error) {
@@ -175,7 +195,7 @@ export default function Courses() {
           resourceName="courses"
           columns={[
             { key: "code", label: "Code" },
-            { key: "name", label: "Name" },
+            { key: "name", label: "Name", sortKey: "name" },
             { key: "credits", label: "Credits" },
             {
               key: "semester_number",
@@ -200,6 +220,8 @@ export default function Courses() {
           pageSize={pageSize}
           onPageChange={setCurrentPage}
           onPageSizeChange={handlePageSizeChange}
+          ordering={ordering}
+          onSortChange={handleSortChange}
         />
       </div>
 
@@ -235,13 +257,14 @@ export default function Courses() {
           <div className="form-group">
             <label className="form-label">Department</label>
             <PaginatedSelect
-              fetchPage={(page, pageSize, signal) => getDepartmentReference(page, pageSize, signal)}
+              fetchPage={(page, pageSize, signal, search) => getDepartmentReference(page, pageSize, signal, search)}
               getId={d => d.id}
               getLabel={d => d.name}
               value={formData.department}
               onChange={id => setFormData({...formData, department: id})}
               selectedLabel={editingLabels.department}
               placeholder="-- Select Department --"
+              serverSearch
             />
           </div>
 
@@ -263,6 +286,11 @@ export default function Courses() {
             <textarea className="form-control" rows={3} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}></textarea>
           </div>
 
+          <div className="form-group" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <input type="checkbox" checked={formData.is_active} onChange={(e) => setFormData({...formData, is_active: e.target.checked})} />
+            <label style={{ margin: 0 }}>Active</label>
+          </div>
+
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px" }}>
             <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline">Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save"}</button>
@@ -277,6 +305,18 @@ export default function Courses() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
         confirmDisabled={isDeleting}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingDeactivation}
+        title="Deactivate Course"
+        message="Deactivating this course will make it unavailable for new Course Offerings. Existing offerings, enrollments, and attendance records are not affected. Continue?"
+        onConfirm={saveCourse}
+        onCancel={() => setPendingDeactivation(false)}
+        variant="warning"
+        confirmDisabled={isSubmitting}
+        confirmLabel="Deactivate"
+        pendingLabel="Deactivating..."
       />
     </>
   );

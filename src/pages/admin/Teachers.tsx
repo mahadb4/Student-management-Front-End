@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { teacherService, getTeacherList, getDepartmentReference } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
@@ -22,12 +22,16 @@ export default function Teachers() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState<number | "">("");
+  const [ordering, setOrdering] = useState("name");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<TeacherListItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Separate from the Delete ConfirmDialog: shown only when an edit flips an
+  // existing, currently-active Teacher to inactive.
+  const [pendingDeactivation, setPendingDeactivation] = useState(false);
 
   const [formData, setFormData] = useState({
     first_name: "", last_name: "", employee_id: "", email: "", phone_number: "",
@@ -39,7 +43,7 @@ export default function Teachers() {
     setLoading(true);
 
     try {
-      const result = await getTeacherList(currentPage,pageSize,signal,debouncedSearch);
+      const result = await getTeacherList(currentPage,pageSize,signal,debouncedSearch,deptFilter === "" ? undefined : deptFilter,ordering);
       setTeachers(result.results);
       setTotalCount(result.total_count);
     } catch (err:any) {
@@ -63,7 +67,7 @@ export default function Teachers() {
     loadTeachers(controller.signal);
 
     return () => controller.abort();
-  },[currentPage,pageSize,debouncedSearch]);
+  },[currentPage,pageSize,debouncedSearch,deptFilter,ordering]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -72,6 +76,16 @@ export default function Teachers() {
 
   const handlePageSizeChange = (size: number) => {
     setPageSize(size);
+    setCurrentPage(1);
+  };
+
+  const handleDeptFilterChange = (id: number | "") => {
+    setDeptFilter(id);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (nextOrdering: string) => {
+    setOrdering(nextOrdering);
     setCurrentPage(1);
   };
 
@@ -115,6 +129,16 @@ export default function Teachers() {
       showToast("Please select a department.", "error");
       return;
     }
+
+    if (editingTeacher && editingTeacher.is_active && !formData.is_active) {
+      setPendingDeactivation(true);
+      return;
+    }
+
+    await saveTeacher();
+  };
+
+  const saveTeacher = async () => {
     setIsSubmitting(true);
     try {
       const payload = {
@@ -129,6 +153,7 @@ export default function Teachers() {
         await teacherService.create(payload);
         showToast("Teacher created successfully.", "success");
       }
+      setPendingDeactivation(false);
       setIsModalOpen(false);
       loadTeachers();
     } catch (error) {
@@ -157,11 +182,6 @@ export default function Teachers() {
     }
   };
 
-  const filteredTeachers = useMemo(() => {
-    if (deptFilter === "") return teachers;
-    return teachers.filter(t => t.department_id === deptFilter);
-  }, [teachers, deptFilter]);
-
   return (
     <>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
@@ -185,14 +205,15 @@ export default function Teachers() {
           />
           <div style={{ maxWidth: "250px", width: "100%" }}>
             <PaginatedSelect
-              fetchPage={(page, pageSize, signal) => getDepartmentReference(page, pageSize, signal)}
+              fetchPage={(page, pageSize, signal, search) => getDepartmentReference(page, pageSize, signal, search)}
               getId={d => d.id}
               getLabel={d => d.name}
               value={deptFilter}
-              onChange={id => setDeptFilter(id)}
-              onClear={() => setDeptFilter("")}
+              onChange={id => handleDeptFilterChange(id)}
+              onClear={() => handleDeptFilterChange("")}
               clearLabel="All Departments"
               placeholder="All Departments"
+              serverSearch
             />
           </div>
         </div>
@@ -200,7 +221,7 @@ export default function Teachers() {
 
       <div className="content-card">
         <EntityTable<TeacherListItem>
-          data={filteredTeachers}
+          data={teachers}
           loading={loading}
           resourceName="teachers"
           columns={[
@@ -208,7 +229,8 @@ export default function Teachers() {
             {
               key: "name",
               label: "Name",
-              render: (t) => t.name
+              render: (t) => t.name,
+              sortKey: "name"
             },
             { key: "email", label: "Email" },
             {
@@ -225,6 +247,8 @@ export default function Teachers() {
           pageSize={pageSize}
           onPageChange={setCurrentPage}
           onPageSizeChange={handlePageSizeChange}
+          ordering={ordering}
+          onSortChange={handleSortChange}
         />
       </div>
 
@@ -254,13 +278,14 @@ export default function Teachers() {
             <div className="form-group">
               <label className="form-label">Department</label>
               <PaginatedSelect
-                fetchPage={(page, pageSize, signal) => getDepartmentReference(page, pageSize, signal)}
+                fetchPage={(page, pageSize, signal, search) => getDepartmentReference(page, pageSize, signal, search)}
                 getId={d => d.id}
                 getLabel={d => d.name}
                 value={formData.department}
                 onChange={id => setFormData({...formData, department: id})}
                 selectedLabel={editingDeptLabel}
                 placeholder="-- Select Department --"
+                serverSearch
               />
             </div>
             <div className="form-group">
@@ -297,6 +322,11 @@ export default function Teachers() {
             <textarea className="form-control" rows={2} value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})}></textarea>
           </div>
 
+          <div className="form-group" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <input type="checkbox" checked={formData.is_active} onChange={(e) => setFormData({...formData, is_active: e.target.checked})} />
+            <label style={{ margin: 0 }}>Active</label>
+          </div>
+
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px" }}>
             <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline">Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save"}</button>
@@ -311,6 +341,18 @@ export default function Teachers() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
         confirmDisabled={isDeleting}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingDeactivation}
+        title="Deactivate Teacher"
+        message="Deactivating this teacher will make them unavailable for new Course Offering assignments. Existing offerings, enrollments, and attendance records are not affected. Continue?"
+        onConfirm={saveTeacher}
+        onCancel={() => setPendingDeactivation(false)}
+        variant="warning"
+        confirmDisabled={isSubmitting}
+        confirmLabel="Deactivate"
+        pendingLabel="Deactivating..."
       />
     </>
   );
