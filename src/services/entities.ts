@@ -25,7 +25,7 @@ function createCrudService<T extends{id:number}>(base:string){
     },
 
     getAll:(signal?:AbortSignal):Promise<T[]>=>
-      apiRequest<PaginatedResponse<T>>(`${base}/?page=1&page_size=500`,authHeaders(signal))
+      apiRequest<PaginatedResponse<T>>(`${base}/?page=1&page_size=10`,authHeaders(signal))
         .then(response=>response.results||[]),
 
     getById:(id:number,signal?:AbortSignal):Promise<T>=>

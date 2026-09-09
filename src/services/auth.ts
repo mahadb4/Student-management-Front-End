@@ -106,7 +106,7 @@ export async function registerUser(
 
 export async function getUsers(signal?: AbortSignal): Promise<User[]> {
   const token = getAccessToken();
-  const res = await apiRequest<any>("/users/?page=1&page_size=500", {
+  const res = await apiRequest<any>("/users/?page=1&page_size=10", {
     method: "GET",
     token: token || undefined,
     signal,
@@ -121,7 +121,7 @@ export async function getMockUsers(signal?: AbortSignal): Promise<User[]> {
 // Fetches only users with status=pending from the dedicated backend endpoint.
 export async function getPendingUsers(signal?: AbortSignal): Promise<User[]> {
   const token = getAccessToken();
-  const res = await apiRequest<any>("/users/pending/?page=1&page_size=500", {
+  const res = await apiRequest<any>("/users/pending/?page=1&page_size=10", {
     method: "GET",
     token: token || undefined,
     signal,
