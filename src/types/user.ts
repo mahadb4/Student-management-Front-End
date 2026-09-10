@@ -59,6 +59,7 @@ export interface StudentProfile {
   department_name: string | null;
   section_name: string | null;
   date_of_enrollment: string;
+  profile_picture_url: string | null;
 }
 
 // Shape returned by GET /students/me/summary/: only the counts and recent
@@ -80,6 +81,7 @@ export interface StudentListItem {
   student_email: string;
   department_name: string | null;
   section_name: string | null;
+  profile_picture_url: string | null;
 }
 
 export interface Section {
@@ -139,6 +141,7 @@ export interface TeacherProfile {
   email: string;
   department_name: string | null;
   designation: string;
+  profile_picture_url: string | null;
 }
 
 // Shape returned by the Teachers LIST endpoint (GET /teachers/): a narrower
@@ -151,6 +154,7 @@ export interface TeacherListItem {
   email: string;
   designation: string;
   department_name: string | null;
+  profile_picture_url: string | null;
 }
 
 export interface Department {
@@ -330,6 +334,8 @@ export interface StudentEnrollmentListItem {
   course_code: string;
   teacher_name: string | null;
   section_name: string | null;
+  teacher_id: number | null;
+  profile_picture_url: string | null;
 }
 
 // Shape returned by GET /teachers/me/students/: one row per enrollment in
@@ -340,12 +346,14 @@ export interface StudentEnrollmentListItem {
 // EnrollmentMapper.to_teacher_list_dto.
 export interface EnrollmentTeacherListItem {
   enrollment_id: number;
+  student_id: number;
   student_name: string;
   student_email: string;
   course_name: string;
   course_code: string;
   section_name: string | null;
   status: EnrollmentStatus;
+  profile_picture_url: string | null;
 }
 
 export interface Enrollment {

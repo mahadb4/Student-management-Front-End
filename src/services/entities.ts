@@ -251,3 +251,52 @@ export const getMyTeacherStudents=(page:number=1,pageSize:number=10,courseOfferi
 
 export const getMyTeacherAttendance=(page:number=1,pageSize:number=10):Promise<PaginatedResponse<TeacherAttendanceListItem>>=>
   apiRequest<PaginatedResponse<TeacherAttendanceListItem>>(`/teachers/me/attendance/?page=${page}&page_size=${pageSize}`,authHeaders());
+
+// ── Profile picture (self-service, "me") ────────────────────────────────────
+// Backend derives the S3 object key itself and hands back a short-lived
+// pre-signed PUT url - the frontend uploads directly to S3 with it, then
+// calls confirm() so the backend can verify the object actually exists
+// before saving the key. See common/services/s3_service.py.
+
+export interface ProfilePictureUploadUrlResponse{
+  upload_url:string;
+  key:string;
+  content_type:string;
+}
+
+export interface ProfilePictureUrlResponse{
+  profile_picture_url:string|null;
+}
+
+function profilePictureService(basePath:string){
+  return{
+    requestUploadUrl:(contentType:string):Promise<ProfilePictureUploadUrlResponse>=>{
+      const token=getAccessToken();
+      return apiRequest<ProfilePictureUploadUrlResponse>(`${basePath}/profile-picture-upload-url/`,{
+        method:"POST",
+        token:token||undefined,
+        body:JSON.stringify({content_type:contentType})
+      });
+    },
+
+    confirmUpload:(key:string):Promise<ProfilePictureUrlResponse>=>{
+      const token=getAccessToken();
+      return apiRequest<ProfilePictureUrlResponse>(`${basePath}/profile-picture-confirm/`,{
+        method:"POST",
+        token:token||undefined,
+        body:JSON.stringify({key})
+      });
+    },
+
+    remove:():Promise<void>=>{
+      const token=getAccessToken();
+      return apiRequest<void>(`${basePath}/profile-picture/`,{
+        method:"DELETE",
+        token:token||undefined
+      });
+    }
+  };
+}
+
+export const studentProfilePictureService=profilePictureService("/students/me");
+export const teacherProfilePictureService=profilePictureService("/teachers/me");

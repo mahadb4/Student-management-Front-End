@@ -21,6 +21,7 @@ export default function Sidebar() {
           { to: "/teacher/courses", label: "My Classes", icon: "📚" },
           { to: "/teacher/students", label: "Students", icon: "👥" },
           { to: "/teacher/attendance", label: "Attendance", icon: "📅" },
+          { to: "/teacher/profile", label: "Profile", icon: "👤" },
         ];
       case "staff":
         return [

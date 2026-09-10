@@ -4,6 +4,7 @@ import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { PaginatedSelect } from "../../components/common/PaginatedSelect";
+import { Avatar } from "../../components/common/Avatar";
 import type { Student, StudentListItem } from "../../types/user";
 import { useToast } from "../../context/ToastContext";
 
@@ -254,6 +255,11 @@ export default function Students() {
           loading={loading}
           resourceName="students"
           columns={[
+            {
+              key:"profile_picture_url",
+              label:"",
+              render:s => <Avatar src={s.profile_picture_url} name={s.name} size={32} />
+            },
             {
               key:"name",
               label:"Name",

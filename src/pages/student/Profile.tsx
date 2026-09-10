@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getCurrentUser } from "../../services/auth";
-import { getMyStudentProfile } from "../../services/entities";
+import { getMyStudentProfile, studentProfilePictureService } from "../../services/entities";
+import { ProfilePictureUploader } from "../../components/common/ProfilePictureUploader";
 import type { StudentProfile } from "../../types/user";
 
 export default function StudentProfile() {
@@ -40,14 +41,14 @@ export default function StudentProfile() {
       ) : (
         <div className="content-card" style={{ padding: "24px" }}>
           <div style={{ display: "flex", gap: "24px", alignItems: "flex-start", flexWrap: "wrap" }}>
-            <div style={{
-              width: "120px", height: "120px", borderRadius: "50%",
-              background: "var(--color-primary)", color: "white",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "3rem", fontWeight: "bold"
-            }}>
-              {student.first_name.charAt(0)}{student.last_name.charAt(0)}
-            </div>
+            <ProfilePictureUploader
+              name={`${student.first_name} ${student.last_name}`}
+              imageUrl={student.profile_picture_url}
+              requestUploadUrl={studentProfilePictureService.requestUploadUrl}
+              confirmUpload={studentProfilePictureService.confirmUpload}
+              removePicture={studentProfilePictureService.remove}
+              onChange={url => setStudent(prev => prev && { ...prev, profile_picture_url: url })}
+            />
 
             <div style={{ flex: 1 }}>
               <h2 style={{ margin: "0 0 8px 0" }}>{student.first_name} {student.last_name}</h2>

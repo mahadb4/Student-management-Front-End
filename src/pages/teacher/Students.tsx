@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getCurrentUser } from "../../services/auth";
 import { getMyTeacherStudents, getCourseOfferingReference } from "../../services/entities";
+import { Avatar } from "../../components/common/Avatar";
 import type { EnrollmentTeacherListItem, CourseOfferingReference } from "../../types/user";
 
 export default function TeacherStudents() {
@@ -95,6 +96,7 @@ export default function TeacherStudents() {
             <table className="data-table">
               <thead>
                 <tr>
+                  <th></th>
                   <th>Student Name</th>
                   <th>Email</th>
                   <th>Class</th>
@@ -104,11 +106,12 @@ export default function TeacherStudents() {
               <tbody>
                 {enrollments.length === 0 ? (
                   <tr>
-                    <td colSpan={4} style={{ textAlign: "center", padding: "24px" }}>No students found for this selection.</td>
+                    <td colSpan={5} style={{ textAlign: "center", padding: "24px" }}>No students found for this selection.</td>
                   </tr>
                 ) : (
                   enrollments.map(e => (
                     <tr key={e.enrollment_id}>
+                      <td><Avatar src={e.profile_picture_url} name={e.student_name} size={32} /></td>
                       <td><strong>{e.student_name}</strong></td>
                       <td>{e.student_email}</td>
                       <td>{e.course_name} ({e.course_code}) - {e.section_name || "No Section"}</td>

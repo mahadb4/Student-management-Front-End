@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getCurrentUser } from "../../services/auth";
 import { getMyEnrollments, getCourseOfferingReference, enrollInCourseOffering, invalidateMeCache } from "../../services/entities";
+import { Avatar } from "../../components/common/Avatar";
 import type { StudentEnrollmentListItem, CourseOfferingReference } from "../../types/user";
 
 export default function StudentCourses() {
@@ -150,7 +151,10 @@ export default function StudentCourses() {
                 <p style={{ margin: "0 0 16px 0", color: "var(--color-primary)", fontWeight: 600 }}>{enrollment.course_code}</p>
 
                 <div style={{ fontSize: "0.875rem", color: "var(--color-text-secondary)", display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <div><strong>Teacher:</strong> {enrollment.teacher_name || "TBA"}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Avatar src={enrollment.profile_picture_url} name={enrollment.teacher_name || "TBA"} size={24} />
+                    <span><strong>Teacher:</strong> {enrollment.teacher_name || "TBA"}</span>
+                  </div>
                   <div><strong>Semester:</strong> {enrollment.semester} {enrollment.academic_year}</div>
                   <div><strong>Section:</strong> {enrollment.section_name || "No Section"}</div>
                 </div>

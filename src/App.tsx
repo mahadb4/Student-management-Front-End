@@ -33,6 +33,7 @@ import TeacherDashboard from "./pages/teacher/TeacherDashboard";
 import TeacherCourses from "./pages/teacher/Courses";
 import TeacherStudents from "./pages/teacher/Students";
 import TeacherAttendance from "./pages/teacher/Attendance";
+import TeacherProfile from "./pages/teacher/Profile";
 
 // Staff
 import StaffDashboard from "./pages/staff/StaffDashboard";
@@ -132,6 +133,7 @@ function App() {
           <Route path="courses" element={<TeacherCourses />} />
           <Route path="students" element={<TeacherStudents />} />
           <Route path="attendance" element={<TeacherAttendance />} />
+          <Route path="profile" element={<TeacherProfile />} />
         </Route>
 
         {/* ── Staff routes (nested under shared DashboardLayout) ────────── */}
