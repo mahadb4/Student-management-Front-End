@@ -141,13 +141,24 @@ export default function TeacherAttendance() {
 
   return (
     <>
-      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "16px", flexWrap: "wrap", marginBottom: "24px" }}>
         <div>
           <h2>Attendance</h2>
-          <p>Mark and view attendance for your classes</p>
+          <p style={{ margin: 0, fontSize: "0.92rem", color: "var(--color-text-secondary)" }}>
+            Mark and view attendance for your classes
+          </p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="btn btn-primary" disabled={!courseFilter || rosterLoading || classRoster.length === 0}>
-          + Mark Attendance
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="btn btn-primary"
+          disabled={!courseFilter || rosterLoading || classRoster.length === 0}
+          style={{ fontWeight: 600, padding: "9px 18px", boxShadow: "0 2px 6px rgba(30, 58, 138, 0.25)", gap: "6px" }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          Mark Attendance
         </button>
       </div>
 
@@ -157,47 +168,110 @@ export default function TeacherAttendance() {
         </div>
       ) : (
         <>
-          <div className="content-card" style={{ marginBottom: "24px", padding: "16px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <label style={{ fontWeight: 500 }}>Select Class:</label>
-              <select className="form-control" value={courseFilter} onChange={e => setCourseFilter(e.target.value)} style={{ maxWidth: "300px" }}>
+          <div className="content-card" style={{ marginBottom: "18px", padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: "1 1 300px", maxWidth: "440px" }}>
+              <label style={{ fontWeight: 600, fontSize: "0.84rem", color: "var(--color-text-secondary)", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "6px" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                </svg>
+                Select Class:
+              </label>
+              <select
+                className="form-control"
+                value={courseFilter}
+                onChange={e => setCourseFilter(e.target.value)}
+                style={{ fontWeight: 500, backgroundColor: "#ffffff", padding: "7px 10px", fontSize: "0.84rem" }}
+              >
                 <option value="">-- Choose Class --</option>
                 {offerings.map(o => (
                   <option key={o.id} value={o.id}>{getCourseInfo(o)}</option>
                 ))}
               </select>
             </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span className="badge" style={{ backgroundColor: "var(--color-primary-light)", color: "var(--color-primary)", fontWeight: 700, padding: "5px 12px", fontSize: "0.78rem" }}>
+                {filteredAttendance.length} Attendance {filteredAttendance.length === 1 ? "Record" : "Records"}
+              </span>
+            </div>
           </div>
 
-          <div className="table-responsive content-card">
-            <table className="data-table">
+          <div className="table-responsive content-card" style={{ boxShadow: "var(--shadow-sm)" }}>
+            <table className="data-table table-compact" style={{ minWidth: "720px" }}>
+              <colgroup>
+                <col style={{ width: "22%" }} />
+                <col style={{ width: "34%" }} />
+                <col style={{ width: "18%" }} />
+                <col style={{ width: "26%" }} />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Date</th>
                   <th>Student Name</th>
-                  <th>Status</th>
+                  <th style={{ textAlign: "center" }}>Status</th>
                   <th>Remarks</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredAttendance.length === 0 ? (
                   <tr>
-                    <td colSpan={4} style={{ textAlign: "center", padding: "24px" }}>No attendance records found for this class.</td>
+                    <td colSpan={4} style={{ textAlign: "center", padding: "32px 20px", color: "var(--color-text-secondary)" }}>
+                      {courseFilter ? "No attendance records found for this class." : "Please select a class above to view attendance records."}
+                    </td>
                   </tr>
                 ) : (
                   filteredAttendance.map(a => (
                     <tr key={a.id}>
-                      <td><strong>{a.date}</strong></td>
-                      <td>{a.enrollment_id ? a.student_name : "Unknown"}</td>
                       <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--color-text-primary)", fontSize: "0.84rem" }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                          </svg>
+                          <span style={{ fontWeight: 600 }}>
+                            {new Date(a.date).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <div style={{
+                            width: "26px",
+                            height: "26px",
+                            borderRadius: "50%",
+                            backgroundColor: "var(--color-primary-light)",
+                            color: "var(--color-primary)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "0.72rem",
+                            fontWeight: 700,
+                            flexShrink: 0
+                          }}>
+                            {(a.student_name || "S").charAt(0).toUpperCase()}
+                          </div>
+                          <span style={{ fontWeight: 600, color: "var(--color-text-primary)", fontSize: "0.875rem" }}>
+                            {a.enrollment_id ? a.student_name : "Unknown"}
+                          </span>
+                        </div>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
                         <span className={`badge ${
                           a.status === 'PRESENT' ? 'badge-success' :
                           a.status === 'ABSENT' ? 'badge-danger' : 'badge-warning'
-                        }`}>
+                        }`} style={{ padding: "3px 10px", fontSize: "0.72rem", fontWeight: 700 }}>
                           {a.status}
                         </span>
                       </td>
-                      <td>{a.remarks || "-"}</td>
+                      <td>
+                        {a.remarks ? (
+                          <span style={{ fontSize: "0.84rem", color: "var(--color-text-primary)" }}>{a.remarks}</span>
+                        ) : (
+                          <span style={{ color: "var(--color-text-secondary)", fontSize: "0.84rem", opacity: 0.6 }}>—</span>
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -206,9 +280,9 @@ export default function TeacherAttendance() {
           </div>
 
           {attendancePage < attendanceTotalPages && (
-            <div style={{ textAlign: "center", marginTop: "16px" }}>
-              <button className="btn btn-outline" onClick={loadMoreAttendance} disabled={loadingMoreAttendance}>
-                {loadingMoreAttendance ? "Loading..." : "Load More"}
+            <div style={{ textAlign: "center", marginTop: "20px" }}>
+              <button className="btn btn-secondary" onClick={loadMoreAttendance} disabled={loadingMoreAttendance} style={{ minWidth: "140px" }}>
+                {loadingMoreAttendance ? "Loading..." : "Load More Records"}
               </button>
             </div>
           )}
@@ -216,7 +290,7 @@ export default function TeacherAttendance() {
           <Modal isOpen={isModalOpen} title="Mark Attendance" onClose={() => setIsModalOpen(false)}>
             <form onSubmit={handleSave}>
               <div className="form-group">
-                <label className="form-label">Student</label>
+                <label className="form-label" style={{ fontWeight: 600, fontSize: "0.82rem" }}>Student</label>
                 <select required className="form-control" value={formData.enrollment} onChange={(e) => setFormData({...formData, enrollment: Number(e.target.value)})}>
                   <option value="">-- Select Student --</option>
                   {classRoster.map(e => (
@@ -225,11 +299,11 @@ export default function TeacherAttendance() {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Date</label>
+                <label className="form-label" style={{ fontWeight: 600, fontSize: "0.82rem" }}>Date</label>
                 <input required type="date" max={today} className="form-control" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
               </div>
               <div className="form-group">
-                <label className="form-label">Status</label>
+                <label className="form-label" style={{ fontWeight: 600, fontSize: "0.82rem" }}>Status</label>
                 <select required className="form-control" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value as AttendanceStatus})}>
                   <option value="PRESENT">Present</option>
                   <option value="ABSENT">Absent</option>
@@ -237,13 +311,15 @@ export default function TeacherAttendance() {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Remarks</label>
-                <input className="form-control" value={formData.remarks} onChange={(e) => setFormData({...formData, remarks: e.target.value})} />
+                <label className="form-label" style={{ fontWeight: 600, fontSize: "0.82rem" }}>Remarks (optional)</label>
+                <input className="form-control" placeholder="Optional notes (e.g. Excused with medical leave)" value={formData.remarks} onChange={(e) => setFormData({...formData, remarks: e.target.value})} />
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px" }}>
-                <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline">Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save"}</button>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "24px" }}>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary btn-sm">Cancel</button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={isSubmitting} style={{ minWidth: "90px" }}>
+                  {isSubmitting ? "Saving..." : "Save"}
+                </button>
               </div>
             </form>
           </Modal>

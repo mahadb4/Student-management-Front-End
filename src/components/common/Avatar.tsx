@@ -18,14 +18,9 @@ function getInitials(name: string): string {
   return initials || "?";
 }
 
-// Shows the profile picture when one is set, otherwise falls back to an
-// initials circle (same look the Navbar/Profile pages already use). Also
-// falls back if the image fails to load - e.g. an expired pre-signed URL.
 export function Avatar({ src, name, size = 40 }: AvatarProps) {
   const [failed, setFailed] = useState(false);
 
-  // A fresh src (new picture, or a re-signed URL after a refetch) deserves a
-  // fresh attempt to load it.
   useEffect(() => setFailed(false), [src]);
 
   const baseStyle: CSSProperties = {

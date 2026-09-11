@@ -13,6 +13,8 @@ export default function Sidebar() {
           { to: "/student", label: "Dashboard", icon: "📊" },
           { to: "/student/courses", label: "My Courses", icon: "📚" },
           { to: "/student/attendance", label: "Attendance", icon: "📅" },
+          { to: "/student/assignments", label: "Assignments", icon: "📄" },
+          { to: "/student/remarks", label: "Remarks", icon: "📝" },
           { to: "/student/profile", label: "Profile", icon: "👤" },
         ];
       case "teacher":

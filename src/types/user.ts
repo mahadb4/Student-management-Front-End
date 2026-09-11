@@ -334,21 +334,22 @@ export interface StudentEnrollmentListItem {
   course_code: string;
   teacher_name: string | null;
   section_name: string | null;
-  teacher_id: number | null;
   profile_picture_url: string | null;
 }
 
 // Shape returned by GET /teachers/me/students/: one row per enrollment in
 // the authenticated Teacher's own classes. No teacher identity (it's their
 // own), no raw student id (student_email is a sufficient identifier for the
-// table); course_offering_id is kept because the Students/Attendance class
-// filter dropdown needs it to match rows against - via the backend's
+// table); course_offering_id is kept both for the Students/Attendance class
+// filter dropdown to match rows against, and for the Students page's Remarks
+// action (creating a remark requires it) - via the backend's
 // EnrollmentMapper.to_teacher_list_dto.
 export interface EnrollmentTeacherListItem {
   enrollment_id: number;
   student_id: number;
   student_name: string;
   student_email: string;
+  course_offering_id: number;
   course_name: string;
   course_code: string;
   section_name: string | null;
@@ -439,4 +440,91 @@ export interface Attendance {
   remarks: string;
   created_at: string;
   updated_at: string;
+}
+
+export type RemarkVisibility = "PRIVATE" | "STUDENT_VISIBLE";
+
+// Shape returned by GET/POST/PATCH /remarks/ to a TEACHER: the Remarks
+// action on the Students page already knows which student/class it's
+// looking at (the row it was opened from), so the response only adds what
+// it doesn't already have - via the backend's serialize_remark_for_teacher.
+// "teacher" is kept so the frontend can show Edit/Delete only on remarks
+// this teacher wrote.
+export interface RemarkTeacherListItem {
+  id: number;
+  teacher: number;
+  remark_text: string;
+  visibility: RemarkVisibility;
+  created_at: string;
+}
+
+// Shape returned by GET /remarks/ to a STUDENT: aggregates remarks across
+// different classes/teachers, so course/teacher names are needed to tell
+// rows apart - via the backend's serialize_remark_for_student.
+export interface RemarkStudentListItem {
+  id: number;
+  teacher_name: string;
+  course_name: string;
+  course_code: string;
+  remark_text: string;
+  visibility: RemarkVisibility;
+  created_at: string;
+}
+
+export type SubmissionStatus = "SUBMITTED" | "PENDING";
+
+// Shape returned by GET /assignments/ (list) to a TEACHER: the course/class
+// context is already known (this is a course-scoped page), so just what the
+// assignment table shows - via the backend's _serialize_assignment_for_teacher_list.
+export interface AssignmentTeacherListItem {
+  id: number;
+  title: string;
+  due_at: string;
+  submitted_count: number;
+  pending_count: number;
+}
+
+// Shape returned by GET/POST/PATCH /assignments/<id>/ to a TEACHER (detail,
+// create, update) - used to prefill the Edit form. No course_offering: it's
+// fixed at creation and never edited - via _serialize_assignment_for_teacher_detail.
+export interface AssignmentTeacherDetail {
+  id: number;
+  title: string;
+  description: string;
+  due_at: string;
+  attachment_url: string | null;
+}
+
+// Shape returned by GET /assignments/ (list and detail) to a STUDENT:
+// aggregates across enrolled classes, so course name/code are included, plus
+// the student's own submission status resolved server-side - via
+// _serialize_assignment_for_student.
+export interface AssignmentStudentListItem {
+  id: number;
+  title: string;
+  description: string;
+  due_at: string;
+  attachment_url: string | null;
+  course_name: string;
+  course_code: string;
+  status: SubmissionStatus;
+  submitted_at: string | null;
+}
+
+// Shape returned by GET /assignments/<id>/submission/ and the submission
+// upload-confirm endpoint - a student's own submission status for one assignment.
+export interface MySubmissionStatus {
+  status: SubmissionStatus;
+  submitted_at: string | null;
+  file_url: string | null;
+}
+
+// Shape returned by GET /assignments/<id>/submissions/ to a TEACHER: one row
+// per enrolled student, via assignment_submissions_api.
+export interface SubmissionRosterItem {
+  student_id: number;
+  student_name: string;
+  status: SubmissionStatus;
+  submitted_at: string | null;
+  file_url: string | null;
 }

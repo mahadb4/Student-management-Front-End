@@ -26,6 +26,8 @@ import Permissions from "./pages/admin/Permissions";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import StudentCourses from "./pages/student/Courses";
 import StudentAttendance from "./pages/student/Attendance";
+import StudentRemarks from "./pages/student/Remarks";
+import StudentAssignments from "./pages/student/Assignments";
 import StudentProfile from "./pages/student/Profile";
 
 // Teacher
@@ -33,6 +35,7 @@ import TeacherDashboard from "./pages/teacher/TeacherDashboard";
 import TeacherCourses from "./pages/teacher/Courses";
 import TeacherStudents from "./pages/teacher/Students";
 import TeacherAttendance from "./pages/teacher/Attendance";
+import TeacherClassAssignments from "./pages/teacher/ClassAssignments";
 import TeacherProfile from "./pages/teacher/Profile";
 
 // Staff
@@ -124,6 +127,8 @@ function App() {
           <Route index element={<StudentDashboard />} />
           <Route path="courses" element={<StudentCourses />} />
           <Route path="attendance" element={<StudentAttendance />} />
+          <Route path="remarks" element={<StudentRemarks />} />
+          <Route path="assignments" element={<StudentAssignments />} />
           <Route path="profile" element={<StudentProfile />} />
         </Route>
 
@@ -133,6 +138,7 @@ function App() {
           <Route path="courses" element={<TeacherCourses />} />
           <Route path="students" element={<TeacherStudents />} />
           <Route path="attendance" element={<TeacherAttendance />} />
+          <Route path="classes/:courseOfferingId/assignments" element={<TeacherClassAssignments />} />
           <Route path="profile" element={<TeacherProfile />} />
         </Route>
 

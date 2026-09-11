@@ -28,9 +28,6 @@ interface ProfilePictureUploaderProps {
   onChange: (url: string | null) => void;
 }
 
-// Self-service "my profile picture" widget: file picker -> pre-signed S3
-// upload -> backend confirmation -> updated avatar. Shared by the Student and
-// Teacher profile pages so both follow the exact same upload/remove flow.
 export function ProfilePictureUploader({
   name,
   imageUrl,
@@ -46,8 +43,6 @@ export function ProfilePictureUploader({
   const [removing, setRemoving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
 
-  // Revoke the local preview's object URL on unmount/replacement so it
-  // doesn't leak - it's only ever needed while an upload is in flight.
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -71,8 +66,6 @@ export function ProfilePictureUploader({
     try {
       const { upload_url, key, content_type } = await requestUploadUrl(file.type);
 
-      // Direct browser-to-S3 upload via the pre-signed url - the image bytes
-      // never pass through our own Django server.
       const s3Response = await fetch(upload_url, {
         method: "PUT",
         headers: { "Content-Type": content_type },

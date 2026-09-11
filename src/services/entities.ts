@@ -1,6 +1,6 @@
 import{apiRequest}from"./api";
 import{getAccessToken}from"./auth";
-import type{Student,Teacher,Department,Course,CourseOffering,Enrollment,Attendance,Section,StudentListItem,SectionListItem,TeacherListItem,CourseListItem,EnrollmentListItem,CourseOfferingListItem,CourseOfferingReference,CourseOfferingTeacherListItem,AttendanceListItem,StudentAttendanceListItem,TeacherAttendanceListItem,DepartmentReference,SectionReference,TeacherReference,CourseReference,StudentReference,StudentProfile,StudentSummary,StudentEnrollmentListItem,EnrollmentReference,EnrollmentTeacherListItem,TeacherDashboardSummary,TeacherProfile}from"../types/user";
+import type{Student,Teacher,Department,Course,CourseOffering,Enrollment,Attendance,RemarkTeacherListItem,RemarkStudentListItem,Section,StudentListItem,SectionListItem,TeacherListItem,CourseListItem,EnrollmentListItem,CourseOfferingListItem,CourseOfferingReference,CourseOfferingTeacherListItem,AttendanceListItem,StudentAttendanceListItem,TeacherAttendanceListItem,DepartmentReference,SectionReference,TeacherReference,CourseReference,StudentReference,StudentProfile,StudentSummary,StudentEnrollmentListItem,EnrollmentReference,EnrollmentTeacherListItem,TeacherDashboardSummary,TeacherProfile,AssignmentTeacherListItem,AssignmentTeacherDetail,AssignmentStudentListItem,MySubmissionStatus,SubmissionRosterItem}from"../types/user";
 
 function authHeaders(signal?:AbortSignal){
   const token=getAccessToken();
@@ -176,6 +176,27 @@ export const attendanceService=createCrudService<Attendance>("/attendance");
 export const getAttendanceList=(page:number=1,pageSize:number=10,signal?:AbortSignal):Promise<PaginatedResponse<AttendanceListItem>>=>
   apiRequest<PaginatedResponse<AttendanceListItem>>(`/attendance/?page=${page}&page_size=${pageSize}`,authHeaders(signal));
 
+// create/update/remove on /remarks/ are teacher-only server-side (see
+// remark_api._get_teacher_or_error), so RemarkTeacherListItem - the shape
+// the backend actually returns to a teacher - covers all three.
+export const remarkService=createCrudService<RemarkTeacherListItem>("/remarks");
+
+// Used by the Students page's Remarks modal: that modal already knows which
+// student/class it's showing (the row it was opened from), so this returns
+// the narrower teacher-facing shape - see remark_api.serialize_remark_for_teacher.
+export const getRemarksForStudentInOffering=(studentId:number,courseOfferingId:number,page:number=1,pageSize:number=50,signal?:AbortSignal):Promise<PaginatedResponse<RemarkTeacherListItem>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize),student:String(studentId),course_offering:String(courseOfferingId)});
+  return apiRequest<PaginatedResponse<RemarkTeacherListItem>>(`/remarks/?${params.toString()}`,authHeaders(signal));
+};
+
+// GET /remarks/ is already scoped server-side to the authenticated student's
+// own STUDENT_VISIBLE remarks (see remarks/authorization.py) - no separate
+// "me" endpoint needed, unlike Attendance. Aggregates across classes, so
+// this gets the richer student-facing shape with course/teacher names - see
+// remark_api.serialize_remark_for_student.
+export const getMyRemarks=(page:number=1,pageSize:number=10,signal?:AbortSignal):Promise<PaginatedResponse<RemarkStudentListItem>>=>
+  apiRequest<PaginatedResponse<RemarkStudentListItem>>(`/remarks/?page=${page}&page_size=${pageSize}`,authHeaders(signal));
+
 export const getStudents=studentService.getAll;
 export const getTeachers=teacherService.getAll;
 export const getDepartments=departmentService.getAll;
@@ -252,12 +273,6 @@ export const getMyTeacherStudents=(page:number=1,pageSize:number=10,courseOfferi
 export const getMyTeacherAttendance=(page:number=1,pageSize:number=10):Promise<PaginatedResponse<TeacherAttendanceListItem>>=>
   apiRequest<PaginatedResponse<TeacherAttendanceListItem>>(`/teachers/me/attendance/?page=${page}&page_size=${pageSize}`,authHeaders());
 
-// ── Profile picture (self-service, "me") ────────────────────────────────────
-// Backend derives the S3 object key itself and hands back a short-lived
-// pre-signed PUT url - the frontend uploads directly to S3 with it, then
-// calls confirm() so the backend can verify the object actually exists
-// before saving the key. See common/services/s3_service.py.
-
 export interface ProfilePictureUploadUrlResponse{
   upload_url:string;
   key:string;
@@ -300,3 +315,75 @@ function profilePictureService(basePath:string){
 
 export const studentProfilePictureService=profilePictureService("/students/me");
 export const teacherProfilePictureService=profilePictureService("/teachers/me");
+
+// ── Assignments ──────────────────────────────────────────────────────────────
+// create/update/remove/getById on /assignments/ are teacher-only server-side
+// (assignment_api._get_teacher_or_error for POST/PATCH/DELETE; GET detail as
+// a teacher returns exactly AssignmentTeacherDetail), so this CRUD service is
+// typed to the teacher-facing shape.
+export const assignmentService=createCrudService<AssignmentTeacherDetail>("/assignments");
+
+// Used by the teacher's per-class Assignments page - course_offering scopes
+// the list to one class, matching how the page itself is course-scoped.
+export const getTeacherAssignments=(courseOfferingId:number,page:number=1,pageSize:number=10,signal?:AbortSignal):Promise<PaginatedResponse<AssignmentTeacherListItem>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize),course_offering:String(courseOfferingId)});
+  return apiRequest<PaginatedResponse<AssignmentTeacherListItem>>(`/assignments/?${params.toString()}`,authHeaders(signal));
+};
+
+// GET /assignments/ is already scoped server-side to the authenticated
+// student's own enrolled classes - used by the student's My Assignments page.
+export const getMyAssignments=(page:number=1,pageSize:number=10,signal?:AbortSignal):Promise<PaginatedResponse<AssignmentStudentListItem>>=>
+  apiRequest<PaginatedResponse<AssignmentStudentListItem>>(`/assignments/?page=${page}&page_size=${pageSize}`,authHeaders(signal));
+
+// GET /assignments/<id>/ as a student returns AssignmentStudentListItem's
+// shape (same fields as the list row) - used to open one assignment's detail.
+export const getStudentAssignmentDetail=(assignmentId:number):Promise<AssignmentStudentListItem>=>
+  apiRequest<AssignmentStudentListItem>(`/assignments/${assignmentId}/`,authHeaders());
+
+export interface AssignmentFileUploadUrlResponse{
+  upload_url:string;
+  key:string;
+  content_type:string;
+}
+
+// Teacher: optional attachment on an assignment - same two-step S3 flow as
+// ProfilePictureUploader (request a presigned PUT url, upload directly to
+// S3, then confirm so the backend validates and records the key).
+export const requestAssignmentAttachmentUploadUrl=(assignmentId:number,contentType:string):Promise<AssignmentFileUploadUrlResponse>=>{
+  const token=getAccessToken();
+  return apiRequest<AssignmentFileUploadUrlResponse>(`/assignments/${assignmentId}/attachment-upload-url/`,{
+    method:"POST",token:token||undefined,body:JSON.stringify({content_type:contentType})
+  });
+};
+
+export const confirmAssignmentAttachment=(assignmentId:number,key:string):Promise<{attachment_url:string|null}>=>{
+  const token=getAccessToken();
+  return apiRequest<{attachment_url:string|null}>(`/assignments/${assignmentId}/attachment-confirm/`,{
+    method:"POST",token:token||undefined,body:JSON.stringify({key})
+  });
+};
+
+// Student: own submission status/upload for one assignment - same two-step
+// S3 flow, scoped by assignment id (the backend derives the student from
+// the authenticated request, never from the client).
+export const getMySubmissionStatus=(assignmentId:number):Promise<MySubmissionStatus>=>
+  apiRequest<MySubmissionStatus>(`/assignments/${assignmentId}/submission/`,authHeaders());
+
+export const requestSubmissionUploadUrl=(assignmentId:number,contentType:string):Promise<AssignmentFileUploadUrlResponse>=>{
+  const token=getAccessToken();
+  return apiRequest<AssignmentFileUploadUrlResponse>(`/assignments/${assignmentId}/submission/upload-url/`,{
+    method:"POST",token:token||undefined,body:JSON.stringify({content_type:contentType})
+  });
+};
+
+export const confirmSubmission=(assignmentId:number,key:string):Promise<MySubmissionStatus>=>{
+  const token=getAccessToken();
+  return apiRequest<MySubmissionStatus>(`/assignments/${assignmentId}/submission/confirm/`,{
+    method:"POST",token:token||undefined,body:JSON.stringify({key})
+  });
+};
+
+// Teacher: roster of every enrolled student's submission status for one
+// assignment - used by the "View Submissions" modal.
+export const getAssignmentSubmissions=(assignmentId:number):Promise<{results:SubmissionRosterItem[]}>=>
+  apiRequest<{results:SubmissionRosterItem[]}>(`/assignments/${assignmentId}/submissions/`,authHeaders());
