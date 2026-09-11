@@ -1,11 +1,18 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { getCurrentUser } from "../../services/auth";
 import { getMyCourseOfferings } from "../../services/entities";
 import type { CourseOfferingTeacherListItem } from "../../types/user";
 
+// Reused as-is for two sidebar entries - "My Classes" (/teacher/courses) and
+// "Assignments" (/teacher/assignments) - rather than duplicating the class
+// grid + data-fetching in a second page. Both routes render the exact same
+// class-selection grid (each card's own "Assignments" button already leads
+// into /teacher/classes/:id/assignments); only the heading copy differs by
+// entry point.
 export default function TeacherCourses() {
   const user = getCurrentUser();
+  const isAssignmentsEntry = useLocation().pathname === "/teacher/assignments";
 
   const [offerings, setOfferings] = useState<CourseOfferingTeacherListItem[]>([]);
   const [notFound, setNotFound] = useState(false);
@@ -31,8 +38,8 @@ export default function TeacherCourses() {
   return (
     <>
       <div className="page-header">
-        <h2>My Classes</h2>
-        <p>Courses you are currently teaching</p>
+        <h2>{isAssignmentsEntry ? "Assignments" : "My Classes"}</h2>
+        <p>{isAssignmentsEntry ? "Select a class to manage its assignments" : "Courses you are currently teaching"}</p>
       </div>
 
       {notFound ? (

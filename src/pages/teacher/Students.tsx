@@ -10,7 +10,20 @@ import type { EnrollmentTeacherListItem, CourseOfferingReference, RemarkTeacherL
 // The Remarks modal for one student+class: their remark history plus an
 // inline Add Remark form. Kept in this file (not a separate page/route) -
 // Remarks is an action on a student row, not a standalone workflow.
-function RemarksModal({ enrollment, onClose }: { enrollment: EnrollmentTeacherListItem; onClose: () => void }) {
+// courseOfferingId/courseName/courseCode come from the parent's already-
+// selected class (offerings + courseFilter) rather than from the student
+// row itself - the row no longer carries course fields (see
+// EnrollmentTeacherListItem), since they'd be identical on every row now
+// that a single class is always selected.
+function RemarksModal({
+  student, courseOfferingId, courseName, courseCode, onClose,
+}: {
+  student: EnrollmentTeacherListItem;
+  courseOfferingId: number;
+  courseName: string;
+  courseCode: string;
+  onClose: () => void;
+}) {
   const user = getCurrentUser();
   const { showToast } = useToast();
 
@@ -30,7 +43,7 @@ function RemarksModal({ enrollment, onClose }: { enrollment: EnrollmentTeacherLi
 
   const loadRemarks = () => {
     setLoading(true);
-    getRemarksForStudentInOffering(enrollment.student_id, enrollment.course_offering_id)
+    getRemarksForStudentInOffering(student.student_id, courseOfferingId)
       .then(r => setRemarks(r.results))
       .catch(err => showToast(err instanceof Error ? err.message : "Failed to load remarks.", "error"))
       .finally(() => setLoading(false));
@@ -78,8 +91,8 @@ function RemarksModal({ enrollment, onClose }: { enrollment: EnrollmentTeacherLi
         // them back - same request/response shape mismatch as
         // TeacherAttendance's handleSave.
         await remarkService.create({
-          student: enrollment.student_id,
-          course_offering: enrollment.course_offering_id,
+          student: student.student_id,
+          course_offering: courseOfferingId,
           remark_text: formData.remark_text,
           visibility: formData.visibility,
         } as unknown as Partial<RemarkTeacherListItem>);
@@ -117,7 +130,7 @@ function RemarksModal({ enrollment, onClose }: { enrollment: EnrollmentTeacherLi
   const isOwnRemark = (remark: RemarkTeacherListItem) => remark.teacher === user?.teacher_id;
 
   return (
-    <Modal isOpen title={`Student Remarks - ${enrollment.student_name}`} onClose={onClose}>
+    <Modal isOpen title={`Student Remarks - ${student.student_name}`} onClose={onClose}>
       <div style={{
         display: "flex",
         alignItems: "center",
@@ -131,10 +144,10 @@ function RemarksModal({ enrollment, onClose }: { enrollment: EnrollmentTeacherLi
         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
           <span style={{ fontSize: "0.82rem", color: "var(--color-text-secondary)" }}>Course:</span>
           <span style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--color-text-primary)" }}>
-            {enrollment.course_name}
+            {courseName}
           </span>
           <span className="badge" style={{ backgroundColor: "var(--color-primary-light)", color: "var(--color-primary)", fontSize: "0.72rem", padding: "2px 8px" }}>
-            {enrollment.course_code}
+            {courseCode}
           </span>
         </div>
         <span style={{ fontSize: "0.78rem", color: "var(--color-text-secondary)", fontWeight: 500 }}>
@@ -171,7 +184,7 @@ function RemarksModal({ enrollment, onClose }: { enrollment: EnrollmentTeacherLi
             No remarks recorded yet
           </div>
           <p style={{ color: "var(--color-text-secondary)", fontSize: "0.82rem", margin: 0, maxWidth: "300px" }}>
-            Add academic feedback, observations, or private performance notes for {enrollment.student_name}.
+            Add academic feedback, observations, or private performance notes for {student.student_name}.
           </p>
         </div>
       ) : (
@@ -409,7 +422,12 @@ export default function TeacherStudents() {
 
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [courseFilter, setCourseFilter] = useState("all");
+  // No "All Classes" option: a teacher's course offerings can share students
+  // (the same student enrolled in several of the teacher's classes), so an
+  // "all" scope would combine enrollments and show that student more than
+  // once. The dropdown always holds one specific course offering id - same
+  // pattern as TeacherAttendance's class filter.
+  const [courseFilter, setCourseFilter] = useState("");
 
   const [remarksFor, setRemarksFor] = useState<EnrollmentTeacherListItem | null>(null);
 
@@ -420,21 +438,26 @@ export default function TeacherStudents() {
     }
 
     getCourseOfferingReference(1, 10)
-      .then(o => setOfferings(o.results))
+      .then(o => {
+        setOfferings(o.results);
+        if (o.results.length > 0) {
+          setCourseFilter(o.results[0].id.toString());
+        } else {
+          setLoading(false);
+        }
+      })
       .catch(() => setNotFound(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Refetch scoped to the selected class whenever the filter changes - a
-  // class's own roster, or the teacher's full cross-class list on "All
-  // Classes", each loaded page by page rather than assumed to fit on page 1.
+  // Refetch scoped to the selected class whenever the filter changes - one
+  // specific course offering's roster, loaded page by page rather than
+  // assumed to fit on page 1.
   useEffect(() => {
-    if (!user) return;
+    if (!user || !courseFilter) return;
 
     setLoading(true);
-    const courseOfferingId = courseFilter === "all" ? undefined : Number(courseFilter);
-
-    getMyTeacherStudents(1, 10, courseOfferingId).then(e => {
+    getMyTeacherStudents(1, 10, Number(courseFilter)).then(e => {
       setEnrollments(e.results);
       setPage(e.current_page);
       setTotalPages(e.total_pages);
@@ -444,12 +467,11 @@ export default function TeacherStudents() {
   }, [courseFilter]);
 
   const loadMore = () => {
-    if (loadingMore || page >= totalPages) return;
+    if (loadingMore || page >= totalPages || !courseFilter) return;
     setLoadingMore(true);
     const nextPage = page + 1;
-    const courseOfferingId = courseFilter === "all" ? undefined : Number(courseFilter);
 
-    getMyTeacherStudents(nextPage, 10, courseOfferingId).then(e => {
+    getMyTeacherStudents(nextPage, 10, Number(courseFilter)).then(e => {
       setEnrollments(prev => [...prev, ...e.results]);
       setPage(e.current_page);
       setTotalPages(e.total_pages);
@@ -458,6 +480,11 @@ export default function TeacherStudents() {
 
   const getCourseLabel = (offering: CourseOfferingReference) =>
     `${offering.course_name || "Unknown Course"} (${offering.course_code || "---"}) - ${offering.section_name || "No Section"}`;
+
+  // The Remarks modal needs the selected class's name/code - already known
+  // here (it's what the dropdown is showing), no need for the student row to
+  // carry it.
+  const selectedOffering = offerings.find(o => o.id === Number(courseFilter));
 
   if (loading && enrollments.length === 0) {
     return <><div style={{ padding: "40px", textAlign: "center" }}>Loading students...</div></>;
@@ -490,7 +517,7 @@ export default function TeacherStudents() {
                 onChange={e => setCourseFilter(e.target.value)}
                 style={{ fontWeight: 500, backgroundColor: "#ffffff", padding: "7px 10px", fontSize: "0.84rem" }}
               >
-                <option value="all">All Classes</option>
+                {offerings.length === 0 && <option value="">-- No Classes --</option>}
                 {offerings.map(o => (
                   <option key={o.id} value={o.id}>{getCourseLabel(o)}</option>
                 ))}
@@ -507,17 +534,15 @@ export default function TeacherStudents() {
           <div className="table-responsive content-card" style={{ boxShadow: "var(--shadow-sm)" }}>
             <table className="data-table table-compact" style={{ minWidth: "750px" }}>
               <colgroup>
-                <col style={{ width: "24%" }} />
-                <col style={{ width: "24%" }} />
-                <col style={{ width: "28%" }} />
-                <col style={{ width: "12%" }} />
-                <col style={{ width: "12%" }} />
+                <col style={{ width: "34%" }} />
+                <col style={{ width: "34%" }} />
+                <col style={{ width: "14%" }} />
+                <col style={{ width: "18%" }} />
               </colgroup>
               <thead>
                 <tr>
                   <th>Student Name</th>
                   <th>Email</th>
-                  <th>Class</th>
                   <th style={{ textAlign: "center" }}>Status</th>
                   <th style={{ textAlign: "right" }}>Actions</th>
                 </tr>
@@ -525,7 +550,7 @@ export default function TeacherStudents() {
               <tbody>
                 {enrollments.length === 0 ? (
                   <tr>
-                    <td colSpan={5} style={{ textAlign: "center", padding: "32px 20px", color: "var(--color-text-secondary)" }}>
+                    <td colSpan={4} style={{ textAlign: "center", padding: "32px 20px", color: "var(--color-text-secondary)" }}>
                       No students found for this selection.
                     </td>
                   </tr>
@@ -534,7 +559,7 @@ export default function TeacherStudents() {
                     <tr key={e.enrollment_id}>
                       <td>
                         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                          <Avatar src={e.profile_picture_url} name={e.student_name} size={28} />
+                          <Avatar src={e.profile_picture_url} name={e.student_name} size={32} />
                           <span style={{ fontWeight: 600, color: "var(--color-text-primary)", fontSize: "0.875rem" }}>
                             {e.student_name}
                           </span>
@@ -548,11 +573,6 @@ export default function TeacherStudents() {
                           </svg>
                           <span>{e.student_email}</span>
                         </div>
-                      </td>
-                      <td>
-                        <span style={{ fontSize: "0.84rem", color: "var(--color-text-primary)" }}>
-                          {e.course_name} ({e.course_code}) - {e.section_name || "No Section"}
-                        </span>
                       </td>
                       <td style={{ textAlign: "center" }}>
                         <span className={`badge ${
@@ -596,7 +616,15 @@ export default function TeacherStudents() {
             </div>
           )}
 
-          {remarksFor && <RemarksModal enrollment={remarksFor} onClose={() => setRemarksFor(null)} />}
+          {remarksFor && (
+            <RemarksModal
+              student={remarksFor}
+              courseOfferingId={Number(courseFilter)}
+              courseName={selectedOffering?.course_name || ""}
+              courseCode={selectedOffering?.course_code || ""}
+              onClose={() => setRemarksFor(null)}
+            />
+          )}
         </>
       )}
     </>

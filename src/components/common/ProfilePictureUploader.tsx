@@ -22,6 +22,7 @@ function validateFile(file: File): string | null {
 interface ProfilePictureUploaderProps {
   name: string;
   imageUrl: string | null;
+  size?: number;
   requestUploadUrl: (contentType: string) => Promise<ProfilePictureUploadUrlResponse>;
   confirmUpload: (key: string) => Promise<ProfilePictureUrlResponse>;
   removePicture: () => Promise<void>;
@@ -31,6 +32,7 @@ interface ProfilePictureUploaderProps {
 export function ProfilePictureUploader({
   name,
   imageUrl,
+  size = 120,
   requestUploadUrl,
   confirmUpload,
   removePicture,
@@ -108,7 +110,7 @@ export function ProfilePictureUploader({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-      <Avatar src={previewUrl || imageUrl} name={name} size={120} />
+      <Avatar src={previewUrl || imageUrl} name={name} size={size} />
 
       <input
         ref={fileInputRef}
@@ -118,23 +120,33 @@ export function ProfilePictureUploader({
         onChange={handleFileSelected}
       />
 
-      <div style={{ display: "flex", gap: "8px" }}>
+      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
         <button
           type="button"
-          className="btn btn-outline"
+          className="btn btn-sm btn-subtle-primary"
           disabled={uploading || removing}
           onClick={() => fileInputRef.current?.click()}
+          style={{ fontWeight: 600, gap: "6px", boxShadow: "var(--shadow-sm)" }}
         >
-          {uploading ? "Uploading..." : imageUrl ? "Change Picture" : "Upload Picture"}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+            <circle cx="12" cy="13" r="4" />
+          </svg>
+          {uploading ? "Uploading..." : imageUrl ? "Change Photo" : "Upload Photo"}
         </button>
 
         {imageUrl && (
           <button
             type="button"
-            className="btn btn-danger"
+            className="btn btn-sm btn-subtle-danger"
             disabled={uploading || removing}
             onClick={() => setConfirmRemove(true)}
+            style={{ fontWeight: 600, gap: "4px" }}
           >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
             Remove
           </button>
         )}

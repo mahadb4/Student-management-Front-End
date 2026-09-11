@@ -130,13 +130,14 @@ export interface Teacher {
 // Shape returned by GET /teachers/me/: the authenticated Teacher's own
 // profile - no salary/address/gender/date_of_birth/qualification/phone_number/
 // created_at/updated_at/is_active, none of which any Teacher page renders,
-// via the backend's serialize_teacher_profile. Distinct from Teacher (used by
-// Admin's teacherService CRUD against /teachers/<id>/, which still returns
-// the full record).
+// via the backend's serialize_teacher_profile. `name` is already the joined
+// "First Last" string (the Profile page only ever renders one name, never
+// first/last separately) - not split into first_name/last_name like Teacher
+// (used by Admin's teacherService CRUD against /teachers/<id>/, whose edit
+// form needs them as two separate inputs).
 export interface TeacherProfile {
   id: number;
-  first_name: string;
-  last_name: string;
+  name: string;
   employee_id: string;
   email: string;
   department_name: string | null;
@@ -321,10 +322,9 @@ export type EnrollmentStatus = "ACTIVE" | "DROPPED" | "COMPLETED";
 // Student My Courses UI never needs a separate course_offerings fetch just
 // to show who teaches an enrolled course - via the backend's
 // EnrollmentMapper.to_student_list_dto.
-// No course_offering_id - "already enrolled" exclusion for Available
-// Offerings is applied server-side (see course_offering_service.py's
-// _exclude_already_enrolled), so this display-only list no longer needs to
-// carry an id purely for client-side cross-referencing.
+// course_offering_id is carried so the My Courses page can link straight to
+// this course's own Assignments/Attendance view (?course_offering=<id>)
+// instead of the general student pages.
 export interface StudentEnrollmentListItem {
   id: number;
   status: EnrollmentStatus;
@@ -334,25 +334,23 @@ export interface StudentEnrollmentListItem {
   course_code: string;
   teacher_name: string | null;
   section_name: string | null;
+  course_offering_id: number;
   profile_picture_url: string | null;
 }
 
 // Shape returned by GET /teachers/me/students/: one row per enrollment in
 // the authenticated Teacher's own classes. No teacher identity (it's their
 // own), no raw student id (student_email is a sufficient identifier for the
-// table); course_offering_id is kept both for the Students/Attendance class
-// filter dropdown to match rows against, and for the Students page's Remarks
-// action (creating a remark requires it) - via the backend's
+// table). No course/section fields either: this endpoint is always called
+// with a single ?course_offering_id= (the "All Classes" option was removed),
+// so every row's course/section would be identical - the caller already
+// knows it, it's the id it just filtered by - via the backend's
 // EnrollmentMapper.to_teacher_list_dto.
 export interface EnrollmentTeacherListItem {
   enrollment_id: number;
   student_id: number;
   student_name: string;
   student_email: string;
-  course_offering_id: number;
-  course_name: string;
-  course_code: string;
-  section_name: string | null;
   status: EnrollmentStatus;
   profile_picture_url: string | null;
 }
@@ -482,6 +480,16 @@ export interface AssignmentTeacherListItem {
   due_at: string;
   submitted_count: number;
   pending_count: number;
+}
+
+// Attached to GET /assignments/?course_offering=<id> for a TEACHER: just the
+// three fields the per-class Assignments page header renders, so that page
+// never has to load the whole /teachers/me/courses/ list to resolve one label.
+export interface AssignmentCourseSummary {
+  id: number;
+  course_name: string;
+  course_code: string;
+  section_name: string | null;
 }
 
 // Shape returned by GET/POST/PATCH /assignments/<id>/ to a TEACHER (detail,

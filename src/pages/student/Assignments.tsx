@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { getCurrentUser } from "../../services/auth";
 import { getMyAssignments, getStudentAssignmentDetail, requestSubmissionUploadUrl, confirmSubmission } from "../../services/entities";
 import { Modal } from "../../components/common/Modal";
@@ -123,6 +124,12 @@ function AssignmentDetailModal({ assignmentId, onClose, onSubmitted }: { assignm
 
 export default function StudentAssignments() {
   const user = getCurrentUser();
+  const [searchParams] = useSearchParams();
+  // Present when navigated here from a My Courses card ("Assignments" on one
+  // specific course) - absent for the general "My Assignments" nav link,
+  // which keeps showing everything across all enrolled classes as before.
+  const courseOfferingParam = searchParams.get("course_offering");
+  const courseOfferingId = courseOfferingParam ? Number(courseOfferingParam) : undefined;
 
   const [assignments, setAssignments] = useState<AssignmentStudentListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,7 +141,8 @@ export default function StudentAssignments() {
   const [openAssignmentId, setOpenAssignmentId] = useState<number | null>(null);
 
   const loadAssignments = () => {
-    getMyAssignments(1, 10)
+    setLoading(true);
+    getMyAssignments(1, 10, courseOfferingId)
       .then(r => {
         setAssignments(r.results);
         setPage(r.current_page);
@@ -152,12 +160,12 @@ export default function StudentAssignments() {
 
     loadAssignments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [courseOfferingId]);
 
   const loadMore = () => {
     if (loadingMore || page >= totalPages) return;
     setLoadingMore(true);
-    getMyAssignments(page + 1, 10).then(r => {
+    getMyAssignments(page + 1, 10, courseOfferingId).then(r => {
       setAssignments(prev => [...prev, ...r.results]);
       setPage(r.current_page);
       setTotalPages(r.total_pages);
@@ -171,8 +179,8 @@ export default function StudentAssignments() {
   return (
     <>
       <div className="page-header">
-        <h2>My Assignments</h2>
-        <p>Assignments from your enrolled classes</p>
+        <h2>{courseOfferingId && assignments[0] ? `${assignments[0].course_name} - Assignments` : "My Assignments"}</h2>
+        <p>{courseOfferingId ? "Assignments for this course" : "Assignments from your enrolled classes"}</p>
       </div>
 
       {notFound ? (
@@ -181,34 +189,80 @@ export default function StudentAssignments() {
         </div>
       ) : (
         <>
-          <div className="table-responsive content-card">
-            <table className="data-table">
+          <div className="table-responsive content-card" style={{ boxShadow: "var(--shadow-sm)" }}>
+            <table className="data-table table-compact" style={{ width: "100%" }}>
               <thead>
                 <tr>
-                  <th>Title</th>
-                  <th>Course</th>
-                  <th>Due Date</th>
-                  <th>Status</th>
-                  <th></th>
+                  <th style={{ padding: "12px 20px" }}>Assignment Title</th>
+                  <th style={{ padding: "12px 20px" }}>Course</th>
+                  <th style={{ padding: "12px 20px" }}>Due Date</th>
+                  <th style={{ textAlign: "center", padding: "12px 20px" }}>Status</th>
+                  <th style={{ textAlign: "right", padding: "12px 20px" }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {assignments.length === 0 ? (
-                  <tr><td colSpan={5} style={{ textAlign: "center", padding: "24px" }}>No assignments yet.</td></tr>
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: "center", padding: "36px 20px", color: "var(--color-text-secondary)" }}>
+                      No assignments posted yet.
+                    </td>
+                  </tr>
                 ) : (
                   assignments.map(a => (
                     <tr key={a.id}>
-                      <td><strong>{a.title}</strong></td>
-                      <td>{a.course_name} ({a.course_code})</td>
-                      <td>{formatDate(a.due_at)}</td>
-                      <td>
-                        <span className={`badge ${a.status === "SUBMITTED" ? "badge-success" : "badge-warning"}`}>
+                      <td style={{ padding: "12px 20px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <div style={{
+                            width: "28px",
+                            height: "28px",
+                            borderRadius: "6px",
+                            backgroundColor: "var(--color-primary-light)",
+                            color: "var(--color-primary)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0
+                          }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                              <polyline points="14 2 14 8 20 8" />
+                              <line x1="16" y1="13" x2="8" y2="13" />
+                              <line x1="16" y1="17" x2="8" y2="17" />
+                            </svg>
+                          </div>
+                          <strong style={{ color: "var(--color-text-primary)", fontSize: "0.875rem" }}>{a.title}</strong>
+                        </div>
+                      </td>
+                      <td style={{ padding: "12px 20px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span className="teacher-class-code-tag">{a.course_code}</span>
+                          <span style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>{a.course_name}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: "12px 20px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                          </svg>
+                          {formatDate(a.due_at)}
+                        </div>
+                      </td>
+                      <td style={{ textAlign: "center", padding: "12px 20px" }}>
+                        <span className={`badge ${a.status === "SUBMITTED" ? "badge-success" : "badge-warning"}`} style={{ padding: "4px 10px", fontSize: "0.74rem", fontWeight: 700 }}>
                           {a.status === "SUBMITTED" ? "Submitted" : "Pending"}
                         </span>
                       </td>
-                      <td>
-                        <button onClick={() => setOpenAssignmentId(a.id)} className="btn btn-outline" style={{ padding: "4px 8px", fontSize: "0.75rem" }}>
-                          View Assignment
+                      <td style={{ textAlign: "right", padding: "12px 20px" }}>
+                        <button
+                          type="button"
+                          onClick={() => setOpenAssignmentId(a.id)}
+                          className="btn btn-sm btn-subtle-primary"
+                          style={{ padding: "6px 12px", fontSize: "0.78rem", fontWeight: 600 }}
+                        >
+                          {a.status === "SUBMITTED" ? "View Details" : "Submit"}
                         </button>
                       </td>
                     </tr>
@@ -219,8 +273,8 @@ export default function StudentAssignments() {
           </div>
 
           {page < totalPages && (
-            <div style={{ textAlign: "center", marginTop: "16px" }}>
-              <button className="btn btn-outline" onClick={loadMore} disabled={loadingMore}>
+            <div style={{ textAlign: "center", marginTop: "20px" }}>
+              <button className="btn btn-secondary btn-sm" onClick={loadMore} disabled={loadingMore}>
                 {loadingMore ? "Loading..." : "Load More"}
               </button>
             </div>

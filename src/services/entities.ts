@@ -1,6 +1,6 @@
 import{apiRequest}from"./api";
 import{getAccessToken}from"./auth";
-import type{Student,Teacher,Department,Course,CourseOffering,Enrollment,Attendance,RemarkTeacherListItem,RemarkStudentListItem,Section,StudentListItem,SectionListItem,TeacherListItem,CourseListItem,EnrollmentListItem,CourseOfferingListItem,CourseOfferingReference,CourseOfferingTeacherListItem,AttendanceListItem,StudentAttendanceListItem,TeacherAttendanceListItem,DepartmentReference,SectionReference,TeacherReference,CourseReference,StudentReference,StudentProfile,StudentSummary,StudentEnrollmentListItem,EnrollmentReference,EnrollmentTeacherListItem,TeacherDashboardSummary,TeacherProfile,AssignmentTeacherListItem,AssignmentTeacherDetail,AssignmentStudentListItem,MySubmissionStatus,SubmissionRosterItem}from"../types/user";
+import type{Student,Teacher,Department,Course,CourseOffering,Enrollment,Attendance,RemarkTeacherListItem,RemarkStudentListItem,Section,StudentListItem,SectionListItem,TeacherListItem,CourseListItem,EnrollmentListItem,CourseOfferingListItem,CourseOfferingReference,CourseOfferingTeacherListItem,AttendanceListItem,StudentAttendanceListItem,TeacherAttendanceListItem,DepartmentReference,SectionReference,TeacherReference,CourseReference,StudentReference,StudentProfile,StudentSummary,StudentEnrollmentListItem,EnrollmentReference,EnrollmentTeacherListItem,TeacherDashboardSummary,TeacherProfile,AssignmentTeacherListItem,AssignmentTeacherDetail,AssignmentCourseSummary,AssignmentStudentListItem,MySubmissionStatus,SubmissionRosterItem}from"../types/user";
 
 function authHeaders(signal?:AbortSignal){
   const token=getAccessToken();
@@ -252,8 +252,17 @@ export const enrollInCourseOffering=(courseOfferingId:number):Promise<StudentEnr
 export const getMyEnrollmentsReference=(page:number=1,pageSize:number=10):Promise<PaginatedResponse<EnrollmentReference>>=>
   apiRequest<PaginatedResponse<EnrollmentReference>>(`/students/me/courses/reference/?page=${page}&page_size=${pageSize}`,authHeaders());
 
-export const getMyStudentAttendance=(page:number=1,pageSize:number=10):Promise<PaginatedResponse<StudentAttendanceListItem>>=>
-  apiRequest<PaginatedResponse<StudentAttendanceListItem>>(`/students/me/attendance/?page=${page}&page_size=${pageSize}`,authHeaders());
+// Optional courseOfferingId scopes it down to one course (My Courses' per-card
+// "Attendance" link), mirroring getMyTeacherAttendance's same ?course_offering_id=.
+// Optional enrollmentId scopes it the same way but keyed by enrollment id -
+// used by the Student Attendance page's own course-picker dropdown, whose
+// option values are enrollment ids (matching getMyEnrollmentsReference).
+export const getMyStudentAttendance=(page:number=1,pageSize:number=10,courseOfferingId?:number,enrollmentId?:number):Promise<PaginatedResponse<StudentAttendanceListItem>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
+  if(courseOfferingId!==undefined)params.set("course_offering_id",String(courseOfferingId));
+  if(enrollmentId!==undefined)params.set("enrollment_id",String(enrollmentId));
+  return apiRequest<PaginatedResponse<StudentAttendanceListItem>>(`/students/me/attendance/?${params.toString()}`,authHeaders());
+};
 
 export const getMyTeacherProfile=():Promise<TeacherProfile>=>
   apiRequest<TeacherProfile>("/teachers/me/",authHeaders());
@@ -270,8 +279,11 @@ export const getMyTeacherStudents=(page:number=1,pageSize:number=10,courseOfferi
   return apiRequest<PaginatedResponse<EnrollmentTeacherListItem>>(`/teachers/me/students/?${params.toString()}`,authHeaders());
 };
 
-export const getMyTeacherAttendance=(page:number=1,pageSize:number=10):Promise<PaginatedResponse<TeacherAttendanceListItem>>=>
-  apiRequest<PaginatedResponse<TeacherAttendanceListItem>>(`/teachers/me/attendance/?page=${page}&page_size=${pageSize}`,authHeaders());
+export const getMyTeacherAttendance=(page:number=1,pageSize:number=10,courseOfferingId?:number):Promise<PaginatedResponse<TeacherAttendanceListItem>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
+  if(courseOfferingId!==undefined)params.set("course_offering_id",String(courseOfferingId));
+  return apiRequest<PaginatedResponse<TeacherAttendanceListItem>>(`/teachers/me/attendance/?${params.toString()}`,authHeaders());
+};
 
 export interface ProfilePictureUploadUrlResponse{
   upload_url:string;
@@ -324,16 +336,23 @@ export const teacherProfilePictureService=profilePictureService("/teachers/me");
 export const assignmentService=createCrudService<AssignmentTeacherDetail>("/assignments");
 
 // Used by the teacher's per-class Assignments page - course_offering scopes
-// the list to one class, matching how the page itself is course-scoped.
-export const getTeacherAssignments=(courseOfferingId:number,page:number=1,pageSize:number=10,signal?:AbortSignal):Promise<PaginatedResponse<AssignmentTeacherListItem>>=>{
+// the list to one class, matching how the page itself is course-scoped. The
+// response also carries a small `course` summary (name/code/section) for that
+// page's header, so it never needs a separate course-list request.
+export const getTeacherAssignments=(courseOfferingId:number,page:number=1,pageSize:number=10,signal?:AbortSignal):Promise<PaginatedResponse<AssignmentTeacherListItem>&{course?:AssignmentCourseSummary}>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize),course_offering:String(courseOfferingId)});
-  return apiRequest<PaginatedResponse<AssignmentTeacherListItem>>(`/assignments/?${params.toString()}`,authHeaders(signal));
+  return apiRequest<PaginatedResponse<AssignmentTeacherListItem>&{course?:AssignmentCourseSummary}>(`/assignments/?${params.toString()}`,authHeaders(signal));
 };
 
 // GET /assignments/ is already scoped server-side to the authenticated
 // student's own enrolled classes - used by the student's My Assignments page.
-export const getMyAssignments=(page:number=1,pageSize:number=10,signal?:AbortSignal):Promise<PaginatedResponse<AssignmentStudentListItem>>=>
-  apiRequest<PaginatedResponse<AssignmentStudentListItem>>(`/assignments/?page=${page}&page_size=${pageSize}`,authHeaders(signal));
+// Optional courseOfferingId scopes it down to one course (My Courses' per-card
+// "Assignments" link), mirroring getTeacherAssignments' same ?course_offering=.
+export const getMyAssignments=(page:number=1,pageSize:number=10,courseOfferingId?:number,signal?:AbortSignal):Promise<PaginatedResponse<AssignmentStudentListItem>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
+  if(courseOfferingId!==undefined)params.set("course_offering",String(courseOfferingId));
+  return apiRequest<PaginatedResponse<AssignmentStudentListItem>>(`/assignments/?${params.toString()}`,authHeaders(signal));
+};
 
 // GET /assignments/<id>/ as a student returns AssignmentStudentListItem's
 // shape (same fields as the list row) - used to open one assignment's detail.
@@ -384,6 +403,9 @@ export const confirmSubmission=(assignmentId:number,key:string):Promise<MySubmis
 };
 
 // Teacher: roster of every enrolled student's submission status for one
-// assignment - used by the "View Submissions" modal.
-export const getAssignmentSubmissions=(assignmentId:number):Promise<{results:SubmissionRosterItem[]}>=>
-  apiRequest<{results:SubmissionRosterItem[]}>(`/assignments/${assignmentId}/submissions/`,authHeaders());
+// assignment - used by the "View Submissions" modal. Backend-paginated
+// (page_size=10, project standard) rather than fetching the whole roster.
+export const getAssignmentSubmissions=(assignmentId:number,page:number=1,pageSize:number=10):Promise<PaginatedResponse<SubmissionRosterItem>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
+  return apiRequest<PaginatedResponse<SubmissionRosterItem>>(`/assignments/${assignmentId}/submissions/?${params.toString()}`,authHeaders());
+};

@@ -1,12 +1,9 @@
 import { useEffect, useState } from "react";
 import { getCurrentUser } from "../../services/auth";
 import { getMyRemarks } from "../../services/entities";
+import { Avatar } from "../../components/common/Avatar";
 import type { RemarkStudentListItem } from "../../types/user";
 
-// GET /remarks/ is scoped server-side for a student to their own
-// STUDENT_VISIBLE remarks only (see remarks/authorization.py) - PRIVATE
-// remarks are never sent to the frontend in the first place, so there is
-// no client-side filtering to get right or get wrong here.
 export default function StudentRemarks() {
   const user = getCurrentUser();
 
@@ -32,10 +29,6 @@ export default function StudentRemarks() {
       })
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
-    // getCurrentUser() re-parses localStorage on every call and returns a
-    // fresh object each render, so depending on `user` here would refire
-    // this effect after every setState below, in an infinite loop. Same
-    // pattern as TeacherAttendance/StudentAttendance's load effects.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -53,15 +46,22 @@ export default function StudentRemarks() {
 
   const sortedRemarks = [...remarks].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
+  function formatRemarkDate(dateStr: string) {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+
   if (loading) {
-    return <><div style={{ padding: "40px", textAlign: "center" }}>Loading remarks...</div></>;
+    return <><div style={{ padding: "40px", textAlign: "center", color: "var(--color-text-secondary)" }}>Loading remarks...</div></>;
   }
 
   return (
     <>
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: "20px" }}>
         <h2>My Remarks</h2>
-        <p>Feedback your teachers have shared with you</p>
+        <p style={{ margin: 0, fontSize: "0.92rem", color: "var(--color-text-secondary)" }}>
+          Feedback and academic notes shared by your instructors
+        </p>
       </div>
 
       {notFound ? (
@@ -70,28 +70,60 @@ export default function StudentRemarks() {
         </div>
       ) : (
         <>
-          <div className="table-responsive content-card">
-            <table className="data-table">
+          <div className="table-responsive content-card" style={{ boxShadow: "var(--shadow-sm)" }}>
+            <table className="data-table table-compact" style={{ width: "100%" }}>
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Course</th>
-                  <th>Teacher</th>
-                  <th>Remark</th>
+                  <th style={{ padding: "12px 20px" }}>Date</th>
+                  <th style={{ padding: "12px 20px" }}>Course</th>
+                  <th style={{ padding: "12px 20px" }}>Instructor</th>
+                  <th style={{ padding: "12px 20px" }}>Feedback & Remarks</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedRemarks.length === 0 ? (
                   <tr>
-                    <td colSpan={4} style={{ textAlign: "center", padding: "24px" }}>No remarks yet.</td>
+                    <td colSpan={4} style={{ textAlign: "center", padding: "36px 20px", color: "var(--color-text-secondary)" }}>
+                      No remarks or feedback recorded yet.
+                    </td>
                   </tr>
                 ) : (
                   sortedRemarks.map(r => (
                     <tr key={r.id}>
-                      <td><strong>{new Date(r.created_at).toLocaleDateString()}</strong></td>
-                      <td>{r.course_name} ({r.course_code})</td>
-                      <td>{r.teacher_name}</td>
-                      <td>{r.remark_text}</td>
+                      <td style={{ padding: "12px 20px", fontWeight: 600, color: "var(--color-text-primary)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                          </svg>
+                          {formatRemarkDate(r.created_at)}
+                        </div>
+                      </td>
+                      <td style={{ padding: "12px 20px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span className="teacher-class-code-tag">{r.course_code}</span>
+                          <span style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>{r.course_name}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: "12px 20px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <Avatar name={r.teacher_name || "Instructor"} size={22} />
+                          <span style={{ fontWeight: 500, fontSize: "0.875rem" }}>{r.teacher_name}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: "12px 20px", color: "var(--color-text-primary)", fontSize: "0.875rem", lineHeight: 1.45 }}>
+                        <div style={{
+                          padding: "8px 12px",
+                          backgroundColor: "#f8fafc",
+                          borderRadius: "6px",
+                          border: "1px solid #f1f5f9",
+                          borderLeft: "3px solid var(--color-primary)",
+                        }}>
+                          {r.remark_text}
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -100,8 +132,8 @@ export default function StudentRemarks() {
           </div>
 
           {page < totalPages && (
-            <div style={{ textAlign: "center", marginTop: "16px" }}>
-              <button className="btn btn-outline" onClick={loadMore} disabled={loadingMore}>
+            <div style={{ textAlign: "center", marginTop: "20px" }}>
+              <button className="btn btn-secondary btn-sm" onClick={loadMore} disabled={loadingMore}>
                 {loadingMore ? "Loading..." : "Load More"}
               </button>
             </div>

@@ -518,6 +518,93 @@
   box-shadow: var(--shadow-md);
 }
 
+/*Profile Hero Card Layout*/
+.profile-hero-card {
+  display: flex;
+  gap: 36px;
+  align-items: flex-start;
+}
+
+.profile-hero-avatar-pane {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  min-width: 180px;
+  padding-right: 32px;
+  border-right: 1px solid var(--color-border);
+}
+
+.profile-hero-info-pane {
+  flex: 1;
+  min-width: 280px;
+}
+
+@media (max-width: 768px) {
+  .profile-hero-card {
+    flex-direction: column;
+    align-items: center;
+  }
+  .profile-hero-avatar-pane {
+    padding-right: 0;
+    padding-bottom: 24px;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    width: 100%;
+  }
+  .profile-hero-info-pane {
+    width: 100%;
+  }
+}
+
+/*Realistic Academic Dashboard Layout*/
+.dashboard-main-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 24px;
+  margin-top: 24px;
+  align-items: start;
+}
+
+@media (max-width: 980px) {
+  .dashboard-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-class-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  background-color: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  gap: 12px;
+}
+
+.dashboard-class-row:hover {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-attendance-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.86rem;
+}
+
+.dashboard-attendance-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
 /*Teacher Classes Grid & Cards*/
 .teacher-classes-grid {
   display: grid;

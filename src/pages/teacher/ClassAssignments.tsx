@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getCurrentUser } from "../../services/auth";
 import {
-  getMyCourseOfferings, getTeacherAssignments, assignmentService,
+  getTeacherAssignments, assignmentService,
   requestAssignmentAttachmentUploadUrl, confirmAssignmentAttachment, getAssignmentSubmissions,
 } from "../../services/entities";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { useToast } from "../../context/ToastContext";
-import type { AssignmentTeacherListItem, AssignmentTeacherDetail, CourseOfferingTeacherListItem, SubmissionRosterItem } from "../../types/user";
+import type { AssignmentTeacherListItem, AssignmentTeacherDetail, SubmissionRosterItem } from "../../types/user";
 
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20MB, matches backend MAX_ASSIGNMENT_FILE_SIZE_BYTES
 const ALLOWED_TYPES = [
@@ -35,14 +35,27 @@ function toDatetimeLocalValue(iso: string) {
 }
 
 // The submissions roster for one assignment - "who submitted, who hasn't".
+// Backend-paginated (page_size=10) - only the current page's rows are ever
+// fetched, never the whole class roster in one call.
 function SubmissionsModal({ assignment, onClose }: { assignment: AssignmentTeacherListItem; onClose: () => void }) {
   const [roster, setRoster] = useState<SubmissionRosterItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const loadPage = (pageNumber: number) => {
+    setLoading(true);
+    getAssignmentSubmissions(assignment.id, pageNumber)
+      .then(r => {
+        setRoster(r.results);
+        setPage(r.current_page);
+        setTotalPages(r.total_pages);
+      })
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
-    getAssignmentSubmissions(assignment.id)
-      .then(r => setRoster(r.results))
-      .finally(() => setLoading(false));
+    loadPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -51,36 +64,60 @@ function SubmissionsModal({ assignment, onClose }: { assignment: AssignmentTeach
       {loading ? (
         <div style={{ padding: "16px", textAlign: "center" }}>Loading submissions...</div>
       ) : (
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Status</th>
-                <th>Submitted</th>
-                <th>File</th>
-              </tr>
-            </thead>
-            <tbody>
-              {roster.map(r => (
-                <tr key={r.student_id}>
-                  <td>{r.student_name}</td>
-                  <td>
-                    <span className={`badge ${r.status === "SUBMITTED" ? "badge-success" : "badge-warning"}`}>
-                      {r.status === "SUBMITTED" ? "Submitted" : "Pending"}
-                    </span>
-                  </td>
-                  <td>{r.submitted_at ? formatDate(r.submitted_at) : "-"}</td>
-                  <td>
-                    {r.file_url ? (
-                      <a href={r.file_url} target="_blank" rel="noreferrer">View / Download</a>
-                    ) : "-"}
-                  </td>
+        <>
+          <div className="table-responsive">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Status</th>
+                  <th>Submitted</th>
+                  <th>File</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {roster.map(r => (
+                  <tr key={r.student_id}>
+                    <td>{r.student_name}</td>
+                    <td>
+                      <span className={`badge ${r.status === "SUBMITTED" ? "badge-success" : "badge-warning"}`}>
+                        {r.status === "SUBMITTED" ? "Submitted" : "Pending"}
+                      </span>
+                    </td>
+                    <td>{r.submitted_at ? formatDate(r.submitted_at) : "-"}</td>
+                    <td>
+                      {r.file_url ? (
+                        <a href={r.file_url} target="_blank" rel="noreferrer">View / Download</a>
+                      ) : "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "12px", marginTop: "16px" }}>
+              <button
+                className="btn btn-sm btn-secondary"
+                disabled={page <= 1}
+                onClick={() => loadPage(page - 1)}
+              >
+                Previous
+              </button>
+              <span style={{ fontSize: "0.84rem", color: "var(--color-text-secondary)" }}>
+                Page {page} of {totalPages}
+              </span>
+              <button
+                className="btn btn-sm btn-secondary"
+                disabled={page >= totalPages}
+                onClick={() => loadPage(page + 1)}
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
       )}
     </Modal>
   );
@@ -106,10 +143,19 @@ export default function TeacherClassAssignments() {
   const [formData, setFormData] = useState({ title: "", description: "", due_at: "" });
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
 
+  // One request serves the whole page: the assignment rows, plus the small
+  // `course` summary the header needs. Deriving the header from the same
+  // response (rather than a separate course-list call) also means a direct
+  // refresh of this URL works with no extra requests.
   const loadAssignments = () => {
     setLoading(true);
     getTeacherAssignments(offeringId)
-      .then(r => setAssignments(r.results))
+      .then(r => {
+        setAssignments(r.results);
+        if (r.course) {
+          setOfferingLabel(`${r.course.course_name} (${r.course.course_code}) - ${r.course.section_name || "No Section"}`);
+        }
+      })
       .catch(err => showToast(err instanceof Error ? err.message : "Failed to load assignments.", "error"))
       .finally(() => setLoading(false));
   };
@@ -118,11 +164,6 @@ export default function TeacherClassAssignments() {
     if (!user) return;
 
     loadAssignments();
-
-    getMyCourseOfferings(1, 50).then(r => {
-      const offering = r.results.find((o: CourseOfferingTeacherListItem) => o.id === offeringId);
-      if (offering) setOfferingLabel(`${offering.course_name} (${offering.course_code}) - ${offering.section_name || "No Section"}`);
-    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offeringId]);
 
