@@ -33,9 +33,9 @@ import StudentProfile from "./pages/student/Profile";
 // Teacher
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
 import TeacherCourses from "./pages/teacher/Courses";
-import TeacherStudents from "./pages/teacher/Students";
 import TeacherAttendance from "./pages/teacher/Attendance";
 import TeacherClassAssignments from "./pages/teacher/ClassAssignments";
+import TeacherClassStudents from "./pages/teacher/ClassStudents";
 import TeacherProfile from "./pages/teacher/Profile";
 
 // Staff
@@ -136,10 +136,10 @@ function App() {
         <Route path="/teacher" element={<ProtectedRoute allowedRole="teacher"><DashboardLayout /></ProtectedRoute>}>
           <Route index element={<TeacherDashboard />} />
           <Route path="courses" element={<TeacherCourses />} />
-          <Route path="students" element={<TeacherStudents />} />
           <Route path="attendance" element={<TeacherAttendance />} />
           <Route path="assignments" element={<TeacherCourses />} />
           <Route path="classes/:courseOfferingId/assignments" element={<TeacherClassAssignments />} />
+          <Route path="classes/:courseOfferingId/students" element={<TeacherClassStudents />} />
           <Route path="profile" element={<TeacherProfile />} />
         </Route>
 

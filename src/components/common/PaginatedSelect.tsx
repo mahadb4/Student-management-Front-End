@@ -62,8 +62,10 @@ export function PaginatedSelect<T>({
     return () => clearTimeout(timer);
   }, [search]);
 
+  // A disabled select has an unmet prerequisite filter (e.g. Teacher before a
+  // Department is chosen) - it must not fetch page 1 just because it mounted.
   const { items, loading, hasMore, loadNext } = usePaginatedDropdown<T>(
-    fetchPage, pageSize, resetKey, serverSearch ? debouncedSearch : undefined,
+    fetchPage, pageSize, resetKey, serverSearch ? debouncedSearch : undefined, !disabled,
   );
 
   useEffect(() => {

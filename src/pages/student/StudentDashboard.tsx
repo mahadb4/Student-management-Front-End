@@ -259,12 +259,37 @@ export default function StudentDashboard() {
                       </div>
 
                       <span
-                        className={`badge ${
-                          a.status === "PRESENT" ? "badge-success" : a.status === "ABSENT" ? "badge-danger" : "badge-warning"
-                        }`}
-                        style={{ padding: "3px 10px", fontSize: "0.72rem", fontWeight: 700 }}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          padding: "3px 10px",
+                          borderRadius: "6px",
+                          fontSize: "0.78rem",
+                          fontWeight: 500,
+                          backgroundColor:
+                            a.status === "PRESENT" ? "#ecfdf5" :
+                            a.status === "ABSENT" ? "#fef2f2" : "#fffbeb",
+                          color:
+                            a.status === "PRESENT" ? "#065f46" :
+                            a.status === "ABSENT" ? "#991b1b" : "#92400e",
+                          border: `1px solid ${
+                            a.status === "PRESENT" ? "#a7f3d0" :
+                            a.status === "ABSENT" ? "#fecaca" : "#fde68a"
+                          }`,
+                        }}
                       >
-                        {a.status}
+                        <span
+                          style={{
+                            width: "6px",
+                            height: "6px",
+                            borderRadius: "50%",
+                            backgroundColor:
+                              a.status === "PRESENT" ? "#10b981" :
+                              a.status === "ABSENT" ? "#ef4444" : "#f59e0b",
+                          }}
+                        />
+                        {a.status === "PRESENT" ? "Present" : a.status === "ABSENT" ? "Absent" : a.status === "LATE" ? "Late" : a.status}
                       </span>
                     </div>
                   ))}

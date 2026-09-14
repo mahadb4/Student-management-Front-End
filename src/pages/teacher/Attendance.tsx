@@ -1,18 +1,50 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentUser } from "../../services/auth";
-import { getCourseOfferingReference, getMyTeacherStudents, getMyTeacherAttendance, attendanceService, invalidateMeCache } from "../../services/entities";
+import { getMyCourseOfferingsForAttendance, getMyTeacherAttendanceRoster, getMyTeacherAttendance, createAttendanceBulk, invalidateMeCache } from "../../services/entities";
+import { Avatar } from "../../components/common/Avatar";
 import { useToast } from "../../context/ToastContext";
-import type { CourseOfferingReference, EnrollmentTeacherListItem, TeacherAttendanceListItem, AttendanceStatus } from "../../types/user";
+import type { CourseOfferingAttendanceListItem, AttendanceRosterItem, TeacherAttendanceListItem, AttendanceStatus } from "../../types/user";
 
-// The register needs every student in the selected class (even ones with no
-// attendance record yet), so the full roster is fetched page by page (still
-// page_size=10 per request) whenever the selected class changes.
-async function fetchFullClassRoster(courseOfferingId: number): Promise<EnrollmentTeacherListItem[]> {
+// Reuses the same /teachers/me/courses/ endpoint the My Classes page calls,
+// via its ?view=attendance projection (id/course_name/section_name only -
+// no course_code/semester/academic_year/is_active/enrolled_students_count,
+// none of which this dropdown renders) instead of a separate
+// /course_offerings/reference/ request or the fuller My-Classes shape.
+// Looped across pages (same reasoning as the roster below) so a teacher with
+// more classes than one page still sees all of them, never a "Load More".
+const CLASS_PAGE_SIZE = 50;
+
+async function fetchAllTeacherCourseOfferings(): Promise<CourseOfferingAttendanceListItem[]> {
   let page = 1;
-  let all: EnrollmentTeacherListItem[] = [];
+  let all: CourseOfferingAttendanceListItem[] = [];
 
   while (true) {
-    const res = await getMyTeacherStudents(page, 10, courseOfferingId);
+    const res = await getMyCourseOfferingsForAttendance(page, CLASS_PAGE_SIZE);
+    all = all.concat(res.results);
+    if (res.current_page >= res.total_pages) break;
+    page += 1;
+  }
+
+  return all;
+}
+
+// Attendance is mandatory for every ACTIVE enrolled student - the register
+// must never let one hide behind an un-loaded page. getMyTeacherAttendanceRoster
+// (the ?view=attendance projection - just enrollment_id/student_name/
+// profile_picture_url, none of the email/status fields this page never uses)
+// is still paginated server-side (ACTIVE-only - see teacher_api.my_students_api),
+// but this loads every page automatically so the teacher is never required to
+// scroll/"Load More" just to discover the rest of the class. page_size=50
+// (rather than the general-browsing default of 10) keeps this to one request
+// for most classes and only a couple for a large one.
+const ROSTER_PAGE_SIZE = 50;
+
+async function fetchFullClassRoster(courseOfferingId: number): Promise<AttendanceRosterItem[]> {
+  let page = 1;
+  let all: AttendanceRosterItem[] = [];
+
+  while (true) {
+    const res = await getMyTeacherAttendanceRoster(page, ROSTER_PAGE_SIZE, courseOfferingId);
     all = all.concat(res.results);
     if (res.current_page >= res.total_pages) break;
     page += 1;
@@ -29,7 +61,7 @@ async function fetchFullClassAttendance(courseOfferingId: number): Promise<Teach
   let all: TeacherAttendanceListItem[] = [];
 
   while (true) {
-    const res = await getMyTeacherAttendance(page, 10, courseOfferingId);
+    const res = await getMyTeacherAttendance(page, ROSTER_PAGE_SIZE, courseOfferingId);
     all = all.concat(res.results);
     if (res.current_page >= res.total_pages) break;
     page += 1;
@@ -39,7 +71,6 @@ async function fetchFullClassAttendance(courseOfferingId: number): Promise<Teach
 }
 
 const STATUS_LABEL: Record<AttendanceStatus, string> = { PRESENT: "Present", LATE: "Late", ABSENT: "Absent" };
-const STATUS_ABBR: Record<AttendanceStatus, string> = { PRESENT: "P", LATE: "L", ABSENT: "A" };
 
 // Local calendar date, NOT toISOString() - that is UTC, so east of Greenwich
 // it reports yesterday after midnight local time. The backend validates
@@ -50,12 +81,6 @@ function todayIso() {
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   return `${now.getFullYear()}-${month}-${day}`;
-}
-
-function nextDayIso(iso: string) {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + 1);
-  return d.toISOString().split("T")[0];
 }
 
 function formatDateShort(dateStr: string) {
@@ -75,10 +100,10 @@ export default function TeacherAttendance() {
   const user = getCurrentUser();
   const { showToast } = useToast();
 
-  const [offerings, setOfferings] = useState<CourseOfferingReference[]>([]);
+  const [offerings, setOfferings] = useState<CourseOfferingAttendanceListItem[]>([]);
   const [courseFilter, setCourseFilter] = useState("");
 
-  const [classRoster, setClassRoster] = useState<EnrollmentTeacherListItem[]>([]);
+  const [classRoster, setClassRoster] = useState<AttendanceRosterItem[]>([]);
   const [attendance, setAttendance] = useState<TeacherAttendanceListItem[]>([]);
 
   const [notFound, setNotFound] = useState(false);
@@ -86,23 +111,11 @@ export default function TeacherAttendance() {
   const [classDataLoading, setClassDataLoading] = useState(false);
 
   const [date, setDate] = useState(todayIso());
-  const [statusByEnrollment, setStatusByEnrollment] = useState<Record<number, AttendanceStatus>>({});
+  // undefined = genuinely unmarked - never defaulted to PRESENT. A saved
+  // record's real status, or an explicit teacher click (including Mark All
+  // Present), is the only way an entry gets a value here.
+  const [statusByEnrollment, setStatusByEnrollment] = useState<Record<number, AttendanceStatus | undefined>>({});
   const [isSaving, setIsSaving] = useState(false);
-  // Once the marking column exactly matches what's saved on the server, it
-  // renders locked (read-only, like a history column) instead of leaving
-  // clickable buttons with no visual difference from an unsaved column -
-  // that mismatch was the "looks unsaved" complaint. Unlock re-enables editing
-  // (e.g. to correct a mistake) without waiting for a new date.
-  const [unlocked, setUnlocked] = useState(false);
-  // Students the teacher has explicitly touched (a P/L/A click, or Mark All
-  // Present) for the CURRENT marking column - everyone else is still sitting
-  // on the implicit "Present" default and gets flagged before Save.
-  const [touchedEnrollmentIds, setTouchedEnrollmentIds] = useState<Set<number>>(new Set());
-
-  useEffect(() => {
-    setUnlocked(false);
-    setTouchedEnrollmentIds(new Set());
-  }, [date]);
 
   // Load the teacher's classes once, then default to the first one.
   useEffect(() => {
@@ -111,11 +124,11 @@ export default function TeacherAttendance() {
       return;
     }
 
-    getCourseOfferingReference(1, 10)
-      .then(o => {
-        setOfferings(o.results);
-        if (o.results.length > 0) {
-          setCourseFilter(o.results[0].id.toString());
+    fetchAllTeacherCourseOfferings()
+      .then(results => {
+        setOfferings(results);
+        if (results.length > 0) {
+          setCourseFilter(results[0].id.toString());
         } else {
           setLoading(false);
         }
@@ -150,100 +163,90 @@ export default function TeacherAttendance() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseFilter]);
 
-  // Seed the editable column for the selected date: existing records win,
-  // everyone else defaults to Present so the teacher only touches exceptions.
+  // Seed the selected date's column from whatever is actually saved -
+  // nothing is defaulted. A student with no saved record for this date stays
+  // undefined (genuinely unmarked) until the teacher explicitly clicks a status.
   useEffect(() => {
     const forDate = new Map(
       attendance.filter(a => a.date === date && a.enrollment_id !== null).map(a => [a.enrollment_id as number, a.status])
     );
-    const next: Record<number, AttendanceStatus> = {};
+    const next: Record<number, AttendanceStatus | undefined> = {};
     for (const student of classRoster) {
-      next[student.enrollment_id] = forDate.get(student.enrollment_id) || "PRESENT";
+      next[student.enrollment_id] = forDate.get(student.enrollment_id);
     }
     setStatusByEnrollment(next);
   }, [date, classRoster, attendance]);
 
-  const getCourseInfo = (offering: CourseOfferingReference) =>
+  // The selected date already has at least one saved attendance record for
+  // this class - it's history now, not an open marking session. Source of
+  // truth is the existing `attendance` array (from the existing API), not a
+  // new endpoint - see attendance_service's unique_enrollment_date constraint,
+  // which is exactly what already prevents a second record for the same
+  // student+date+offering.
+  const dateHasSavedRecords = useMemo(
+    () => attendance.some(a => a.date === date),
+    [attendance, date],
+  );
+
+  const getCourseInfo = (offering: CourseOfferingAttendanceListItem) =>
     `${offering.course_name || "Unknown Course"} - ${offering.section_name || "No Section"}`;
 
   const handleMarkAllPresent = () => {
+    // Still an explicit teacher action (a deliberate click), not a silent
+    // default - only available while the date is an open marking session.
     setStatusByEnrollment(prev => {
       const next = { ...prev };
       for (const student of classRoster) next[student.enrollment_id] = "PRESENT";
       return next;
     });
-    setTouchedEnrollmentIds(new Set(classRoster.map(s => s.enrollment_id)));
   };
 
+  // Every student in classRoster must have an explicit status before Save is
+  // allowed - this is what blocks a partially-marked session from being saved.
+  const unmarkedCount = useMemo(
+    () => classRoster.filter(s => !statusByEnrollment[s.enrollment_id]).length,
+    [classRoster, statusByEnrollment],
+  );
+
+  const canSave = !dateHasSavedRecords && classRoster.length > 0 && unmarkedCount === 0;
+
   const handleSave = async () => {
-    if (isSaving || classRoster.length === 0) return;
+    if (isSaving || !canSave) return;
     setIsSaving(true);
     try {
-      // Existing record for the CURRENTLY SELECTED date only - never another date.
-      const existingByEnrollment = new Map(
-        attendance.filter(a => a.date === date && a.enrollment_id !== null).map(a => [a.enrollment_id as number, a])
-      );
+      // dateHasSavedRecords is false here (canSave requires it) - every
+      // enrolled student is genuinely new for this date. ONE request for the
+      // whole class (POST /attendance/bulk/), not one POST per student - see
+      // attendance_service.create_bulk, which validates and writes the
+      // complete roster as a single atomic transaction server-side.
+      const records = classRoster.map(student => ({
+        enrollment_id: student.enrollment_id,
+        status: statusByEnrollment[student.enrollment_id] as AttendanceStatus,
+      }));
 
-      // Collected here and committed to `attendance` state ONCE at the end -
-      // updating it per-iteration would re-trigger the date-seeding effect
-      // (which depends on `attendance`) mid-loop and reset statusByEnrollment
-      // from a half-written snapshot while later students are still pending.
-      const updatedRecords = new Map<number, TeacherAttendanceListItem>();
-      const newRecords: TeacherAttendanceListItem[] = [];
+      const { created } = await createAttendanceBulk(Number(courseFilter), date, records);
 
-      for (const student of classRoster) {
-        const status = statusByEnrollment[student.enrollment_id];
-        const existing = existingByEnrollment.get(student.enrollment_id);
+      // Only the fields TeacherAttendanceListItem actually carries now - the
+      // student's name/avatar already live in classRoster, keyed by the same
+      // enrollment_id, so there's no need to echo them back here too.
+      const newRecords: TeacherAttendanceListItem[] = created.map(record => ({
+        id: record.id,
+        date: record.date,
+        status: record.status,
+        enrollment_id: record.enrollment_id,
+      }));
 
-        if (existing && existing.status === status) {
-          continue; // unchanged - skip, no API call
-        }
-
-        if (existing) {
-          const updated = await attendanceService.update(existing.id, { status });
-          updatedRecords.set(existing.id, { ...existing, status: updated.status, remarks: updated.remarks });
-        } else {
-          const created = await attendanceService.create({ enrollment_id: student.enrollment_id, date, status, remarks: "" } as never);
-          newRecords.push({
-            id: created.id,
-            date: created.date,
-            status: created.status,
-            remarks: created.remarks,
-            enrollment_id: student.enrollment_id,
-            student_name: student.student_name,
-          });
-        }
-      }
-
-      const writeCount = updatedRecords.size + newRecords.length;
-
-      if (writeCount > 0) {
-        setAttendance(prev => [
-          ...prev.map(a => updatedRecords.get(a.id) || a),
-          ...newRecords,
-        ]);
-      }
+      // Appending these records (no refetch) is what flips dateHasSavedRecords
+      // to true for this date on the next render - the marking column
+      // disappears and this date becomes just another read-only history
+      // column, with no forced "advance to next day" or reload of anything else.
+      setAttendance(prev => [...prev, ...newRecords]);
 
       invalidateMeCache("teacher-attendance:1:10");
       showToast(
-        writeCount > 0
-          ? `Attendance saved for ${formatDateShort(date)} (${writeCount} ${writeCount === 1 ? "record" : "records"}).`
-          : "Attendance already up to date - nothing to save.",
+        `Attendance saved for ${formatDateShort(date)} (${newRecords.length} ${newRecords.length === 1 ? "record" : "records"}).`,
         "success"
       );
-
-      // Saved date now moves into the read-only history columns (it no
-      // longer equals `date`) and the next day becomes the new, blank
-      // marking column - never advancing past today. If there's no valid
-      // next day yet (today was just saved), lock the current column into
-      // the same read-only look instead of leaving it open for edits.
-      const upcoming = nextDayIso(date);
-      if (upcoming <= todayIso()) {
-        setDate(upcoming);
-      } else {
-        setUnlocked(false);
-        setTouchedEnrollmentIds(new Set());
-      }
     } catch (error) {
       console.error(error);
       showToast(error instanceof Error ? error.message : "Failed to save attendance.", "error");
@@ -252,37 +255,20 @@ export default function TeacherAttendance() {
     }
   };
 
-  // Historical (read-only) columns: recorded dates other than the one being
-  // edited right now, most recent last, capped so the register stays compact.
+  // Every saved date is a uniform, read-only history column - including the
+  // currently selected `date` once it has records. There is no separate
+  // "unlock and re-edit" path any more: a saved record can only be changed by
+  // a Request Correction flow (tracked separately), never directly from here.
   const historyDates = useMemo(() => {
-    const dates = Array.from(new Set(attendance.map(a => a.date))).filter(d => d !== date);
+    const dates = Array.from(new Set(attendance.map(a => a.date)));
     dates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-    return dates.slice(-6);
-  }, [attendance, date]);
+    return dates.slice(-7);
+  }, [attendance]);
 
-  // How many students still differ from what is stored for the selected date -
-  // the same diff handleSave applies, so 0 means Save would write nothing.
-  const pendingChanges = useMemo(() => {
-    const stored = new Map(
-      attendance.filter(a => a.date === date && a.enrollment_id !== null).map(a => [a.enrollment_id as number, a.status])
-    );
-    return classRoster.filter(s => stored.get(s.enrollment_id) !== statusByEnrollment[s.enrollment_id]).length;
-  }, [attendance, date, classRoster, statusByEnrollment]);
-
-  // Fully in sync with the server and not explicitly reopened for editing -
-  // render as locked/read-only instead of live buttons.
-  const isMarkingLocked = pendingChanges === 0 && !unlocked && classRoster.length > 0;
-
-  // Students sitting on the implicit "Present" default for this date: no
-  // saved record yet, and the teacher hasn't explicitly touched them this
-  // session either. Flagged so a student never gets silently marked Present
-  // just because nobody looked at their row.
-  const unmarkedStudents = useMemo(() => {
-    const stored = new Set(
-      attendance.filter(a => a.date === date && a.enrollment_id !== null).map(a => a.enrollment_id as number)
-    );
-    return classRoster.filter(s => !stored.has(s.enrollment_id) && !touchedEnrollmentIds.has(s.enrollment_id));
-  }, [attendance, date, classRoster, touchedEnrollmentIds]);
+  // The marking column (editable P/L/A buttons) only exists while the
+  // selected date has no saved records at all - i.e. a genuinely open,
+  // not-yet-saved session.
+  const showMarkingColumn = !dateHasSavedRecords;
 
   const historyByStudent = useMemo(() => {
     const map = new Map<number, Map<string, AttendanceStatus>>();
@@ -391,49 +377,65 @@ export default function TeacherAttendance() {
                     Session Summary
                   </label>
                   <div style={{ display: "flex", gap: "8px", alignItems: "center", minHeight: "36px" }}>
-                    <span className="badge" style={{ backgroundColor: "#f1f5f9", color: "#475569", fontWeight: 700, padding: "6px 12px", fontSize: "0.78rem" }}>
-                      {classRoster.length} Students
+                    <span className="badge" style={{ backgroundColor: "#f1f5f9", color: "#475569", fontWeight: 500, padding: "5px 12px", fontSize: "0.78rem" }}>
+                      <strong style={{ fontWeight: 600 }}>{classRoster.length}</strong> Students
                     </span>
-                    <span className="badge badge-success" style={{ padding: "6px 12px", fontSize: "0.78rem", fontWeight: 700 }}>
-                      {daySummary.PRESENT} Present
+                    <span className="badge badge-success" style={{ padding: "5px 12px", fontSize: "0.78rem", fontWeight: 500 }}>
+                      <strong style={{ fontWeight: 600 }}>{daySummary.PRESENT}</strong> Present
                     </span>
-                    <span className="badge badge-warning" style={{ padding: "6px 12px", fontSize: "0.78rem", fontWeight: 700 }}>
-                      {daySummary.LATE} Late
+                    <span className="badge badge-warning" style={{ padding: "5px 12px", fontSize: "0.78rem", fontWeight: 500 }}>
+                      <strong style={{ fontWeight: 600 }}>{daySummary.LATE}</strong> Late
                     </span>
-                    <span className="badge badge-danger" style={{ padding: "6px 12px", fontSize: "0.78rem", fontWeight: 700 }}>
-                      {daySummary.ABSENT} Absent
+                    <span className="badge badge-danger" style={{ padding: "5px 12px", fontSize: "0.78rem", fontWeight: 500 }}>
+                      <strong style={{ fontWeight: 600 }}>{daySummary.ABSENT}</strong> Absent
                     </span>
                   </div>
                 </div>
               )}
             </div>
 
-            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={handleMarkAllPresent}
-                disabled={isSaving || classRoster.length === 0}
-                style={{ padding: "8px 14px", fontWeight: 600, fontSize: "0.84rem" }}
-              >
-                Mark All Present
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={handleSave}
-                disabled={isSaving || classRoster.length === 0 || pendingChanges === 0}
-                style={{ minWidth: "160px", padding: "8px 16px", fontWeight: 600, fontSize: "0.84rem" }}
-              >
-                {isSaving
-                  ? "Saving..."
-                  : pendingChanges === 0
-                    ? "✓ All Saved"
-                    : `Save Attendance (${pendingChanges})`}
-              </button>
-            </div>
+            {showMarkingColumn && (
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleMarkAllPresent}
+                  disabled={isSaving || classRoster.length === 0}
+                  style={{ padding: "8px 14px", fontWeight: 600, fontSize: "0.84rem" }}
+                >
+                  Mark All Present
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={handleSave}
+                  disabled={isSaving || !canSave}
+                  title={unmarkedCount > 0 ? "Please mark attendance for all students before saving." : undefined}
+                  style={{ minWidth: "160px", padding: "8px 16px", fontWeight: 600, fontSize: "0.84rem" }}
+                >
+                  {isSaving ? "Saving..." : "Save Attendance"}
+                </button>
+              </div>
+            )}
 
-            {unmarkedStudents.length > 0 && (
+            {!showMarkingColumn && classRoster.length > 0 && (
+              <div style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "6px 12px",
+                borderRadius: "6px",
+                backgroundColor: "#ecfdf5",
+                border: "1px solid #a7f3d0",
+                fontSize: "0.8rem",
+                color: "#065f46",
+                fontWeight: 600,
+              }}>
+                ✓ Attendance already recorded for {formatDateShort(date)}
+              </div>
+            )}
+
+            {showMarkingColumn && unmarkedCount > 0 && (
               <div style={{
                 width: "100%",
                 display: "flex",
@@ -441,17 +443,13 @@ export default function TeacherAttendance() {
                 gap: "8px",
                 padding: "8px 12px",
                 borderRadius: "6px",
-                backgroundColor: "#fffbeb",
-                border: "1px solid rgba(245, 158, 11, 0.35)",
+                backgroundColor: "#fef2f2",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
                 fontSize: "0.8rem",
-                color: "#92400e",
+                color: "#991b1b",
               }}>
                 <span style={{ fontWeight: 700 }}>⚠</span>
-                <span>
-                  {unmarkedStudents.length} {unmarkedStudents.length === 1 ? "student hasn't" : "students haven't"} been marked yet
-                  {" "}(defaulting to Present) - please review:{" "}
-                  <strong>{unmarkedStudents.map(s => s.student_name).join(", ")}</strong>
-                </span>
+                <span>Please mark attendance for all students before saving.</span>
               </div>
             )}
           </div>
@@ -475,18 +473,18 @@ export default function TeacherAttendance() {
               </div>
 
               {/* Status Legend */}
-              <div style={{ display: "flex", alignItems: "center", gap: "16px", fontSize: "0.78rem" }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--color-text-secondary)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "20px", fontSize: "0.82rem" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--color-text-secondary)", fontWeight: 500 }}>
                   <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#10b981" }} />
-                  <strong style={{ color: "var(--color-text-primary)" }}>P</strong> = Present
+                  Present
                 </span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--color-text-secondary)" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--color-text-secondary)", fontWeight: 500 }}>
                   <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#f59e0b" }} />
-                  <strong style={{ color: "var(--color-text-primary)" }}>L</strong> = Late
+                  Late
                 </span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--color-text-secondary)" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--color-text-secondary)", fontWeight: 500 }}>
                   <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#ef4444" }} />
-                  <strong style={{ color: "var(--color-text-primary)" }}>A</strong> = Absent
+                  Absent
                 </span>
               </div>
             </div>
@@ -494,129 +492,97 @@ export default function TeacherAttendance() {
             <div className="table-responsive">
               <table className="data-table table-compact" style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                 <colgroup>
-                  <col style={{ minWidth: "220px" }} />
-                  <col style={{ width: "130px" }} />
+                  <col style={{ width: "26%", minWidth: "200px" }} />
+                  <col style={{ width: "14%", minWidth: "120px" }} />
                   {historyDates.map(d => (
-                    <col key={d} style={{ width: "76px" }} />
+                    <col key={d} style={{ minWidth: "105px" }} />
                   ))}
-                  <col style={{ width: "160px" }} />
+                  {showMarkingColumn && <col style={{ width: "210px", minWidth: "180px" }} />}
                 </colgroup>
                 <thead>
                   <tr>
                     <th style={{ textAlign: "left", padding: "12px 20px" }}>Student</th>
                     <th style={{ textAlign: "center", padding: "12px 10px" }}>Attendance Rate</th>
                     {historyDates.map(d => (
-                      <th key={d} style={{ textAlign: "center", padding: "12px 8px" }}>
+                      <th key={d} style={{ textAlign: "center", padding: "12px 10px", fontSize: "0.8rem", color: "var(--color-text-secondary)", fontWeight: 600 }}>
                         {formatDateShort(d)}
                       </th>
                     ))}
-                    <th
-                      style={{
-                        textAlign: "center",
-                        padding: "10px 12px",
-                        backgroundColor: "rgba(37, 99, 235, 0.08)",
-                        borderLeft: "2px solid var(--color-primary)",
-                      }}
-                    >
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
-                        <span style={{ fontWeight: 700, color: "var(--color-primary)", fontSize: "0.78rem" }}>
-                          {formatDateShort(date)}
-                        </span>
-                        {isMarkingLocked ? (
-                          <button
-                            type="button"
-                            onClick={() => setUnlocked(true)}
-                            style={{
-                              border: "none",
-                              background: "none",
-                              cursor: "pointer",
-                              padding: 0,
-                              fontSize: "0.64rem",
-                              textTransform: "uppercase",
-                              letterSpacing: "0.06em",
-                              color: "#059669",
-                              opacity: 0.9,
-                              fontWeight: 700,
-                              textDecoration: "underline",
-                              textUnderlineOffset: "2px",
-                            }}
-                          >
-                            ✓ Saved · Edit
-                          </button>
-                        ) : (
+                    {showMarkingColumn && (
+                      <th
+                        style={{
+                          textAlign: "center",
+                          padding: "10px 14px",
+                          backgroundColor: "#f8fafc",
+                          borderLeft: "1px solid var(--color-border)",
+                          borderRight: "1px solid var(--color-border)",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                          <span style={{ fontWeight: 700, color: "var(--color-text-primary)", fontSize: "0.84rem" }}>
+                            {formatDateShort(date)}
+                          </span>
                           <span style={{
-                            fontSize: "0.64rem",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.06em",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "2px 8px",
+                            borderRadius: "4px",
+                            backgroundColor: "var(--color-primary-light)",
                             color: "var(--color-primary)",
-                            opacity: 0.85,
-                            fontWeight: 700,
+                            fontSize: "0.68rem",
+                            fontWeight: 600,
                           }}>
                             Marking
                           </span>
-                        )}
-                      </div>
-                    </th>
+                        </div>
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {classDataLoading ? (
                     <tr>
-                      <td colSpan={historyDates.length + 3} style={{ textAlign: "center", padding: "36px 20px", color: "var(--color-text-secondary)" }}>
+                      <td colSpan={historyDates.length + 2 + (showMarkingColumn ? 1 : 0)} style={{ textAlign: "center", padding: "36px 20px", color: "var(--color-text-secondary)" }}>
                         Loading class roster...
                       </td>
                     </tr>
                   ) : classRoster.length === 0 ? (
                     <tr>
-                      <td colSpan={historyDates.length + 3} style={{ textAlign: "center", padding: "36px 20px", color: "var(--color-text-secondary)" }}>
+                      <td colSpan={historyDates.length + 2 + (showMarkingColumn ? 1 : 0)} style={{ textAlign: "center", padding: "36px 20px", color: "var(--color-text-secondary)" }}>
                         {courseFilter ? "No students enrolled in this class." : "Please select a class above."}
                       </td>
                     </tr>
                   ) : (
                     classRoster.map(student => {
                       const rate = rateByStudent.get(student.enrollment_id);
-                      const currentStatus = statusByEnrollment[student.enrollment_id] || "PRESENT";
+                      const currentStatus = statusByEnrollment[student.enrollment_id];
 
-                      let rateBg = "rgba(16, 185, 129, 0.1)";
-                      let rateColor = "#059669";
-                      let rateBorder = "rgba(16, 185, 129, 0.25)";
+                      let rateBg = "#ecfdf5";
+                      let rateColor = "#065f46";
+                      let rateBorder = "#a7f3d0";
                       if (rate !== undefined) {
                         if (rate < 65) {
-                          rateBg = "rgba(239, 68, 68, 0.1)";
-                          rateColor = "#dc2626";
-                          rateBorder = "rgba(239, 68, 68, 0.25)";
+                          rateBg = "#fef2f2";
+                          rateColor = "#991b1b";
+                          rateBorder = "#fecaca";
                         } else if (rate < 80) {
-                          rateBg = "rgba(245, 158, 11, 0.1)";
-                          rateColor = "#d97706";
-                          rateBorder = "rgba(245, 158, 11, 0.25)";
+                          rateBg = "#fffbeb";
+                          rateColor = "#92400e";
+                          rateBorder = "#fde68a";
                         }
                       }
 
                       return (
                         <tr key={student.enrollment_id}>
-                          <td style={{ textAlign: "left", padding: "10px 20px" }}>
+                          <td style={{ textAlign: "left", padding: "12px 20px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                              <div style={{
-                                width: "28px",
-                                height: "28px",
-                                borderRadius: "50%",
-                                backgroundColor: "var(--color-primary-light)",
-                                color: "var(--color-primary)",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: "0.75rem",
-                                fontWeight: 700,
-                                flexShrink: 0,
-                              }}>
-                                {(student.student_name || "S").charAt(0).toUpperCase()}
-                              </div>
+                              <Avatar src={student.profile_picture_url} name={student.student_name || "S"} size={30} />
                               <span style={{ fontWeight: 600, color: "var(--color-text-primary)", fontSize: "0.875rem", whiteSpace: "nowrap" }}>
                                 {student.student_name}
                               </span>
                             </div>
                           </td>
-                          <td style={{ textAlign: "center", padding: "10px 10px" }}>
+                          <td style={{ textAlign: "center", padding: "12px 10px" }}>
                             {rate === undefined ? (
                               <span style={{ color: "var(--color-text-secondary)", fontSize: "0.84rem", opacity: 0.5 }}>—</span>
                             ) : (
@@ -625,15 +591,15 @@ export default function TeacherAttendance() {
                                   display: "inline-flex",
                                   alignItems: "center",
                                   justifyContent: "center",
-                                  gap: "5px",
-                                  padding: "3px 9px",
-                                  borderRadius: "12px",
-                                  fontSize: "0.78rem",
-                                  fontWeight: 700,
+                                  gap: "6px",
+                                  padding: "3px 10px",
+                                  borderRadius: "6px",
+                                  fontSize: "0.8rem",
+                                  fontWeight: 600,
                                   backgroundColor: rateBg,
                                   color: rateColor,
                                   border: `1px solid ${rateBorder}`,
-                                  minWidth: "56px",
+                                  minWidth: "58px",
                                 }}
                               >
                                 <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: rateColor, flexShrink: 0 }} />
@@ -645,130 +611,108 @@ export default function TeacherAttendance() {
                             const histStatus = historyByStudent.get(student.enrollment_id)?.get(d);
                             if (!histStatus) {
                               return (
-                                <td key={d} style={{ textAlign: "center", padding: "10px 8px" }}>
+                                <td key={d} style={{ textAlign: "center", padding: "12px 8px" }}>
                                   <span style={{ color: "var(--color-text-secondary)", opacity: 0.35 }}>—</span>
                                 </td>
                               );
                             }
 
                             const badgeColors = {
-                              PRESENT: { bg: "#ecfdf5", color: "#059669", border: "rgba(16, 185, 129, 0.3)" },
-                              LATE: { bg: "#fffbeb", color: "#d97706", border: "rgba(245, 158, 11, 0.3)" },
-                              ABSENT: { bg: "#fef2f2", color: "#dc2626", border: "rgba(239, 68, 68, 0.3)" },
+                              PRESENT: { bg: "#ecfdf5", color: "#065f46", border: "#a7f3d0", dot: "#10b981" },
+                              LATE: { bg: "#fffbeb", color: "#92400e", border: "#fde68a", dot: "#f59e0b" },
+                              ABSENT: { bg: "#fef2f2", color: "#991b1b", border: "#fecaca", dot: "#ef4444" },
                             }[histStatus];
 
                             return (
-                              <td key={d} style={{ textAlign: "center", padding: "10px 8px" }}>
+                              <td key={d} style={{ textAlign: "center", padding: "12px 8px" }}>
                                 <span
                                   style={{
                                     display: "inline-flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    width: "24px",
-                                    height: "24px",
-                                    borderRadius: "50%",
-                                    fontSize: "0.72rem",
-                                    fontWeight: 700,
+                                    gap: "5px",
+                                    padding: "2px 8px",
+                                    borderRadius: "6px",
+                                    fontSize: "0.76rem",
+                                    fontWeight: 500,
                                     backgroundColor: badgeColors.bg,
                                     color: badgeColors.color,
                                     border: `1px solid ${badgeColors.border}`,
                                   }}
-                                  title={STATUS_LABEL[histStatus]}
                                 >
-                                  {STATUS_ABBR[histStatus]}
+                                  <span style={{ width: "5px", height: "5px", borderRadius: "50%", backgroundColor: badgeColors.dot }} />
+                                  {STATUS_LABEL[histStatus]}
                                 </span>
                               </td>
                             );
                           })}
-                          <td
-                            style={{
-                              textAlign: "center",
-                              padding: "8px 12px",
-                              backgroundColor: "rgba(37, 99, 235, 0.03)",
-                              borderLeft: "2px solid var(--color-primary)",
-                            }}
-                          >
-                            {isMarkingLocked ? (
-                              (() => {
-                                const lockedColors = {
-                                  PRESENT: { bg: "#ecfdf5", color: "#059669", border: "rgba(16, 185, 129, 0.3)" },
-                                  LATE: { bg: "#fffbeb", color: "#d97706", border: "rgba(245, 158, 11, 0.3)" },
-                                  ABSENT: { bg: "#fef2f2", color: "#dc2626", border: "rgba(239, 68, 68, 0.3)" },
-                                }[currentStatus];
-                                return (
-                                  <span
-                                    style={{
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      width: "26px",
-                                      height: "26px",
-                                      borderRadius: "50%",
-                                      fontSize: "0.75rem",
-                                      fontWeight: 700,
-                                      backgroundColor: lockedColors.bg,
-                                      color: lockedColors.color,
-                                      border: `1px solid ${lockedColors.border}`,
-                                    }}
-                                    title={`${STATUS_LABEL[currentStatus]} - saved`}
-                                  >
-                                    {STATUS_ABBR[currentStatus]}
-                                  </span>
-                                );
-                              })()
-                            ) : (
-                            <div
+                          {showMarkingColumn && (
+                            <td
                               style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                backgroundColor: "#f1f5f9",
-                                borderRadius: "6px",
-                                padding: "3px",
-                                border: "1px solid var(--color-border)",
-                                gap: "3px",
+                                textAlign: "center",
+                                padding: "8px 14px",
+                                backgroundColor: "#f8fafc",
+                                borderLeft: "1px solid var(--color-border)",
+                                borderRight: "1px solid var(--color-border)",
                               }}
                             >
-                              {(["PRESENT", "LATE", "ABSENT"] as AttendanceStatus[]).map(statusKey => {
-                                const isActive = currentStatus === statusKey;
-                                const activeStyles = {
-                                  PRESENT: { bg: "#10b981", color: "#ffffff", shadow: "0 1px 3px rgba(16, 185, 129, 0.35)" },
-                                  LATE: { bg: "#f59e0b", color: "#ffffff", shadow: "0 1px 3px rgba(245, 158, 11, 0.35)" },
-                                  ABSENT: { bg: "#ef4444", color: "#ffffff", shadow: "0 1px 3px rgba(239, 68, 68, 0.35)" },
-                                }[statusKey];
+                              {/* No locked/read-only branch here any more - this
+                                  column only renders while showMarkingColumn is
+                                  true (a genuinely open, unsaved session), so it
+                                  is always the live picker. currentStatus is
+                                  undefined until the teacher explicitly clicks
+                                  one - none of the three buttons is highlighted
+                                  in that state, which is the point: no default. */}
+                              <div
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  backgroundColor: "#ffffff",
+                                  borderRadius: "6px",
+                                  padding: "2px",
+                                  border: currentStatus ? "1px solid var(--color-border)" : "1px solid #fecaca",
+                                  gap: "2px",
+                                }}
+                              >
+                                {(["PRESENT", "LATE", "ABSENT"] as AttendanceStatus[]).map(statusKey => {
+                                  const isActive = currentStatus === statusKey;
+                                  const activeStyles = {
+                                    PRESENT: { bg: "#10b981", color: "#ffffff", shadow: "0 1px 3px rgba(16, 185, 129, 0.35)" },
+                                    LATE: { bg: "#f59e0b", color: "#ffffff", shadow: "0 1px 3px rgba(245, 158, 11, 0.35)" },
+                                    ABSENT: { bg: "#ef4444", color: "#ffffff", shadow: "0 1px 3px rgba(239, 68, 68, 0.35)" },
+                                  }[statusKey];
 
-                                return (
-                                  <button
-                                    key={statusKey}
-                                    type="button"
-                                    onClick={() => {
-                                      setStatusByEnrollment(prev => ({ ...prev, [student.enrollment_id]: statusKey }));
-                                      setTouchedEnrollmentIds(prev => new Set(prev).add(student.enrollment_id));
-                                    }}
-                                    style={{
-                                      border: "none",
-                                      cursor: "pointer",
-                                      width: "30px",
-                                      height: "26px",
-                                      borderRadius: "4px",
-                                      fontSize: "0.75rem",
-                                      fontWeight: 700,
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      transition: "all 0.15s ease",
-                                      backgroundColor: isActive ? activeStyles.bg : "transparent",
-                                      color: isActive ? activeStyles.color : "#64748b",
-                                      boxShadow: isActive ? activeStyles.shadow : "none",
-                                    }}
-                                    title={`Mark ${STATUS_LABEL[statusKey]}`}
-                                  >
-                                    {STATUS_ABBR[statusKey]}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            )}
-                          </td>
+                                  return (
+                                    <button
+                                      key={statusKey}
+                                      type="button"
+                                      onClick={() => {
+                                        setStatusByEnrollment(prev => ({ ...prev, [student.enrollment_id]: statusKey }));
+                                      }}
+                                      style={{
+                                        border: "none",
+                                        cursor: "pointer",
+                                        padding: "3px 8px",
+                                        borderRadius: "4px",
+                                        fontSize: "0.74rem",
+                                        fontWeight: 600,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        transition: "all 0.15s ease",
+                                        backgroundColor: isActive ? activeStyles.bg : "transparent",
+                                        color: isActive ? activeStyles.color : "#64748b",
+                                        boxShadow: isActive ? activeStyles.shadow : "none",
+                                      }}
+                                      title={`Mark ${STATUS_LABEL[statusKey]}`}
+                                    >
+                                      {STATUS_LABEL[statusKey]}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       );
                     })

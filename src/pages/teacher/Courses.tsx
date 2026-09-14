@@ -90,50 +90,78 @@ export default function TeacherCourses() {
                     </span>
                     <span className="teacher-class-detail-val">{offering.section_name || "No Section"}</span>
                   </div>
-                </div>
-
-                <div className="teacher-class-footer">
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.875rem", color: "var(--color-text-secondary)" }}>
-                    <div style={{
-                      width: "32px",
-                      height: "32px",
-                      borderRadius: "50%",
-                      backgroundColor: "var(--color-primary-light)",
-                      color: "var(--color-primary)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0
-                    }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <div className="teacher-class-detail-item">
+                    <span className="teacher-class-detail-label">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
                         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                         <circle cx="9" cy="7" r="4" />
                         <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
                         <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                       </svg>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", lineHeight: 1 }}>Enrolled</div>
-                      <div style={{ fontWeight: 700, color: "var(--color-text-primary)", fontSize: "0.95rem" }}>
-                        {offering.enrolled_students_count} {offering.enrolled_students_count === 1 ? 'Student' : 'Students'}
-                      </div>
-                    </div>
+                      Enrolled
+                    </span>
+                    <span className="teacher-class-detail-val" style={{ color: "var(--color-primary)", fontWeight: 700 }}>
+                      {offering.enrolled_students_count} {offering.enrolled_students_count === 1 ? 'Student' : 'Students'}
+                    </span>
                   </div>
+                </div>
 
-                  <Link
-                    to={`/teacher/classes/${offering.id}/assignments`}
-                    className="btn btn-primary"
-                    style={{ fontWeight: 600, padding: "9px 18px", boxShadow: "0 2px 6px rgba(30, 58, 138, 0.25)" }}
-                  >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14 2 14 8 20 8" />
-                      <line x1="16" y1="13" x2="8" y2="13" />
-                      <line x1="16" y1="17" x2="8" y2="17" />
-                      <polyline points="10 9 9 9 8 9" />
-                    </svg>
-                    Assignments
-                  </Link>
+                <div className="teacher-class-footer" style={{ marginTop: "auto", paddingTop: "14px" }}>
+                  {isAssignmentsEntry ? (
+                    <Link
+                      to={`/teacher/classes/${offering.id}/assignments`}
+                      className="btn btn-primary"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "8px",
+                        width: "100%",
+                        padding: "10px 16px",
+                        fontSize: "0.875rem",
+                        fontWeight: 600,
+                        borderRadius: "var(--radius-md)",
+                        boxShadow: "0 2px 6px rgba(37, 99, 235, 0.22)",
+                        textDecoration: "none",
+                      }}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                      </svg>
+                      Manage Assignments
+                    </Link>
+                  ) : (
+                    <Link
+                      to={`/teacher/classes/${offering.id}/students`}
+                      state={{ courseName: offering.course_name, courseCode: offering.course_code, sectionName: offering.section_name }}
+                      className="btn btn-primary"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "8px",
+                        width: "100%",
+                        padding: "10px 16px",
+                        fontSize: "0.875rem",
+                        fontWeight: 600,
+                        borderRadius: "var(--radius-md)",
+                        boxShadow: "0 2px 6px rgba(37, 99, 235, 0.22)",
+                        textDecoration: "none",
+                        letterSpacing: "0.01em",
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </svg>
+                      Students
+                    </Link>
+                  )}
                 </div>
               </div>
             ))

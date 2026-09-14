@@ -357,13 +357,44 @@ export default function StudentAttendance() {
 
             {/* Course Details Pill */}
             {selectedEnrollment && (
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                <span className="badge" style={{ backgroundColor: "#f8fafc", color: "var(--color-text-secondary)", border: "1px solid #e2e8f0", padding: "6px 12px", fontSize: "0.78rem" }}>
-                  Term: <strong style={{ color: "var(--color-text-primary)" }}>{selectedEnrollment.semester || "FALL"} {selectedEnrollment.academic_year || "2026"}</strong>
-                </span>
-                <span className="badge" style={{ backgroundColor: "#f8fafc", color: "var(--color-text-secondary)", border: "1px solid #e2e8f0", padding: "6px 12px", fontSize: "0.78rem" }}>
-                  Section: <strong style={{ color: "var(--color-text-primary)" }}>{selectedEnrollment.section_name || "D"}</strong>
-                </span>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    backgroundColor: "#f8fafc",
+                    color: "var(--color-text-secondary)",
+                    border: "1px solid #e2e8f0",
+                    padding: "6px 14px",
+                    borderRadius: "8px",
+                    fontSize: "0.82rem",
+                  }}
+                >
+                  <span style={{ color: "var(--color-text-secondary)", fontWeight: 500 }}>Term:</span>
+                  <span style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>
+                    {selectedEnrollment.semester ? selectedEnrollment.semester.toUpperCase() : "FALL"} {selectedEnrollment.academic_year || "2026"}
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    backgroundColor: "#f8fafc",
+                    color: "var(--color-text-secondary)",
+                    border: "1px solid #e2e8f0",
+                    padding: "6px 14px",
+                    borderRadius: "8px",
+                    fontSize: "0.82rem",
+                  }}
+                >
+                  <span style={{ color: "var(--color-text-secondary)", fontWeight: 500 }}>Section:</span>
+                  <span style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>
+                    {selectedEnrollment.section_name || "D"}
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -386,17 +417,17 @@ export default function StudentAttendance() {
                   boxShadow: "var(--shadow-sm)",
                   display: "flex",
                   flexDirection: "column",
-                  gap: "4px",
+                  gap: "6px",
                   borderLeft: `4px solid ${rate !== null && rate >= 80 ? "#10b981" : rate !== null && rate >= 65 ? "#f59e0b" : "#ef4444"}`,
                 }}
               >
-                <span style={{ fontSize: "0.74rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-secondary)" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em", color: "var(--color-text-secondary)" }}>
                   Attendance Rate
                 </span>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
                   <span style={{
                     fontSize: "1.5rem",
-                    fontWeight: 800,
+                    fontWeight: 700,
                     color: rate !== null && rate >= 80 ? "#059669" : rate !== null && rate >= 65 ? "#d97706" : "#dc2626",
                   }}>
                     {rate !== null ? `${rate}%` : "—"}
@@ -404,7 +435,7 @@ export default function StudentAttendance() {
                   {rate !== null && (
                     <span style={{
                       fontSize: "0.72rem",
-                      fontWeight: 700,
+                      fontWeight: 600,
                       padding: "2px 6px",
                       borderRadius: "4px",
                       backgroundColor: rate >= 80 ? "#ecfdf5" : rate >= 65 ? "#fffbeb" : "#fef2f2",
@@ -424,14 +455,14 @@ export default function StudentAttendance() {
                   boxShadow: "var(--shadow-sm)",
                   display: "flex",
                   flexDirection: "column",
-                  gap: "4px",
+                  gap: "6px",
                   borderLeft: "4px solid #10b981",
                 }}
               >
-                <span style={{ fontSize: "0.74rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "#059669" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em", color: "#059669" }}>
                   Present
                 </span>
-                <span style={{ fontSize: "1.5rem", fontWeight: 800, color: "#059669" }}>
+                <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#059669" }}>
                   {presentCount}
                 </span>
               </div>
@@ -444,14 +475,14 @@ export default function StudentAttendance() {
                   boxShadow: "var(--shadow-sm)",
                   display: "flex",
                   flexDirection: "column",
-                  gap: "4px",
+                  gap: "6px",
                   borderLeft: "4px solid #f59e0b",
                 }}
               >
-                <span style={{ fontSize: "0.74rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "#d97706" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em", color: "#d97706" }}>
                   Late
                 </span>
-                <span style={{ fontSize: "1.5rem", fontWeight: 800, color: "#d97706" }}>
+                <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#d97706" }}>
                   {lateCount}
                 </span>
               </div>
@@ -464,14 +495,14 @@ export default function StudentAttendance() {
                   boxShadow: "var(--shadow-sm)",
                   display: "flex",
                   flexDirection: "column",
-                  gap: "4px",
+                  gap: "6px",
                   borderLeft: "4px solid #ef4444",
                 }}
               >
-                <span style={{ fontSize: "0.74rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "#dc2626" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em", color: "#dc2626" }}>
                   Absent
                 </span>
-                <span style={{ fontSize: "1.5rem", fontWeight: 800, color: "#dc2626" }}>
+                <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#dc2626" }}>
                   {absentCount}
                 </span>
               </div>
@@ -484,14 +515,14 @@ export default function StudentAttendance() {
                   boxShadow: "var(--shadow-sm)",
                   display: "flex",
                   flexDirection: "column",
-                  gap: "4px",
+                  gap: "6px",
                   borderLeft: "4px solid #64748b",
                 }}
               >
-                <span style={{ fontSize: "0.74rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-text-secondary)" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em", color: "var(--color-text-secondary)" }}>
                   Total Sessions
                 </span>
-                <span style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--color-text-primary)" }}>
+                <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-text-primary)" }}>
                   {total}
                 </span>
               </div>
@@ -541,25 +572,25 @@ export default function StudentAttendance() {
                 gap: "12px",
               }}>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>Session History</h3>
+                  <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>Session History</h3>
                   <p style={{ margin: "2px 0 0", fontSize: "0.8rem", color: "var(--color-text-secondary)" }}>
                     {total} session{total === 1 ? "" : "s"} recorded for {selectedEnrollment?.course_name || "this course"}
                   </p>
                 </div>
 
                 {/* Status Key */}
-                <div style={{ display: "flex", alignItems: "center", gap: "16px", fontSize: "0.78rem" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--color-text-secondary)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "22px", fontSize: "0.82rem" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "7px", color: "var(--color-text-secondary)" }}>
                     <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#10b981" }} />
-                    <strong style={{ color: "var(--color-text-primary)" }}>Present</strong>
+                    <span style={{ color: "var(--color-text-secondary)", fontWeight: 500 }}>Present</span>
                   </span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--color-text-secondary)" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "7px", color: "var(--color-text-secondary)" }}>
                     <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#f59e0b" }} />
-                    <strong style={{ color: "var(--color-text-primary)" }}>Late</strong>
+                    <span style={{ color: "var(--color-text-secondary)", fontWeight: 500 }}>Late</span>
                   </span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--color-text-secondary)" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "7px", color: "var(--color-text-secondary)" }}>
                     <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#ef4444" }} />
-                    <strong style={{ color: "var(--color-text-primary)" }}>Absent</strong>
+                    <span style={{ color: "var(--color-text-secondary)", fontWeight: 500 }}>Absent</span>
                   </span>
                 </div>
               </div>
@@ -576,7 +607,7 @@ export default function StudentAttendance() {
                     <tr>
                       <th style={{ padding: "12px 20px" }}>Date</th>
                       <th style={{ padding: "12px 20px" }}>Course</th>
-                      <th style={{ textAlign: "center", padding: "12px 20px" }}>Status</th>
+                      <th style={{ padding: "12px 20px" }}>Status</th>
                       <th style={{ padding: "12px 20px" }}>Remarks</th>
                     </tr>
                   </thead>
@@ -611,30 +642,39 @@ export default function StudentAttendance() {
                               </span>
                             </div>
                           </td>
-                          <td style={{ textAlign: "center", padding: "14px 20px" }}>
+                          <td style={{ padding: "14px 20px" }}>
                             <span
                               style={{
                                 display: "inline-flex",
                                 alignItems: "center",
                                 gap: "6px",
-                                padding: "4px 12px",
-                                borderRadius: "12px",
-                                fontSize: "0.76rem",
-                                fontWeight: 700,
+                                padding: "3px 10px",
+                                borderRadius: "6px",
+                                fontSize: "0.8rem",
+                                fontWeight: 500,
                                 backgroundColor:
-                                  a.status === "PRESENT" ? "rgba(16, 185, 129, 0.12)" :
-                                  a.status === "ABSENT" ? "rgba(239, 68, 68, 0.12)" : "rgba(245, 158, 11, 0.12)",
+                                  a.status === "PRESENT" ? "#ecfdf5" :
+                                  a.status === "ABSENT" ? "#fef2f2" : "#fffbeb",
                                 color:
-                                  a.status === "PRESENT" ? "#059669" :
-                                  a.status === "ABSENT" ? "#dc2626" : "#d97706",
+                                  a.status === "PRESENT" ? "#065f46" :
+                                  a.status === "ABSENT" ? "#991b1b" : "#92400e",
                                 border: `1px solid ${
-                                  a.status === "PRESENT" ? "rgba(16, 185, 129, 0.25)" :
-                                  a.status === "ABSENT" ? "rgba(239, 68, 68, 0.25)" : "rgba(245, 158, 11, 0.25)"
+                                  a.status === "PRESENT" ? "#a7f3d0" :
+                                  a.status === "ABSENT" ? "#fecaca" : "#fde68a"
                                 }`,
                               }}
                             >
-                              <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "currentColor" }} />
-                              {a.status}
+                              <span
+                                style={{
+                                  width: "6px",
+                                  height: "6px",
+                                  borderRadius: "50%",
+                                  backgroundColor:
+                                    a.status === "PRESENT" ? "#10b981" :
+                                    a.status === "ABSENT" ? "#ef4444" : "#f59e0b",
+                                }}
+                              />
+                              {a.status === "PRESENT" ? "Present" : a.status === "ABSENT" ? "Absent" : a.status === "LATE" ? "Late" : a.status}
                             </span>
                           </td>
                           <td style={{ padding: "14px 20px", color: "var(--color-text-secondary)", fontSize: "0.85rem" }}>

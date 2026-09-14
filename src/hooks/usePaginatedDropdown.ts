@@ -18,6 +18,11 @@ export function usePaginatedDropdown<T>(
   // dropdown that filters its already-loaded items on the client instead, so
   // typing never triggers a reset/refetch here.
   search?: string,
+  // false for a dropdown whose prerequisite filter isn't selected yet (e.g.
+  // Teacher before a Department is chosen) - no request fires at all, not
+  // even page 1, until this flips to true. Defaults to true so every
+  // existing caller that doesn't pass it keeps fetching immediately, as before.
+  enabled: boolean = true,
 ) {
   const [items, setItems] = useState<T[]>([]);
   const [page, setPage] = useState(0);
@@ -56,12 +61,20 @@ export function usePaginatedDropdown<T>(
     setItems([]);
     setPage(0);
     setTotalPages(1);
+
+    // Not ready yet (e.g. Teacher before a Department is picked) - discard
+    // any loaded items/pages above and stop here. No request fires, and any
+    // request already in flight for the previous resetKey/search is aborted
+    // by the cleanup below.
+    if (!enabled) return () => controller.abort();
+
     fetchAndAppend(1, true, controller.signal);
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetKey, search]);
+  }, [resetKey, search, enabled]);
 
   const loadNext = () => {
+    if (!enabled) return;
     if (loading) return;
     if (page > 0 && page >= totalPages) return;
     fetchAndAppend(page + 1, false);
@@ -70,7 +83,7 @@ export function usePaginatedDropdown<T>(
   return {
     items,
     loading,
-    hasMore: page === 0 || page < totalPages,
+    hasMore: enabled && (page === 0 || page < totalPages),
     loadNext,
   };
 }

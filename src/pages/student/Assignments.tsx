@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getCurrentUser } from "../../services/auth";
-import { getMyAssignments, getStudentAssignmentDetail, requestSubmissionUploadUrl, confirmSubmission } from "../../services/entities";
+import { getMyAssignments, requestSubmissionUploadUrl, confirmSubmission } from "../../services/entities";
 import { Modal } from "../../components/common/Modal";
 import { useToast } from "../../context/ToastContext";
 import type { AssignmentStudentListItem } from "../../types/user";
@@ -23,26 +23,19 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
-// Detail + upload for one assignment. Fetches fresh (rather than reusing the
-// list row) so submission status reflects the very latest state.
-function AssignmentDetailModal({ assignmentId, onClose, onSubmitted }: { assignmentId: number; onClose: () => void; onSubmitted: () => void }) {
+// Detail + upload for one assignment. Seeded from the already-fetched list
+// row (same fields the detail endpoint would return) so opening the modal
+// makes no network request; local state is patched from the confirm
+// response after a successful upload instead of re-fetching.
+function AssignmentDetailModal({ assignment: initialAssignment, onClose, onSubmitted }: {
+  assignment: AssignmentStudentListItem;
+  onClose: () => void;
+  onSubmitted: (updated: AssignmentStudentListItem) => void;
+}) {
   const { showToast } = useToast();
-  const [assignment, setAssignment] = useState<AssignmentStudentListItem | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [assignment, setAssignment] = useState<AssignmentStudentListItem>(initialAssignment);
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-
-  const load = () => {
-    setLoading(true);
-    getStudentAssignmentDetail(assignmentId)
-      .then(setAssignment)
-      .catch(err => showToast(err instanceof Error ? err.message : "Failed to load assignment.", "error"))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -57,14 +50,20 @@ function AssignmentDetailModal({ assignmentId, onClose, onSubmitted }: { assignm
 
     setUploading(true);
     try {
-      const { upload_url, key, content_type } = await requestSubmissionUploadUrl(assignmentId, file.type);
+      const { upload_url, key, content_type } = await requestSubmissionUploadUrl(assignment.id, file.type);
       const s3Response = await fetch(upload_url, { method: "PUT", headers: { "Content-Type": content_type }, body: file });
       if (!s3Response.ok) throw new Error("Failed to upload submission. Please try again.");
 
-      await confirmSubmission(assignmentId, key);
+      const confirmed = await confirmSubmission(assignment.id, key);
+      const updated: AssignmentStudentListItem = {
+        ...assignment,
+        status: confirmed.status,
+        submitted_at: confirmed.submitted_at,
+      };
+      setAssignment(updated);
+      setFileUrl(confirmed.file_url);
       showToast("Submission uploaded successfully.", "success");
-      load();
-      onSubmitted();
+      onSubmitted(updated);
     } catch (error) {
       console.error(error);
       showToast(error instanceof Error ? error.message : "Failed to upload submission.", "error");
@@ -74,50 +73,50 @@ function AssignmentDetailModal({ assignmentId, onClose, onSubmitted }: { assignm
   };
 
   return (
-    <Modal isOpen title={assignment?.title || "Assignment"} onClose={onClose}>
-      {loading || !assignment ? (
-        <div style={{ padding: "16px", textAlign: "center" }}>Loading...</div>
-      ) : (
-        <>
-          <p style={{ color: "var(--color-text-secondary)", marginTop: 0 }}>{assignment.course_name} ({assignment.course_code})</p>
+    <Modal isOpen title={assignment.title || "Assignment"} onClose={onClose}>
+      <p style={{ color: "var(--color-text-secondary)", marginTop: 0 }}>{assignment.course_name} ({assignment.course_code})</p>
 
-          {assignment.description && (
-            <div style={{ marginBottom: "16px" }}>
-              <div className="form-label">Instructions</div>
-              <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{assignment.description}</p>
-            </div>
-          )}
-
-          <div style={{ marginBottom: "16px" }}>
-            <div className="form-label">Due Date</div>
-            <div>{formatDate(assignment.due_at)}</div>
-          </div>
-
-          {assignment.attachment_url && (
-            <div style={{ marginBottom: "16px" }}>
-              <a href={assignment.attachment_url} target="_blank" rel="noreferrer">View assignment attachment</a>
-            </div>
-          )}
-
-          <div className="content-card" style={{ padding: "16px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-              <span className={`badge ${assignment.status === "SUBMITTED" ? "badge-success" : "badge-warning"}`}>
-                {assignment.status === "SUBMITTED" ? "Submitted" : "Pending"}
-              </span>
-              {assignment.submitted_at && (
-                <span style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>
-                  Submitted on: {formatDate(assignment.submitted_at)}
-                </span>
-              )}
-            </div>
-
-            <label className="btn btn-primary" style={{ display: "inline-block", cursor: uploading ? "not-allowed" : "pointer" }}>
-              {uploading ? "Uploading..." : assignment.status === "SUBMITTED" ? "Replace Submission" : "Upload Submission"}
-              <input type="file" accept=".pdf,.doc,.docx,.zip" style={{ display: "none" }} disabled={uploading} onChange={handleFileSelected} />
-            </label>
-          </div>
-        </>
+      {assignment.description && (
+        <div style={{ marginBottom: "16px" }}>
+          <div className="form-label">Instructions</div>
+          <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{assignment.description}</p>
+        </div>
       )}
+
+      <div style={{ marginBottom: "16px" }}>
+        <div className="form-label">Due Date</div>
+        <div>{formatDate(assignment.due_at)}</div>
+      </div>
+
+      {assignment.attachment_url && (
+        <div style={{ marginBottom: "16px" }}>
+          <a href={assignment.attachment_url} target="_blank" rel="noreferrer">View assignment attachment</a>
+        </div>
+      )}
+
+      <div className="content-card" style={{ padding: "16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+          <span className={`badge ${assignment.status === "SUBMITTED" ? "badge-success" : "badge-warning"}`}>
+            {assignment.status === "SUBMITTED" ? "Submitted" : "Pending"}
+          </span>
+          {assignment.submitted_at && (
+            <span style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>
+              Submitted on: {formatDate(assignment.submitted_at)}
+            </span>
+          )}
+        </div>
+
+        {fileUrl && (
+          <div style={{ marginBottom: "12px" }}>
+            <a href={fileUrl} target="_blank" rel="noreferrer">View submitted file</a>
+          </div>
+        )}
+
+        <label className="btn btn-primary" style={{ display: "inline-block", cursor: uploading ? "not-allowed" : "pointer" }}>
+          {uploading ? "Uploading..." : assignment.status === "SUBMITTED" ? "Replace Submission" : "Upload Submission"}
+          <input type="file" accept=".pdf,.doc,.docx,.zip" style={{ display: "none" }} disabled={uploading} onChange={handleFileSelected} />
+        </label>
+      </div>
     </Modal>
   );
 }
@@ -138,7 +137,11 @@ export default function StudentAssignments() {
   const [totalPages, setTotalPages] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const [openAssignmentId, setOpenAssignmentId] = useState<number | null>(null);
+  const [openAssignment, setOpenAssignment] = useState<AssignmentStudentListItem | null>(null);
+
+  const applyAssignmentUpdate = (updated: AssignmentStudentListItem) => {
+    setAssignments(prev => prev.map(a => (a.id === updated.id ? updated : a)));
+  };
 
   const loadAssignments = () => {
     setLoading(true);
@@ -258,7 +261,7 @@ export default function StudentAssignments() {
                       <td style={{ textAlign: "right", padding: "12px 20px" }}>
                         <button
                           type="button"
-                          onClick={() => setOpenAssignmentId(a.id)}
+                          onClick={() => setOpenAssignment(a)}
                           className="btn btn-sm btn-subtle-primary"
                           style={{ padding: "6px 12px", fontSize: "0.78rem", fontWeight: 600 }}
                         >
@@ -280,11 +283,14 @@ export default function StudentAssignments() {
             </div>
           )}
 
-          {openAssignmentId !== null && (
+          {openAssignment !== null && (
             <AssignmentDetailModal
-              assignmentId={openAssignmentId}
-              onClose={() => setOpenAssignmentId(null)}
-              onSubmitted={loadAssignments}
+              assignment={openAssignment}
+              onClose={() => setOpenAssignment(null)}
+              onSubmitted={updated => {
+                applyAssignmentUpdate(updated);
+                setOpenAssignment(updated);
+              }}
             />
           )}
         </>

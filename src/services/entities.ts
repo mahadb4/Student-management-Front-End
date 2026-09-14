@@ -1,6 +1,6 @@
 import{apiRequest}from"./api";
 import{getAccessToken}from"./auth";
-import type{Student,Teacher,Department,Course,CourseOffering,Enrollment,Attendance,RemarkTeacherListItem,RemarkStudentListItem,Section,StudentListItem,SectionListItem,TeacherListItem,CourseListItem,EnrollmentListItem,CourseOfferingListItem,CourseOfferingReference,CourseOfferingTeacherListItem,AttendanceListItem,StudentAttendanceListItem,TeacherAttendanceListItem,DepartmentReference,SectionReference,TeacherReference,CourseReference,StudentReference,StudentProfile,StudentSummary,StudentEnrollmentListItem,EnrollmentReference,EnrollmentTeacherListItem,TeacherDashboardSummary,TeacherProfile,AssignmentTeacherListItem,AssignmentTeacherDetail,AssignmentCourseSummary,AssignmentStudentListItem,MySubmissionStatus,SubmissionRosterItem}from"../types/user";
+import type{Student,Teacher,Department,Course,CourseOffering,Enrollment,Attendance,RemarkTeacherListItem,RemarkStudentListItem,Section,StudentListItem,SectionListItem,TeacherListItem,CourseListItem,EnrollmentListItem,CourseOfferingListItem,CourseOfferingReference,CourseOfferingTeacherListItem,CourseOfferingAttendanceListItem,AttendanceListItem,AttendanceStatus,AttendanceRosterItem,StudentAttendanceListItem,TeacherAttendanceListItem,DepartmentReference,SectionReference,TeacherReference,CourseReference,StudentReference,StudentProfile,StudentSummary,StudentEnrollmentListItem,EnrollmentReference,EnrollmentTeacherListItem,TeacherDashboardSummary,TeacherProfile,AssignmentTeacherListItem,AssignmentTeacherDetail,AssignmentCourseSummary,AssignmentStudentListItem,MySubmissionStatus,SubmissionRosterItem}from"../types/user";
 
 function authHeaders(signal?:AbortSignal){
   const token=getAccessToken();
@@ -115,9 +115,10 @@ export const getCourseReference=(page:number=1,pageSize:number=10,signal?:AbortS
   return apiRequest<PaginatedResponse<CourseReference>>(`/courses/reference/?${params.toString()}`,authHeaders(signal));
 };
 
-export const getCourseOfferingReference=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string):Promise<PaginatedResponse<CourseOfferingReference>>=>{
+export const getCourseOfferingReference=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,teacherId?:number):Promise<PaginatedResponse<CourseOfferingReference>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(search&&search.trim())params.set("search",search.trim());
+  if(teacherId!==undefined)params.set("teacher_id",String(teacherId));
   return apiRequest<PaginatedResponse<CourseOfferingReference>>(`/course_offerings/reference/?${params.toString()}`,authHeaders(signal));
 };
 
@@ -162,10 +163,11 @@ export const enrollmentService=createCrudService<Enrollment>("/enrollments");
 // Enrollments LIST endpoint returns a narrower projection (EnrollmentListItem, with
 // student/course_offering already resolved) than the Enrollment entity used by
 // enrollmentService's getById/create/update/remove.
-export const getEnrollmentList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,ordering?:string):Promise<PaginatedResponse<EnrollmentListItem>>=>{
+export const getEnrollmentList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,ordering?:string,courseOfferingId?:number):Promise<PaginatedResponse<EnrollmentListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(search&&search.trim())params.set("search",search.trim());
   if(ordering)params.set("ordering",ordering);
+  if(courseOfferingId!==undefined)params.set("course_offering_id",String(courseOfferingId));
   return apiRequest<PaginatedResponse<EnrollmentListItem>>(`/enrollments/?${params.toString()}`,authHeaders(signal));
 };
 export const attendanceService=createCrudService<Attendance>("/attendance");
@@ -173,8 +175,53 @@ export const attendanceService=createCrudService<Attendance>("/attendance");
 // Attendance LIST endpoint returns a narrower projection (AttendanceListItem, with
 // enrollment already resolved to {id, student, course}) than the Attendance entity
 // used by attendanceService's getById/create/update/remove.
-export const getAttendanceList=(page:number=1,pageSize:number=10,signal?:AbortSignal):Promise<PaginatedResponse<AttendanceListItem>>=>
-  apiRequest<PaginatedResponse<AttendanceListItem>>(`/attendance/?page=${page}&page_size=${pageSize}`,authHeaders(signal));
+// Admin Attendance page filters (department -> teacher -> course_offering -> date)
+// are applied server-side/ORM - see attendance_api.py's _apply_admin_filters.
+export interface AttendanceFilters{
+  departmentId?:number;
+  teacherId?:number;
+  courseOfferingId?:number;
+  sectionId?:number;
+  studentId?:number;
+  date?:string;
+}
+
+export const getAttendanceList=(page:number=1,pageSize:number=10,signal?:AbortSignal,filters?:AttendanceFilters):Promise<PaginatedResponse<AttendanceListItem>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
+  if(filters?.departmentId!==undefined)params.set("department_id",String(filters.departmentId));
+  if(filters?.teacherId!==undefined)params.set("teacher_id",String(filters.teacherId));
+  if(filters?.courseOfferingId!==undefined)params.set("course_offering_id",String(filters.courseOfferingId));
+  if(filters?.sectionId!==undefined)params.set("section_id",String(filters.sectionId));
+  if(filters?.studentId!==undefined)params.set("student_id",String(filters.studentId));
+  if(filters?.date)params.set("date",filters.date);
+  return apiRequest<PaginatedResponse<AttendanceListItem>>(`/attendance/?${params.toString()}`,authHeaders(signal));
+};
+
+export interface AttendanceBulkRecord{
+  enrollment_id:number;
+  status:AttendanceStatus;
+  remarks?:string;
+}
+
+export interface AttendanceBulkCreatedItem{
+  id:number;
+  enrollment_id:number;
+  date:string;
+  status:AttendanceStatus;
+  remarks:string;
+}
+
+// One class + one date = one HTTP request - see attendance_api.attendance_bulk_api.
+// Used by the Teacher Attendance register's Save button instead of one
+// POST /attendance/ per student.
+export const createAttendanceBulk=(courseOfferingId:number,date:string,records:AttendanceBulkRecord[]):Promise<{created:AttendanceBulkCreatedItem[]}>=>{
+  const token=getAccessToken();
+  return apiRequest<{created:AttendanceBulkCreatedItem[]}>("/attendance/bulk/",{
+    method:"POST",
+    token:token||undefined,
+    body:JSON.stringify({course_offering_id:courseOfferingId,date,records})
+  });
+};
 
 // create/update/remove on /remarks/ are teacher-only server-side (see
 // remark_api._get_teacher_or_error), so RemarkTeacherListItem - the shape
@@ -273,10 +320,26 @@ export const getMyTeacherDashboard=():Promise<TeacherDashboardSummary>=>
 export const getMyCourseOfferings=(page:number=1,pageSize:number=10):Promise<PaginatedResponse<CourseOfferingTeacherListItem>>=>
   apiRequest<PaginatedResponse<CourseOfferingTeacherListItem>>(`/teachers/me/courses/?page=${page}&page_size=${pageSize}`,authHeaders());
 
+// Narrower ?view=attendance projection of the same /teachers/me/courses/
+// endpoint above - used only by the Attendance register's class dropdown,
+// which never needs course_code/semester/academic_year/is_active/
+// enrolled_students_count.
+export const getMyCourseOfferingsForAttendance=(page:number=1,pageSize:number=10):Promise<PaginatedResponse<CourseOfferingAttendanceListItem>>=>
+  apiRequest<PaginatedResponse<CourseOfferingAttendanceListItem>>(`/teachers/me/courses/?view=attendance&page=${page}&page_size=${pageSize}`,authHeaders());
+
 export const getMyTeacherStudents=(page:number=1,pageSize:number=10,courseOfferingId?:number):Promise<PaginatedResponse<EnrollmentTeacherListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(courseOfferingId!==undefined)params.set("course_offering_id",String(courseOfferingId));
   return apiRequest<PaginatedResponse<EnrollmentTeacherListItem>>(`/teachers/me/students/?${params.toString()}`,authHeaders());
+};
+
+// Narrower ?view=attendance projection of the same /teachers/me/students/
+// endpoint above - used only by the Attendance register, which never needs
+// email/enrollment-status, just who to mark and their avatar.
+export const getMyTeacherAttendanceRoster=(page:number=1,pageSize:number=10,courseOfferingId?:number):Promise<PaginatedResponse<AttendanceRosterItem>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize),view:"attendance"});
+  if(courseOfferingId!==undefined)params.set("course_offering_id",String(courseOfferingId));
+  return apiRequest<PaginatedResponse<AttendanceRosterItem>>(`/teachers/me/students/?${params.toString()}`,authHeaders());
 };
 
 export const getMyTeacherAttendance=(page:number=1,pageSize:number=10,courseOfferingId?:number):Promise<PaginatedResponse<TeacherAttendanceListItem>>=>{

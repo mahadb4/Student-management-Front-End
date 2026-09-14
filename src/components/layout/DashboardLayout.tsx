@@ -24,7 +24,6 @@ const routeTitles: Record<string, string> = {
   "/student/profile": "My Profile",
   "/teacher": "Teacher Dashboard",
   "/teacher/courses": "My Classes",
-  "/teacher/students": "My Students",
   "/teacher/attendance": "Class Attendance",
   "/teacher/assignments": "Assignments",
   "/staff": "Staff Dashboard",

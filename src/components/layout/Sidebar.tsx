@@ -21,7 +21,6 @@ export default function Sidebar() {
         return [
           { to: "/teacher", label: "Dashboard", icon: "📊" },
           { to: "/teacher/courses", label: "My Classes", icon: "📚" },
-          { to: "/teacher/students", label: "Students", icon: "👥" },
           { to: "/teacher/attendance", label: "Attendance", icon: "📅" },
           { to: "/teacher/assignments", label: "Assignments", icon: "📄" },
           { to: "/teacher/profile", label: "Profile", icon: "👤" },

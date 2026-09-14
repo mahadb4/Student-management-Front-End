@@ -290,6 +290,17 @@ export interface CourseOfferingTeacherListItem {
   enrolled_students_count: number;
 }
 
+// Shape returned by GET /teachers/me/courses/?view=attendance: a narrower
+// projection of CourseOfferingTeacherListItem for the Attendance register's
+// class dropdown only, which never needs course_code/semester/academic_year/
+// is_active/enrolled_students_count - via the backend's
+// CourseOfferingMapper.to_attendance_list_dto.
+export interface CourseOfferingAttendanceListItem {
+  id: number;
+  course_name: string | null;
+  section_name: string | null;
+}
+
 export interface CourseOffering {
   id: number;
   course: number;
@@ -409,18 +420,25 @@ export interface StudentAttendanceListItem {
   course_code: string | null;
 }
 
-// Shape returned by GET /teachers/me/attendance/: a narrower projection than
-// AttendanceListItem, dropping student_id/course_id (unused by the
-// Attendance table) - enrollment_id is kept for the class filter, and
-// student_name identifies whose row it is - via the backend's
-// AttendanceMapper.to_teacher_list_dto.
+// Shape returned by GET /teachers/me/attendance/: a minimal projection - the
+// Attendance register fetches the class roster separately
+// (getMyTeacherAttendanceRoster) and maps each row back to a student via
+// enrollment_id, so student_name/remarks are not repeated here - via the
+// backend's AttendanceMapper.to_teacher_list_dto.
 export interface TeacherAttendanceListItem {
   id: number;
   date: string;
   status: AttendanceStatus;
-  remarks: string;
   enrollment_id: number | null;
-  student_name: string | null;
+}
+
+// Shape returned by GET /teachers/me/students/?view=attendance: a narrower
+// projection of EnrollmentTeacherListItem for the Attendance register only -
+// via the backend's EnrollmentMapper.to_attendance_roster_dto.
+export interface AttendanceRosterItem {
+  enrollment_id: number;
+  student_name: string;
+  profile_picture_url: string | null;
 }
 
 // Shape returned by GET /teachers/me/dashboard/: only the counts the Teacher
