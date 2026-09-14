@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { getCurrentUser, logoutUser } from "../../services/auth";
 import { invalidateMeCache } from "../../services/entities";
+import { Avatar } from "../common/Avatar";
 
 interface NavbarProps {
   title: string;
@@ -21,15 +22,14 @@ export default function Navbar({ title }: NavbarProps) {
       <div className="navbar-left">
         <h1 className="navbar-title">{title}</h1>
       </div>
-      
+
       <div className="navbar-right">
         <button className="btn-icon notification-btn" aria-label="Notifications">
           🔔
-          <span className="notification-badge">3</span>
         </button>
-        
+
         <div className="user-profile">
-          <div className="avatar">{user?.name ? user.name.charAt(0).toUpperCase() : "U"}</div>
+          <Avatar name={user?.name || "User"} size={36} />
           <div className="user-info">
             <span className="user-name">{user?.name || "User"}</span>
             <span className="user-role" style={{ textTransform: "capitalize" }}>

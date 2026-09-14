@@ -3,6 +3,8 @@ import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 import { Outlet, useLocation } from "react-router-dom";
 import { scheduleTokenRefresh, clearScheduledTokenRefresh } from "../../services/tokenScheduler";
+import FloatingAiAssistant from "../ai/FloatingAiAssistant";
+import { getCurrentUser } from "../../services/auth";
 import "../../pages/styles/Dashboard.css";
 
 // Map route paths to navbar titles
@@ -21,6 +23,7 @@ const routeTitles: Record<string, string> = {
   "/student": "Student Dashboard",
   "/student/courses": "My Courses",
   "/student/attendance": "My Attendance",
+  "/student/ai-assistant": "AI Assistant",
   "/student/profile": "My Profile",
   "/teacher": "Teacher Dashboard",
   "/teacher/courses": "My Classes",
@@ -32,6 +35,9 @@ const routeTitles: Record<string, string> = {
 export default function DashboardLayout() {
   const location = useLocation();
   const title = routeTitles[location.pathname] || "Dashboard";
+  const user = getCurrentUser();
+  const isStudent = user?.role === "student";
+  const isFullAiPage = location.pathname === "/student/ai-assistant";
 
   // DashboardLayout is mounted for the full lifetime of any authenticated
   // session (all admin/student/teacher/staff routes share it), so it's the
@@ -50,6 +56,7 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
       </div>
+      {isStudent && !isFullAiPage && <FloatingAiAssistant />}
     </div>
   );
 }

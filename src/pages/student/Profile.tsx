@@ -1,14 +1,47 @@
 import { useEffect, useState } from "react";
 import { getCurrentUser } from "../../services/auth";
-import { getMyStudentProfile, studentProfilePictureService } from "../../services/entities";
+import { getMyStudentProfile, studentProfilePictureService, updateMyStudentProfile } from "../../services/entities";
 import { ProfilePictureUploader } from "../../components/common/ProfilePictureUploader";
 import type { StudentProfile } from "../../types/user";
+import { useToast } from "../../context/ToastContext";
 
 export default function StudentProfile() {
   const user = getCurrentUser();
+  const { showToast } = useToast();
   const [student, setStudent] = useState<StudentProfile | null>(null);
 
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({ date_of_birth: "", gender: "M", parents_phone_number: "", address: "" });
+
+  const startEditing = () => {
+    if (!student) return;
+    setFormData({
+      date_of_birth: student.date_of_birth || "",
+      gender: student.gender || "M",
+      parents_phone_number: student.parents_phone_number || "",
+      address: student.address || "",
+    });
+    setIsEditing(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      await updateMyStudentProfile(formData);
+      setStudent(prev => prev && { ...prev, ...formData });
+      setIsEditing(false);
+      showToast("Profile updated successfully.", "success");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Failed to update profile.", "error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) {
@@ -160,57 +193,106 @@ export default function StudentProfile() {
 
             {/* Personal Details Card */}
             <div className="content-card" style={{ padding: "20px 24px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", paddingBottom: "12px", borderBottom: "1px solid var(--color-border)" }}>
-                <div style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "var(--radius-md)",
-                  backgroundColor: "var(--color-primary-light)",
-                  color: "var(--color-primary)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center"
-                }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "16px", paddingBottom: "12px", borderBottom: "1px solid var(--color-border)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "var(--radius-md)",
+                    backgroundColor: "var(--color-primary-light)",
+                    color: "var(--color-primary)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700 }}>Personal Information</h3>
+                    <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--color-text-secondary)" }}>Emergency contact and demographic details</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700 }}>Personal Information</h3>
-                  <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--color-text-secondary)" }}>Emergency contact and demographic details</p>
-                </div>
+                {!isEditing && (
+                  <button type="button" className="btn btn-outline btn-sm" onClick={startEditing}>Edit Profile</button>
+                )}
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
-                <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Date of Birth</div>
-                  <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
-                    {student.date_of_birth || "N/A"}
+              {isEditing ? (
+                <form onSubmit={handleSave}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
+                    <div className="form-group">
+                      <label className="form-label">Date of Birth</label>
+                      <input
+                        required type="date" className="form-control" value={formData.date_of_birth}
+                        onChange={e => setFormData({ ...formData, date_of_birth: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Gender</label>
+                      <select
+                        className="form-control" value={formData.gender}
+                        onChange={e => setFormData({ ...formData, gender: e.target.value })}
+                      >
+                        <option value="M">Male</option>
+                        <option value="F">Female</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Guardian Contact</label>
+                      <input
+                        required className="form-control" value={formData.parents_phone_number}
+                        onChange={e => setFormData({ ...formData, parents_phone_number: e.target.value })}
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Gender</div>
-                  <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
-                    {student.gender === "M" ? "Male" : student.gender === "F" ? "Female" : student.gender || "N/A"}
+                  <div className="form-group">
+                    <label className="form-label">Residential Address</label>
+                    <textarea
+                      className="form-control" rows={2} value={formData.address}
+                      onChange={e => setFormData({ ...formData, address: e.target.value })}
+                    ></textarea>
                   </div>
-                </div>
 
-                <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Guardian Contact</div>
-                  <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
-                    {student.parents_phone_number || "N/A"}
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "16px" }}>
+                    <button type="button" className="btn btn-outline" onClick={() => setIsEditing(false)} disabled={isSubmitting}>Cancel</button>
+                    <button type="submit" className="btn btn-primary" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save Changes"}</button>
                   </div>
-                </div>
+                </form>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
+                  <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                    <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Date of Birth</div>
+                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
+                      {student.date_of_birth || "N/A"}
+                    </div>
+                  </div>
 
-                <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Residential Address</div>
-                  <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
-                    {student.address || "Not Provided"}
+                  <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                    <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Gender</div>
+                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
+                      {student.gender === "M" ? "Male" : student.gender === "F" ? "Female" : student.gender || "N/A"}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                    <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Guardian Contact</div>
+                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
+                      {student.parents_phone_number || "N/A"}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                    <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Residential Address</div>
+                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
+                      {student.address || "Not Provided"}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

@@ -15,6 +15,7 @@ export default function Sidebar() {
           { to: "/student/attendance", label: "Attendance", icon: "📅" },
           { to: "/student/assignments", label: "Assignments", icon: "📄" },
           { to: "/student/remarks", label: "Remarks", icon: "📝" },
+          { to: "/student/ai-assistant", label: "AI Assistant", icon: "🤖" },
           { to: "/student/profile", label: "Profile", icon: "👤" },
         ];
       case "teacher":

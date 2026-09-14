@@ -4,11 +4,13 @@ import { getCurrentUser } from "../../services/auth";
 import {
   getTeacherAssignments, assignmentService,
   requestAssignmentAttachmentUploadUrl, confirmAssignmentAttachment, getAssignmentSubmissions,
+  runAssignmentAiCheck,
 } from "../../services/entities";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
+import { AssignmentEvaluationModal } from "../../components/assignments/AssignmentEvaluationModal";
 import { useToast } from "../../context/ToastContext";
-import type { AssignmentTeacherListItem, AssignmentTeacherDetail, SubmissionRosterItem } from "../../types/user";
+import type { AssignmentTeacherListItem, AssignmentTeacherDetail, SubmissionRosterItem, AssignmentEvaluation } from "../../types/user";
 
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20MB, matches backend MAX_ASSIGNMENT_FILE_SIZE_BYTES
 const ALLOWED_TYPES = [
@@ -43,6 +45,15 @@ function SubmissionsModal({ assignment, onClose }: { assignment: AssignmentTeach
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
+  // AI Check: which student's evaluation modal is open, plus that request's
+  // own loading/error/result state - kept separate from the roster's own
+  // loading state since it's a per-row action, not a page reload.
+  const [aiCheckTarget, setAiCheckTarget] = useState<{ studentId: number; studentName: string } | null>(null);
+  const [aiCheckLoading, setAiCheckLoading] = useState(false);
+  const [aiCheckError, setAiCheckError] = useState<string | null>(null);
+  const [aiCheckEvaluation, setAiCheckEvaluation] = useState<AssignmentEvaluation | null>(null);
+  const [runningStudentId, setRunningStudentId] = useState<number | null>(null);
+
   const loadPage = (pageNumber: number) => {
     setLoading(true);
     getAssignmentSubmissions(assignment.id, pageNumber)
@@ -55,40 +66,153 @@ function SubmissionsModal({ assignment, onClose }: { assignment: AssignmentTeach
   };
 
   useEffect(() => {
-    loadPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    let active = true;
+    getAssignmentSubmissions(assignment.id, 1)
+      .then(r => {
+        if (!active) return;
+        setRoster(r.results);
+        setPage(r.current_page);
+        setTotalPages(r.total_pages);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [assignment.id]);
+
+  const handleAiCheck = async (studentId: number, studentName: string) => {
+    if (runningStudentId !== null) return;
+    setRunningStudentId(studentId);
+    setAiCheckTarget({ studentId, studentName });
+    setAiCheckLoading(true);
+    setAiCheckError(null);
+    setAiCheckEvaluation(null);
+    try {
+      const evaluation = await runAssignmentAiCheck(assignment.id, studentId);
+      setAiCheckEvaluation(evaluation);
+    } catch (err) {
+      setAiCheckError(err instanceof Error ? err.message : "AI evaluation couldn't be completed right now. Please try again.");
+    } finally {
+      setAiCheckLoading(false);
+      setRunningStudentId(null);
+    }
+  };
+
+  const closeAiCheckModal = () => {
+    setAiCheckTarget(null);
+    setAiCheckEvaluation(null);
+    setAiCheckError(null);
+  };
+
+  const submittedCount = roster.filter(r => r.status === "SUBMITTED").length;
+  const pendingCount = roster.filter(r => r.status !== "SUBMITTED").length;
 
   return (
-    <Modal isOpen title={`Submissions - ${assignment.title}`} onClose={onClose}>
+    <Modal isOpen title={`Submissions — ${assignment.title}`} onClose={onClose} maxWidth="860px">
       {loading ? (
-        <div style={{ padding: "16px", textAlign: "center" }}>Loading submissions...</div>
+        <div style={{ padding: "32px", textAlign: "center", color: "var(--color-text-secondary)" }}>
+          Loading submissions...
+        </div>
       ) : (
         <>
-          <div className="table-responsive">
-            <table className="data-table">
+          <div className="submissions-summary-strip">
+            <div className="submissions-summary-item">
+              <span>Class Size:</span>
+              <strong>{roster.length}</strong>
+            </div>
+            <div className="submissions-summary-divider" />
+            <div className="submissions-summary-item">
+              <span className="status-dot-submitted" />
+              <span>Submitted:</span>
+              <strong style={{ color: "#065f46" }}>{submittedCount}</strong>
+            </div>
+            <div className="submissions-summary-divider" />
+            <div className="submissions-summary-item">
+              <span className="status-dot-pending" />
+              <span>Pending:</span>
+              <strong style={{ color: "#92400e" }}>{pendingCount}</strong>
+            </div>
+          </div>
+
+          <div className="table-responsive" style={{ border: "1px solid #e2e8f0", borderRadius: "10px", overflow: "hidden" }}>
+            <table className="submissions-table">
               <thead>
                 <tr>
-                  <th>Student</th>
-                  <th>Status</th>
-                  <th>Submitted</th>
-                  <th>File</th>
+                  <th style={{ width: "26%" }}>Student</th>
+                  <th style={{ width: "16%" }}>Status</th>
+                  <th style={{ width: "18%" }}>Submitted</th>
+                  <th style={{ width: "20%" }}>File</th>
+                  <th style={{ width: "20%", textAlign: "right" }}>AI Evaluation</th>
                 </tr>
               </thead>
               <tbody>
                 {roster.map(r => (
                   <tr key={r.student_id}>
-                    <td>{r.student_name}</td>
                     <td>
-                      <span className={`badge ${r.status === "SUBMITTED" ? "badge-success" : "badge-warning"}`}>
-                        {r.status === "SUBMITTED" ? "Submitted" : "Pending"}
+                      <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>
+                        {r.student_name}
                       </span>
                     </td>
-                    <td>{r.submitted_at ? formatDate(r.submitted_at) : "-"}</td>
+                    <td>
+                      {r.status === "SUBMITTED" ? (
+                        <span className="status-oval-submitted">
+                          <span className="status-dot-submitted" />
+                          Submitted
+                        </span>
+                      ) : (
+                        <span className="status-oval-pending">
+                          <span className="status-dot-pending" />
+                          Pending
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      {r.submitted_at ? (
+                        <span style={{ color: "var(--color-text-secondary)", fontSize: "0.85rem", whiteSpace: "nowrap" }}>
+                          {formatDate(r.submitted_at)}
+                        </span>
+                      ) : (
+                        <span style={{ color: "#94a3b8" }}>—</span>
+                      )}
+                    </td>
                     <td>
                       {r.file_url ? (
-                        <a href={r.file_url} target="_blank" rel="noreferrer">View / Download</a>
-                      ) : "-"}
+                        <a href={r.file_url} target="_blank" rel="noreferrer" className="btn-file-link">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                          </svg>
+                          View / Download
+                        </a>
+                      ) : (
+                        <span style={{ color: "#94a3b8" }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {r.status === "SUBMITTED" ? (
+                        <button
+                          type="button"
+                          className="btn-ai-action"
+                          disabled={runningStudentId !== null}
+                          onClick={() => handleAiCheck(r.student_id, r.student_name)}
+                        >
+                          {runningStudentId === r.student_id ? (
+                            <>
+                              <span className="ai-check-spinner" />
+                              <span>Checking...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>🤖</span>
+                              <span>AI Check</span>
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <span style={{ color: "#94a3b8", display: "inline-block", paddingRight: "16px" }}>—</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -118,6 +242,20 @@ function SubmissionsModal({ assignment, onClose }: { assignment: AssignmentTeach
             </div>
           )}
         </>
+      )}
+
+      {aiCheckTarget && (
+        <AssignmentEvaluationModal
+          assignmentId={assignment.id}
+          assignmentTitle={assignment.title}
+          studentId={aiCheckTarget.studentId}
+          studentName={aiCheckTarget.studentName}
+          loading={aiCheckLoading}
+          error={aiCheckError}
+          evaluation={aiCheckEvaluation}
+          onClose={closeAiCheckModal}
+          onEvaluationUpdated={setAiCheckEvaluation}
+        />
       )}
     </Modal>
   );
@@ -162,8 +300,24 @@ export default function TeacherClassAssignments() {
 
   useEffect(() => {
     if (!user) return;
-
-    loadAssignments();
+    let active = true;
+    getTeacherAssignments(offeringId)
+      .then(r => {
+        if (!active) return;
+        setAssignments(r.results);
+        if (r.course) {
+          setOfferingLabel(`${r.course.course_name} (${r.course.course_code}) - ${r.course.section_name || "No Section"}`);
+        }
+      })
+      .catch(err => {
+        if (active) showToast(err instanceof Error ? err.message : "Failed to load assignments.", "error");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offeringId]);
 

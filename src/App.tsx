@@ -28,6 +28,7 @@ import StudentCourses from "./pages/student/Courses";
 import StudentAttendance from "./pages/student/Attendance";
 import StudentRemarks from "./pages/student/Remarks";
 import StudentAssignments from "./pages/student/Assignments";
+import StudentAiAssistant from "./pages/student/AiAssistant";
 import StudentProfile from "./pages/student/Profile";
 
 // Teacher
@@ -129,6 +130,7 @@ function App() {
           <Route path="attendance" element={<StudentAttendance />} />
           <Route path="remarks" element={<StudentRemarks />} />
           <Route path="assignments" element={<StudentAssignments />} />
+          <Route path="ai-assistant" element={<StudentAiAssistant />} />
           <Route path="profile" element={<StudentProfile />} />
         </Route>
 

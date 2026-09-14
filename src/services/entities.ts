@@ -1,6 +1,6 @@
 import{apiRequest}from"./api";
 import{getAccessToken}from"./auth";
-import type{Student,Teacher,Department,Course,CourseOffering,Enrollment,Attendance,RemarkTeacherListItem,RemarkStudentListItem,Section,StudentListItem,SectionListItem,TeacherListItem,CourseListItem,EnrollmentListItem,CourseOfferingListItem,CourseOfferingReference,CourseOfferingTeacherListItem,CourseOfferingAttendanceListItem,AttendanceListItem,AttendanceStatus,AttendanceRosterItem,StudentAttendanceListItem,TeacherAttendanceListItem,DepartmentReference,SectionReference,TeacherReference,CourseReference,StudentReference,StudentProfile,StudentSummary,StudentEnrollmentListItem,EnrollmentReference,EnrollmentTeacherListItem,TeacherDashboardSummary,TeacherProfile,AssignmentTeacherListItem,AssignmentTeacherDetail,AssignmentCourseSummary,AssignmentStudentListItem,MySubmissionStatus,SubmissionRosterItem}from"../types/user";
+import type{Student,Teacher,Department,Course,CourseOffering,Enrollment,Attendance,RemarkTeacherListItem,RemarkStudentListItem,Section,StudentListItem,SectionListItem,TeacherListItem,CourseListItem,EnrollmentListItem,CourseOfferingListItem,CourseOfferingReference,CourseOfferingTeacherListItem,CourseOfferingAttendanceListItem,AttendanceListItem,AttendanceStatus,AttendanceRosterItem,StudentAttendanceListItem,TeacherAttendanceListItem,DepartmentReference,SectionReference,TeacherReference,CourseReference,StudentReference,StudentProfile,StudentSummary,StudentEnrollmentListItem,EnrollmentReference,EnrollmentTeacherListItem,TeacherDashboardSummary,TeacherProfile,AssignmentTeacherListItem,AssignmentTeacherDetail,AssignmentCourseSummary,AssignmentStudentListItem,MySubmissionStatus,SubmissionRosterItem,AiAssistantResponse,AssignmentEvaluation,AssignmentEvaluationReviewRequest}from"../types/user";
 
 function authHeaders(signal?:AbortSignal){
   const token=getAccessToken();
@@ -276,6 +276,19 @@ export function invalidateMeCache(_key?:string){
 export const getMyStudentProfile=():Promise<StudentProfile>=>
   apiRequest<StudentProfile>("/students/me/",authHeaders());
 
+// Partial update of only the caller's own personally-provided fields
+// (date_of_birth/gender/address/parents_phone_number) - the backend
+// whitelists to exactly these regardless of what else is sent, so
+// department/section/enrollment/status can never be touched here.
+export const updateMyStudentProfile=(data:Partial<Pick<StudentProfile,"date_of_birth"|"gender"|"address"|"parents_phone_number">>):Promise<{message:string}>=>{
+  const token=getAccessToken();
+  return apiRequest<{message:string}>("/students/me/",{
+    method:"PATCH",
+    token:token||undefined,
+    body:JSON.stringify(data)
+  });
+};
+
 export const getMyStudentSummary=():Promise<StudentSummary>=>
   apiRequest<StudentSummary>("/students/me/summary/",authHeaders());
 
@@ -313,6 +326,29 @@ export const getMyStudentAttendance=(page:number=1,pageSize:number=10,courseOffe
 
 export const getMyTeacherProfile=():Promise<TeacherProfile>=>
   apiRequest<TeacherProfile>("/teachers/me/",authHeaders());
+
+// Partial update of only the caller's own personally-provided fields
+// (phone_number/date_of_birth/gender/address/qualification - none of which
+// TeacherProfile's read shape carries, since that DTO is display-only). The
+// backend whitelists to exactly these regardless of what else is sent, so
+// employee_id/department/designation/date_of_joining/salary/status can
+// never be touched here.
+export interface TeacherProfileUpdate{
+  phone_number?:string;
+  date_of_birth?:string;
+  gender?:string;
+  address?:string;
+  qualification?:string;
+}
+
+export const updateMyTeacherProfile=(data:TeacherProfileUpdate):Promise<{message:string}>=>{
+  const token=getAccessToken();
+  return apiRequest<{message:string}>("/teachers/me/",{
+    method:"PATCH",
+    token:token||undefined,
+    body:JSON.stringify(data)
+  });
+};
 
 export const getMyTeacherDashboard=():Promise<TeacherDashboardSummary>=>
   apiRequest<TeacherDashboardSummary>("/teachers/me/dashboard/",authHeaders());
@@ -471,4 +507,42 @@ export const confirmSubmission=(assignmentId:number,key:string):Promise<MySubmis
 export const getAssignmentSubmissions=(assignmentId:number,page:number=1,pageSize:number=10):Promise<PaginatedResponse<SubmissionRosterItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   return apiRequest<PaginatedResponse<SubmissionRosterItem>>(`/assignments/${assignmentId}/submissions/?${params.toString()}`,authHeaders());
+};
+
+// AI Assistant: asks a question about the current user's own authorized
+// teacher feedback. Identity comes entirely from the JWT (via apiRequest's
+// token header) - there is deliberately no student/user id in the request
+// body, since the backend never accepts one for this endpoint either.
+export const askAiAssistant=(question:string,signal?:AbortSignal):Promise<AiAssistantResponse>=>{
+  const token=getAccessToken();
+  return apiRequest<AiAssistantResponse>("/ai-assistant/ask/",{
+    method:"POST",token:token||undefined,body:JSON.stringify({question}),signal
+  });
+};
+
+// ── AI Assignment Evaluation (Phase 11C) ────────────────────────────────────
+// A SEPARATE AI capability from askAiAssistant above - teacher-triggered,
+// single-document evaluation of one student's submission. Both calls are
+// authorized server-side against the calling teacher owning the assignment
+// (assignments.api.ai_evaluation_api) - no student/teacher id is ever
+// inferred client-side beyond the path parameters the teacher is already
+// viewing (this assignment's own submissions roster).
+
+// Runs (or re-runs) the AI evaluation for one student's submission. Re-running
+// replaces the same evaluation row server-side (update_or_create) - this
+// never creates a frontend-only duplicate.
+export const runAssignmentAiCheck=(assignmentId:number,studentId:number):Promise<AssignmentEvaluation>=>{
+  const token=getAccessToken();
+  return apiRequest<AssignmentEvaluation>(`/assignments/${assignmentId}/submissions/${studentId}/ai-check/`,{
+    method:"POST",token:token||undefined
+  });
+};
+
+// Teacher's final decision on an existing AI evaluation - approve/edit
+// (both require an explicit final_score) or reject (score optional).
+export const reviewAssignmentEvaluation=(assignmentId:number,studentId:number,review:AssignmentEvaluationReviewRequest):Promise<AssignmentEvaluation>=>{
+  const token=getAccessToken();
+  return apiRequest<AssignmentEvaluation>(`/assignments/${assignmentId}/submissions/${studentId}/evaluation/`,{
+    method:"PATCH",token:token||undefined,body:JSON.stringify(review)
+  });
 };

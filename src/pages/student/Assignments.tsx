@@ -262,8 +262,8 @@ export default function StudentAssignments() {
                         <button
                           type="button"
                           onClick={() => setOpenAssignment(a)}
-                          className="btn btn-sm btn-subtle-primary"
-                          style={{ padding: "6px 12px", fontSize: "0.78rem", fontWeight: 600 }}
+                          className="btn btn-sm btn-primary"
+                          style={{ padding: "6px 14px", fontSize: "0.78rem", fontWeight: 600, boxShadow: "0 2px 6px rgba(37, 99, 235, 0.22)" }}
                         >
                           {a.status === "SUBMITTED" ? "View Details" : "Submit"}
                         </button>

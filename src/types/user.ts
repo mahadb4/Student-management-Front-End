@@ -128,18 +128,24 @@ export interface Teacher {
 }
 
 // Shape returned by GET /teachers/me/: the authenticated Teacher's own
-// profile - no salary/address/gender/date_of_birth/qualification/phone_number/
-// created_at/updated_at/is_active, none of which any Teacher page renders,
-// via the backend's serialize_teacher_profile. `name` is already the joined
-// "First Last" string (the Profile page only ever renders one name, never
-// first/last separately) - not split into first_name/last_name like Teacher
-// (used by Admin's teacherService CRUD against /teachers/<id>/, whose edit
-// form needs them as two separate inputs).
+// profile - no salary/created_at/updated_at/is_active, none of which any
+// Teacher page renders, via the backend's serialize_teacher_profile.
+// `name` is already the joined "First Last" string (the Profile page only
+// ever renders one name, never first/last separately) - not split into
+// first_name/last_name like Teacher (used by Admin's teacherService CRUD
+// against /teachers/<id>/, whose edit form needs them as two separate
+// inputs). phone_number/date_of_birth/gender/address/qualification are
+// included so the Profile page's own edit form can pre-fill current values.
 export interface TeacherProfile {
   id: number;
   name: string;
   employee_id: string;
   email: string;
+  phone_number: string;
+  date_of_birth: string | null;
+  gender: string | null;
+  address: string | null;
+  qualification: string;
   department_name: string | null;
   designation: string;
   profile_picture_url: string | null;
@@ -322,6 +328,9 @@ export interface EnrollmentReference {
   id: number;
   course_code: string;
   course_name: string;
+  semester?: string;
+  academic_year?: number | string;
+  section_name?: string;
 }
 
 export type EnrollmentStatus = "ACTIVE" | "DROPPED" | "COMPLETED";
@@ -483,7 +492,6 @@ export interface RemarkStudentListItem {
   course_name: string;
   course_code: string;
   remark_text: string;
-  visibility: RemarkVisibility;
   created_at: string;
 }
 
@@ -553,4 +561,105 @@ export interface SubmissionRosterItem {
   status: SubmissionStatus;
   submitted_at: string | null;
   file_url: string | null;
+}
+
+// Request body for POST /ai-assistant/ask/ - the student's question about
+// their own academic data (teacher feedback, attendance, ...).
+export interface AiAssistantRequest {
+  question: string;
+}
+
+// A source backing an AI assistant answer, as returned by
+// POST /ai-assistant/ask/. The backend's router (Phase 10B) picks which
+// domain(s) are relevant to the question, so the sources array can mix
+// types for a combined question - discriminate on `type` before reading
+// domain-specific fields. remark_id is kept for potential future use
+// (e.g. linking back to the Remarks page) but is not shown to the user.
+export interface AiAssistantRemarkSource {
+  type: "remark";
+  remark_id: number;
+  teacher_name: string;
+  course_name: string;
+  created_at: string;
+}
+
+export interface AiAssistantAttendanceSource {
+  type: "attendance";
+  course_name: string;
+  detail: string;
+}
+
+// status is derived server-side (Phase 10C) from due_at + whether a
+// Submission row exists - "submitted" never implies graded/reviewed, since
+// this system has no grading concept. attachment_available is presence-only;
+// the backend never sends attachment content to the assistant.
+export interface AiAssistantAssignmentSource {
+  type: "assignment";
+  title: string;
+  course_name: string;
+  due_at: string;
+  status: "pending" | "overdue" | "submitted";
+  attachment_available: boolean;
+}
+
+// Reflects only the student's currently ACTIVE enrollments (Phase 10D) -
+// DROPPED/COMPLETED are deliberately excluded from the assistant's current-
+// courses context. teacher_name is always the specific offering's teacher
+// (CourseOffering.teacher), not the Course template's own teacher field,
+// which can differ. section_name is nullable since a CourseOffering's
+// section is optional.
+export interface AiAssistantCourseSource {
+  type: "course";
+  course_name: string;
+  course_code: string;
+  teacher_name: string | null;
+  section_name: string | null;
+}
+
+export type AiAssistantSource =
+  | AiAssistantRemarkSource
+  | AiAssistantAttendanceSource
+  | AiAssistantAssignmentSource
+  | AiAssistantCourseSource;
+
+// Shape returned by POST /ai-assistant/ask/ via ask_api.
+export interface AiAssistantResponse {
+  answer: string;
+  sources: AiAssistantSource[];
+}
+
+// ── AI Assignment Evaluation (Phase 11B/11C) ───────────────────────────────
+// A SEPARATE AI capability from the Student RAG Assistant above - a
+// teacher-triggered, single-document evaluation of one submission, not
+// retrieval-augmented Q&A. Shape returned by both
+// POST /assignments/<id>/submissions/<studentId>/ai-check/ and
+// PATCH .../evaluation/ (assignments.api.ai_evaluation_api._serialize_evaluation) -
+// the same shape, so both calls can update the same local state.
+// suggested_score/strengths/weaknesses/ai_feedback/confidence are AI-
+// generated and never written by the review endpoint; final_score/
+// teacher_feedback/status are teacher-controlled and never written by the
+// ai-check endpoint (which always resets status back to AI_SUGGESTED).
+export type AssignmentEvaluationStatus = "AI_SUGGESTED" | "APPROVED" | "EDITED" | "REJECTED";
+export type AssignmentEvaluationConfidence = "low" | "medium" | "high" | "";
+
+export interface AssignmentEvaluation {
+  id: number;
+  suggested_score: number | null;
+  strengths: string[];
+  weaknesses: string[];
+  ai_feedback: string;
+  confidence: AssignmentEvaluationConfidence;
+  final_score: number | null;
+  teacher_feedback: string;
+  status: AssignmentEvaluationStatus;
+  updated_at: string;
+}
+
+// Request body for PATCH /assignments/<id>/submissions/<studentId>/evaluation/ -
+// the teacher's final decision. final_score is required for APPROVED/EDITED,
+// optional for REJECTED (assignment_evaluation_review_api).
+export interface AssignmentEvaluationReviewRequest {
+  status: "APPROVED" | "EDITED" | "REJECTED";
+  final_score?: number | null;
+  teacher_feedback?: string;
 }

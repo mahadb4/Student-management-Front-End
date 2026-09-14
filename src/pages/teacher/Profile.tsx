@@ -1,13 +1,49 @@
 import { useEffect, useState } from "react";
 import { getCurrentUser } from "../../services/auth";
-import { getMyTeacherProfile, teacherProfilePictureService } from "../../services/entities";
+import { getMyTeacherProfile, teacherProfilePictureService, updateMyTeacherProfile } from "../../services/entities";
 import { ProfilePictureUploader } from "../../components/common/ProfilePictureUploader";
 import type { TeacherProfile } from "../../types/user";
+import { useToast } from "../../context/ToastContext";
 
 export default function TeacherProfile() {
   const user = getCurrentUser();
+  const { showToast } = useToast();
   const [teacher, setTeacher] = useState<TeacherProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    phone_number: "", date_of_birth: "", gender: "M", address: "", qualification: "",
+  });
+
+  const startEditing = () => {
+    if (!teacher) return;
+    setFormData({
+      phone_number: teacher.phone_number || "",
+      date_of_birth: teacher.date_of_birth || "",
+      gender: teacher.gender || "M",
+      address: teacher.address || "",
+      qualification: teacher.qualification || "",
+    });
+    setIsEditing(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      await updateMyTeacherProfile(formData);
+      setTeacher(prev => prev && { ...prev, ...formData });
+      setIsEditing(false);
+      showToast("Profile updated successfully.", "success");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Failed to update profile.", "error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) {
@@ -126,6 +162,91 @@ export default function TeacherProfile() {
                     {teacher.designation || "Faculty Member"}
                   </div>
                 </div>
+              </div>
+
+              <div style={{ marginTop: "20px", paddingTop: "18px", borderTop: "1px solid var(--color-border)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+                  <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700 }}>Personal Information</h3>
+                  {!isEditing && (
+                    <button type="button" className="btn btn-outline btn-sm" onClick={startEditing}>Edit Profile</button>
+                  )}
+                </div>
+
+                {isEditing ? (
+                  <form onSubmit={handleSave}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
+                      <div className="form-group">
+                        <label className="form-label">Phone Number</label>
+                        <input
+                          required className="form-control" value={formData.phone_number}
+                          onChange={e => setFormData({ ...formData, phone_number: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Date of Birth</label>
+                        <input
+                          required type="date" className="form-control" value={formData.date_of_birth}
+                          onChange={e => setFormData({ ...formData, date_of_birth: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Gender</label>
+                        <select
+                          className="form-control" value={formData.gender}
+                          onChange={e => setFormData({ ...formData, gender: e.target.value })}
+                        >
+                          <option value="M">Male</option>
+                          <option value="F">Female</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Qualification</label>
+                        <input
+                          required className="form-control" value={formData.qualification}
+                          onChange={e => setFormData({ ...formData, qualification: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Address</label>
+                      <textarea
+                        className="form-control" rows={2} value={formData.address}
+                        onChange={e => setFormData({ ...formData, address: e.target.value })}
+                      ></textarea>
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "16px" }}>
+                      <button type="button" className="btn btn-outline" onClick={() => setIsEditing(false)} disabled={isSubmitting}>Cancel</button>
+                      <button type="submit" className="btn btn-primary" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save Changes"}</button>
+                    </div>
+                  </form>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
+                    <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                      <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Phone Number</div>
+                      <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>{teacher.phone_number || "N/A"}</div>
+                    </div>
+                    <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                      <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Date of Birth</div>
+                      <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>{teacher.date_of_birth || "N/A"}</div>
+                    </div>
+                    <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                      <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Gender</div>
+                      <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
+                        {teacher.gender === "M" ? "Male" : teacher.gender === "F" ? "Female" : teacher.gender || "N/A"}
+                      </div>
+                    </div>
+                    <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                      <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Qualification</div>
+                      <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>{teacher.qualification || "N/A"}</div>
+                    </div>
+                    <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                      <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Residential Address</div>
+                      <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>{teacher.address || "Not Provided"}</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
