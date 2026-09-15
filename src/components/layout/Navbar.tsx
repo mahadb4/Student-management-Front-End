@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { getCurrentUser, logoutUser } from "../../services/auth";
 import { invalidateMeCache } from "../../services/entities";
 import { Avatar } from "../common/Avatar";
+import { useProfilePicture } from "../../context/ProfilePictureContext";
 
 interface NavbarProps {
   title: string;
@@ -10,6 +11,7 @@ interface NavbarProps {
 export default function Navbar({ title }: NavbarProps) {
   const navigate = useNavigate();
   const user = getCurrentUser();
+  const { profilePictureUrl } = useProfilePicture();
 
   const handleLogout = () => {
     logoutUser();
@@ -29,7 +31,7 @@ export default function Navbar({ title }: NavbarProps) {
         </button>
 
         <div className="user-profile">
-          <Avatar name={user?.name || "User"} size={36} />
+          <Avatar src={profilePictureUrl} name={user?.name || "User"} size={36} />
           <div className="user-info">
             <span className="user-name">{user?.name || "User"}</span>
             <span className="user-role" style={{ textTransform: "capitalize" }}>

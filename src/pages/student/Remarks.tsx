@@ -44,7 +44,7 @@ export default function StudentRemarks() {
     }).finally(() => setLoadingMore(false));
   };
 
-  const sortedRemarks = [...remarks].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const sortedRemarks = [...remarks].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   function formatRemarkDate(dateStr: string) {
     if (!dateStr) return "";
@@ -88,8 +88,8 @@ export default function StudentRemarks() {
                     </td>
                   </tr>
                 ) : (
-                  sortedRemarks.map(r => (
-                    <tr key={r.id}>
+                  sortedRemarks.map((r, i) => (
+                    <tr key={i}>
                       <td style={{ padding: "12px 20px", fontWeight: 600, color: "var(--color-text-primary)" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
@@ -98,19 +98,16 @@ export default function StudentRemarks() {
                             <line x1="8" y1="2" x2="8" y2="6" />
                             <line x1="3" y1="10" x2="21" y2="10" />
                           </svg>
-                          {formatRemarkDate(r.created_at)}
+                          {formatRemarkDate(r.date)}
                         </div>
+                      </td>
+                      <td style={{ padding: "12px 20px", fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>
+                        {r.course}
                       </td>
                       <td style={{ padding: "12px 20px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <span className="teacher-class-code-tag">{r.course_code}</span>
-                          <span style={{ fontSize: "0.85rem", color: "var(--color-text-secondary)" }}>{r.course_name}</span>
-                        </div>
-                      </td>
-                      <td style={{ padding: "12px 20px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <Avatar name={r.teacher_name || "Instructor"} size={22} />
-                          <span style={{ fontWeight: 500, fontSize: "0.875rem" }}>{r.teacher_name}</span>
+                          <Avatar name={r.teacher || "Instructor"} size={22} />
+                          <span style={{ fontWeight: 500, fontSize: "0.875rem" }}>{r.teacher}</span>
                         </div>
                       </td>
                       <td style={{ padding: "12px 20px", color: "var(--color-text-primary)", fontSize: "0.875rem", lineHeight: 1.45 }}>
@@ -121,7 +118,7 @@ export default function StudentRemarks() {
                           border: "1px solid #f1f5f9",
                           borderLeft: "3px solid var(--color-primary)",
                         }}>
-                          {r.remark_text}
+                          {r.remark}
                         </div>
                       </td>
                     </tr>

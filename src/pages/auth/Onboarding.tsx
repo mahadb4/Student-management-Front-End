@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { completeOnboarding, getCurrentUser } from "../../services/auth";
-import { departmentService, sectionService } from "../../services/entities";
-import type { Department, Section } from "../../types/user";
+import { departmentService } from "../../services/entities";
+import type { Department } from "../../types/user";
 import "../styles/Auth.css";
 
 const dashboardMap: Record<string, string> = {
@@ -17,13 +17,11 @@ export default function Onboarding() {
   const user = getCurrentUser();
 
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [sections, setSections] = useState<Section[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [studentProfile, setStudentProfile] = useState({
     parents_phone_number: "", date_of_birth: "", gender: "M", address: "",
-    department: "" as number | "", section: "" as number | "",
   });
 
   const [teacherProfile, setTeacherProfile] = useState({
@@ -32,16 +30,15 @@ export default function Onboarding() {
     date_of_birth: "", date_of_joining: "", salary: "", address: "",
   });
 
+  // Only the Teacher form needs this - Department/Section are admin-assigned
+  // academic placement, decided AFTER onboarding once an admin reviews the
+  // student's submission (see AcademicReview.tsx), never chosen here.
   useEffect(() => {
-    Promise.all([departmentService.getAll(), sectionService.getAll()])
-      .then(([d, s]) => { setDepartments(d); setSections(s); })
+    if (user?.role !== "teacher") return;
+    departmentService.getAll()
+      .then(setDepartments)
       .catch(err => console.error(err));
-  }, []);
-
-  const sectionsForDepartment = useMemo(() => {
-    if (studentProfile.department === "") return sections;
-    return sections.filter(s => s.department === studentProfile.department);
-  }, [sections, studentProfile.department]);
+  }, [user?.role]);
 
   if (!user) {
     navigate("/", { replace: true });
@@ -72,9 +69,13 @@ export default function Onboarding() {
       ...raw,
       first_name: first_name || user.name,
       last_name: last_name || "",
-      department: raw.department === "" ? null : Number(raw.department),
-      ...(isStudent ? { section: studentProfile.section === "" ? null : Number(studentProfile.section) } : {}),
-      ...(!isStudent ? { salary: Number(teacherProfile.salary) || 0, department: teacherProfile.department === "" ? null : Number(teacherProfile.department) } : {}),
+      // Department/Section are never part of the student's own submission -
+      // they're admin-assigned academic placement, decided after onboarding
+      // (see AcademicReview.tsx). Teacher onboarding is unrelated/unchanged.
+      ...(!isStudent ? {
+        department: teacherProfile.department === "" ? null : Number(teacherProfile.department),
+        salary: Number(teacherProfile.salary) || 0,
+      } : {}),
     };
 
     const result = await completeOnboarding(profile);
@@ -85,6 +86,10 @@ export default function Onboarding() {
       return;
     }
 
+    // A student's academic placement always still needs admin confirmation
+    // right after onboarding - completeOnboarding() already refreshed the
+    // cached user, so ProtectedRoute will route them to Academic Review
+    // instead of the dashboard on its own; teachers go straight through.
     navigate(dashboardMap[user.role] ?? "/", { replace: true });
   };
 
@@ -114,20 +119,6 @@ export default function Onboarding() {
                 <select className="form-control" value={studentProfile.gender} onChange={e => setStudentProfile({ ...studentProfile, gender: e.target.value })}>
                   <option value="M">Male</option>
                   <option value="F">Female</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Department</label>
-                <select className="form-control" value={studentProfile.department} onChange={e => setStudentProfile({ ...studentProfile, department: e.target.value === "" ? "" : Number(e.target.value), section: "" })}>
-                  <option value="">-- No Department --</option>
-                  {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Section</label>
-                <select className="form-control" value={studentProfile.section} onChange={e => setStudentProfile({ ...studentProfile, section: e.target.value === "" ? "" : Number(e.target.value) })}>
-                  <option value="">-- No Section --</option>
-                  {sectionsForDepartment.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
               <div className="form-group">

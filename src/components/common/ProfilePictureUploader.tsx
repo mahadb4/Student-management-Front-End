@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Avatar } from "./Avatar";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { ProfilePhotoCropper } from "./ProfilePhotoCropper";
 import { useToast } from "../../context/ToastContext";
 import type { ProfilePictureUploadUrlResponse, ProfilePictureUrlResponse } from "../../services/entities";
 
@@ -44,13 +45,15 @@ export function ProfilePictureUploader({
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-selecting the same file again later
     if (!file || uploading) return;
@@ -61,17 +64,29 @@ export function ProfilePictureUploader({
       return;
     }
 
-    const objectUrl = URL.createObjectURL(file);
+    // Hand the raw selection to the cropper first - the actual upload only
+    // starts once the user confirms a crop in handleCropSave.
+    setCropSrc(URL.createObjectURL(file));
+  };
+
+  const handleCropCancel = () => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+  };
+
+  const handleCropSave = async (croppedBlob: Blob) => {
+    const croppedFile = new File([croppedBlob], "profile.jpg", { type: "image/jpeg" });
+    const objectUrl = URL.createObjectURL(croppedFile);
     setPreviewUrl(objectUrl);
     setUploading(true);
 
     try {
-      const { upload_url, key, content_type } = await requestUploadUrl(file.type);
+      const { upload_url, key, content_type } = await requestUploadUrl(croppedFile.type);
 
       const s3Response = await fetch(upload_url, {
         method: "PUT",
         headers: { "Content-Type": content_type },
-        body: file,
+        body: croppedFile,
       });
 
       if (!s3Response.ok) {
@@ -88,6 +103,8 @@ export function ProfilePictureUploader({
       setUploading(false);
       URL.revokeObjectURL(objectUrl);
       setPreviewUrl(null);
+      if (cropSrc) URL.revokeObjectURL(cropSrc);
+      setCropSrc(null);
     }
   };
 
@@ -124,7 +141,7 @@ export function ProfilePictureUploader({
         <button
           type="button"
           className="btn btn-sm btn-subtle-primary"
-          disabled={uploading || removing}
+          disabled={uploading || removing || !!cropSrc}
           onClick={() => fileInputRef.current?.click()}
           style={{ fontWeight: 600, gap: "6px", boxShadow: "var(--shadow-sm)" }}
         >
@@ -161,6 +178,14 @@ export function ProfilePictureUploader({
         confirmDisabled={removing}
         confirmLabel="Remove"
         pendingLabel="Removing..."
+      />
+
+      <ProfilePhotoCropper
+        isOpen={!!cropSrc}
+        imageSrc={cropSrc}
+        saving={uploading}
+        onCancel={handleCropCancel}
+        onSave={handleCropSave}
       />
     </div>
   );

@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCurrentUser } from "../../services/auth";
-import { getMyTeacherDashboard, getMyCourseOfferings } from "../../services/entities";
-import type { TeacherDashboardSummary, CourseOfferingTeacherListItem } from "../../types/user";
+import { getMyTeacherDashboard, getMyCourseOfferingsForDashboard } from "../../services/entities";
+import type { TeacherDashboardSummary, CourseOfferingDashboardListItem } from "../../types/user";
 
 export default function TeacherDashboard() {
   const user = getCurrentUser();
   const [summary, setSummary] = useState<TeacherDashboardSummary | null>(null);
-  const [classes, setClasses] = useState<CourseOfferingTeacherListItem[]>([]);
+  const [classes, setClasses] = useState<CourseOfferingDashboardListItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,7 +18,7 @@ export default function TeacherDashboard() {
 
     Promise.all([
       getMyTeacherDashboard().catch(() => null),
-      getMyCourseOfferings(1, 20).then(res => res.results).catch(() => [])
+      getMyCourseOfferingsForDashboard(1, 20).then(res => res.results).catch(() => [])
     ])
       .then(([dashSummary, courseList]) => {
         setSummary(dashSummary);
@@ -45,7 +45,7 @@ export default function TeacherDashboard() {
             </svg>
             Mark Attendance
           </Link>
-          <Link to="/teacher/students" className="btn btn-secondary" style={{ textDecoration: "none", gap: "6px" }}>
+          <Link to="/teacher/courses" className="btn btn-secondary" style={{ textDecoration: "none", gap: "6px" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
               <circle cx="9" cy="7" r="4" />

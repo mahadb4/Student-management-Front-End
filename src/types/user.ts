@@ -23,6 +23,10 @@ export interface User {
   permissions: Permission[];
   student_id?: number;
   teacher_id?: number;
+  // Student-only: true once onboarding created the Student record but an
+  // admin hasn't yet confirmed Department/Section. Drives the redirect to
+  // the "Application Under Review" page instead of the dashboard.
+  academic_review_pending?: boolean;
 }
 
 // ── Domain Entities ──────────────────────────────────────────────────────────
@@ -38,6 +42,10 @@ export interface Student {
   address: string;
   department: number | null;
   section: number | null;
+  // True only once an admin has explicitly confirmed this student's
+  // academic placement (Department + Section) - see the Admin Edit Student
+  // form's "Confirm Academic Placement" control.
+  placement_confirmed: boolean;
   date_of_enrollment: string;
   is_active: boolean;
 }
@@ -62,6 +70,16 @@ export interface StudentProfile {
   profile_picture_url: string | null;
 }
 
+// Shape returned by GET /students/me/identity/: the Navbar-only projection of
+// StudentProfile above, fetched once per session by the shared DashboardLayout
+// shell on every student-facing page (not just Profile) - deliberately far
+// narrower than StudentProfile since the navbar never renders
+// parents_phone_number/date_of_birth/gender/address/etc.
+export interface StudentIdentity {
+  name: string;
+  profile_picture_url: string | null;
+}
+
 // Shape returned by GET /students/me/summary/: only the counts and recent
 // records the Student Dashboard renders, via the backend's my_summary_api.
 export interface StudentSummary {
@@ -81,6 +99,7 @@ export interface StudentListItem {
   student_email: string;
   department_name: string | null;
   section_name: string | null;
+  placement_confirmed: boolean;
   profile_picture_url: string | null;
 }
 
@@ -148,6 +167,16 @@ export interface TeacherProfile {
   qualification: string;
   department_name: string | null;
   designation: string;
+  profile_picture_url: string | null;
+}
+
+// Shape returned by GET /teachers/me/identity/: the Navbar-only projection of
+// TeacherProfile above, fetched once per session by the shared DashboardLayout
+// shell on every teacher-facing page (not just Profile) - deliberately far
+// narrower than TeacherProfile since the navbar never renders employee_id/
+// email/phone_number/etc.
+export interface TeacherIdentity {
+  name: string;
   profile_picture_url: string | null;
 }
 
@@ -307,6 +336,20 @@ export interface CourseOfferingAttendanceListItem {
   section_name: string | null;
 }
 
+// Shape returned by GET /teachers/me/courses/?view=dashboard: a narrower
+// projection of CourseOfferingTeacherListItem for the Teacher Dashboard's
+// "My Classes" table only, which never needs semester/academic_year (those
+// are only shown on the full My Classes page) - via the backend's
+// CourseOfferingMapper.to_dashboard_list_dto.
+export interface CourseOfferingDashboardListItem {
+  id: number;
+  course_name: string | null;
+  course_code: string | null;
+  section_name: string | null;
+  is_active: boolean;
+  enrolled_students_count: number;
+}
+
 export interface CourseOffering {
   id: number;
   course: number;
@@ -319,18 +362,19 @@ export interface CourseOffering {
   updated_at: string;
 }
 
-// Shape returned by GET /students/me/courses/reference/: the minimal
-// projection the Student Attendance course filter dropdown needs - id is the
-// enrollment id (the dropdown's option value, matched against attendance
-// rows' enrollment_id), course_code/course_name make up the label. Via the
+// Shape returned by GET /students/me/courses/reference/: the projection the
+// Student Attendance course filter needs - id is the enrollment id (the
+// dropdown's option value, matched against attendance rows' enrollment_id),
+// course_code/course_name make up the label, and semester/academic_year/
+// section_name back the "Term"/"Section" chips shown once selected. Via the
 // backend's EnrollmentMapper.to_reference_dto.
 export interface EnrollmentReference {
   id: number;
   course_code: string;
   course_name: string;
-  semester?: string;
-  academic_year?: number | string;
-  section_name?: string;
+  semester: string;
+  academic_year: number;
+  section_name: string | null;
 }
 
 export type EnrollmentStatus = "ACTIVE" | "DROPPED" | "COMPLETED";
@@ -484,15 +528,14 @@ export interface RemarkTeacherListItem {
 }
 
 // Shape returned by GET /remarks/ to a STUDENT: aggregates remarks across
-// different classes/teachers, so course/teacher names are needed to tell
-// rows apart - via the backend's serialize_remark_for_student.
+// different classes/teachers, so course/teacher are needed to tell rows
+// apart - via the backend's serialize_remark_for_student. No row has a
+// stable id in this projection, so list rendering keys off the row index.
 export interface RemarkStudentListItem {
-  id: number;
-  teacher_name: string;
-  course_name: string;
-  course_code: string;
-  remark_text: string;
-  created_at: string;
+  date: string;
+  course: string;
+  teacher: string;
+  remark: string;
 }
 
 export type SubmissionStatus = "SUBMITTED" | "PENDING";

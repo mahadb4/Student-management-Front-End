@@ -117,173 +117,272 @@ function RemarksModal({
 
   const isOwnRemark = (remark: RemarkTeacherListItem) => remark.teacher === user?.teacher_id;
 
-  return (
-    <Modal isOpen title={`Student Remarks - ${student.student_name}`} onClose={onClose}>
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "10px 14px",
-        backgroundColor: "#f8fafc",
-        borderRadius: "var(--radius-md)",
-        border: "1px solid #f1f5f9",
-        marginBottom: "16px"
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "0.82rem", color: "var(--color-text-secondary)" }}>Course:</span>
-          <span style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--color-text-primary)" }}>
-            {courseName}
-          </span>
-          <span className="badge" style={{ backgroundColor: "var(--color-primary-light)", color: "var(--color-primary)", fontSize: "0.72rem", padding: "2px 8px" }}>
-            {courseCode}
-          </span>
-        </div>
-        <span style={{ fontSize: "0.78rem", color: "var(--color-text-secondary)", fontWeight: 500 }}>
-          {remarks.length} {remarks.length === 1 ? "Remark" : "Remarks"}
-        </span>
+  const modalTitle = (
+    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <div
+        style={{
+          width: "36px",
+          height: "36px",
+          borderRadius: "10px",
+          backgroundColor: "var(--color-primary)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#fff",
+          fontSize: "1.1rem",
+          boxShadow: "0 2px 6px rgba(15, 23, 42, 0.15)",
+        }}
+      >
+        📝
       </div>
-
-      {loading ? (
-        <div style={{ padding: "24px", textAlign: "center", color: "var(--color-text-secondary)" }}>Loading remarks...</div>
-      ) : remarks.length === 0 ? (
-        <div style={{ padding: "32px 16px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
-          <div style={{ fontWeight: 600, color: "var(--color-text-primary)", fontSize: "0.95rem" }}>
-            No remarks recorded yet
-          </div>
-          <p style={{ color: "var(--color-text-secondary)", fontSize: "0.82rem", margin: 0, maxWidth: "300px" }}>
-            Add academic feedback, observations, or private performance notes for {student.student_name}.
-          </p>
+      <div>
+        <div style={{ fontSize: "1.12rem", fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.2 }}>
+          Student Remarks
         </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px", maxHeight: "340px", overflowY: "auto", paddingRight: "4px" }}>
-          {remarks.map(r => (
-            <div key={r.id} style={{
-              backgroundColor: "#ffffff",
-              border: "1px solid var(--color-border)",
-              borderRadius: "var(--radius-md)",
-              padding: "14px 16px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-              display: "flex",
-              flexDirection: "column",
-              gap: "10px"
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                  <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--color-text-primary)" }}>
-                    {new Date(r.created_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
-                  </span>
-                  {r.visibility === "STUDENT_VISIBLE" ? (
-                    <span className="badge badge-success" style={{ fontSize: "0.72rem", padding: "2px 8px" }}>Visible to Student</span>
-                  ) : (
-                    <span className="badge badge-warning" style={{ fontSize: "0.72rem", padding: "2px 8px" }}>Private Note</span>
+        <div style={{ fontSize: "0.78rem", color: "var(--color-text-secondary)", fontWeight: 500 }}>
+          {student.student_name}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <Modal isOpen title={modalTitle} onClose={onClose} maxWidth="640px">
+      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        {/* Course context bar */}
+        <div className="remarks-header-card">
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "0.8rem", color: "var(--color-text-secondary)", fontWeight: 500 }}>Course:</span>
+            <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--color-text-primary)" }}>
+              {courseName}
+            </span>
+            <span
+              className="badge"
+              style={{
+                backgroundColor: "var(--color-primary-light)",
+                color: "var(--color-primary)",
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                padding: "2px 8px",
+              }}
+            >
+              {courseCode}
+            </span>
+          </div>
+          <span
+            style={{
+              fontSize: "0.76rem",
+              fontWeight: 600,
+              color: "#475569",
+              background: "#e2e8f0",
+              padding: "3px 10px",
+              borderRadius: "999px",
+            }}
+          >
+            {remarks.length} {remarks.length === 1 ? "Remark" : "Remarks"}
+          </span>
+        </div>
+
+        {loading ? (
+          <div style={{ padding: "40px", textAlign: "center", color: "var(--color-text-secondary)" }}>
+            <div style={{ fontSize: "1.5rem", marginBottom: "8px" }}>⏳</div>
+            <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>Loading remarks...</div>
+          </div>
+        ) : remarks.length === 0 ? (
+          <div className="remarks-empty-state">
+            <div className="remarks-empty-icon">
+              📋
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, color: "var(--color-text-primary)", fontSize: "1rem", marginBottom: "4px" }}>
+                No remarks recorded yet
+              </div>
+              <p style={{ color: "var(--color-text-secondary)", fontSize: "0.84rem", margin: 0, maxWidth: "340px", lineHeight: 1.5 }}>
+                Add academic feedback, behavioral observations, or private performance notes for {student.student_name}.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", maxHeight: "320px", overflowY: "auto", paddingRight: "4px" }}>
+            {remarks.map(r => (
+              <div key={r.id} className="remarks-card">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--color-text-primary)" }}>
+                      {new Date(r.created_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+                    </span>
+                    {r.visibility === "STUDENT_VISIBLE" ? (
+                      <span
+                        className="badge badge-success"
+                        style={{ fontSize: "0.72rem", padding: "3px 8px", fontWeight: 600 }}
+                      >
+                        ✓ Visible to Student
+                      </span>
+                    ) : (
+                      <span
+                        className="badge badge-warning"
+                        style={{ fontSize: "0.72rem", padding: "3px 8px", fontWeight: 600 }}
+                      >
+                        🔒 Private Note
+                      </span>
+                    )}
+                  </div>
+
+                  {isOwnRemark(r) && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <button
+                        onClick={() => handleOpenEditForm(r)}
+                        className="btn btn-sm btn-secondary"
+                        style={{ padding: "3px 10px", fontSize: "0.76rem", fontWeight: 600 }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => setDeleteConfirm(r)}
+                        className="btn btn-sm btn-subtle-danger"
+                        style={{ padding: "3px 10px", fontSize: "0.76rem", fontWeight: 600 }}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   )}
                 </div>
 
-                {isOwnRemark(r) && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <button onClick={() => handleOpenEditForm(r)} className="btn btn-sm btn-secondary" style={{ padding: "3px 8px", fontSize: "0.74rem" }}>
-                      Edit
-                    </button>
-                    <button onClick={() => setDeleteConfirm(r)} className="btn btn-sm btn-subtle-danger" style={{ padding: "3px 8px", fontSize: "0.74rem" }}>
-                      Delete
-                    </button>
-                  </div>
-                )}
+                <div
+                  style={{
+                    backgroundColor: "#f8fafc",
+                    borderLeft: "3.5px solid var(--color-primary)",
+                    borderRadius: "0 8px 8px 0",
+                    padding: "12px 16px",
+                    fontSize: "0.88rem",
+                    color: "var(--color-text-primary)",
+                    lineHeight: 1.6,
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {r.remark_text}
+                </div>
               </div>
-
-              <div style={{
-                backgroundColor: "#f8fafc",
-                borderLeft: "3px solid var(--color-primary)",
-                borderRadius: "0 6px 6px 0",
-                padding: "10px 14px",
-                fontSize: "0.875rem",
-                color: "var(--color-text-primary)",
-                lineHeight: 1.55,
-                whiteSpace: "pre-wrap"
-              }}>
-                {r.remark_text}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {isFormOpen ? (
-        <div style={{ marginTop: "18px", padding: "16px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-lg)", border: "1px solid #e2e8f0" }}>
-          <div style={{ fontWeight: 600, fontSize: "0.92rem", color: "var(--color-text-primary)", marginBottom: "12px" }}>
-            {editingRemark ? "Edit Academic Remark" : "New Academic Remark"}
+            ))}
           </div>
+        )}
 
-          <form onSubmit={handleSave}>
-            <div className="form-group" style={{ marginBottom: "12px" }}>
-              <label className="form-label">Observation / Feedback</label>
-              <textarea
-                required
-                className="form-control"
-                rows={3}
-                placeholder="Write feedback, behavior notes, or academic observations for this student..."
-                value={formData.remark_text}
-                onChange={(e) => setFormData({ ...formData, remark_text: e.target.value })}
-                style={{ resize: "vertical", fontSize: "0.875rem" }}
-              />
+        {/* Remark Form */}
+        {isFormOpen ? (
+          <div className="remarks-form-card">
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: "0.95rem",
+                color: "var(--color-text-primary)",
+                marginBottom: "14px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <span>✏️</span>
+              <span>{editingRemark ? "Edit Academic Remark" : "New Academic Remark"}</span>
             </div>
 
-            <div className="form-group" style={{ marginBottom: "16px" }}>
-              <label className="form-label">Visibility Setting</label>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                <div
-                  onClick={() => setFormData({ ...formData, visibility: "PRIVATE" })}
-                  style={{
-                    padding: "9px 12px",
-                    border: `1.5px solid ${formData.visibility === "PRIVATE" ? "var(--color-primary)" : "var(--color-border)"}`,
-                    borderRadius: "var(--radius-md)",
-                    backgroundColor: formData.visibility === "PRIVATE" ? "var(--color-primary-light)" : "#ffffff",
-                    cursor: "pointer",
-                  }}
-                >
-                  <div style={{ fontWeight: 600, fontSize: "0.82rem" }}>Private Note</div>
-                  <div style={{ fontSize: "0.72rem", color: "var(--color-text-secondary)", marginTop: "2px" }}>Only you and teachers can view</div>
-                </div>
-                <div
-                  onClick={() => setFormData({ ...formData, visibility: "STUDENT_VISIBLE" })}
-                  style={{
-                    padding: "9px 12px",
-                    border: `1.5px solid ${formData.visibility === "STUDENT_VISIBLE" ? "var(--color-primary)" : "var(--color-border)"}`,
-                    borderRadius: "var(--radius-md)",
-                    backgroundColor: formData.visibility === "STUDENT_VISIBLE" ? "var(--color-primary-light)" : "#ffffff",
-                    cursor: "pointer",
-                  }}
-                >
-                  <div style={{ fontWeight: 600, fontSize: "0.82rem" }}>Student Visible</div>
-                  <div style={{ fontSize: "0.72rem", color: "var(--color-text-secondary)", marginTop: "2px" }}>Student can read on their portal</div>
+            <form onSubmit={handleSave}>
+              <div className="form-group" style={{ marginBottom: "14px" }}>
+                <label className="form-label" style={{ fontWeight: 600, fontSize: "0.84rem" }}>
+                  Observation / Feedback
+                </label>
+                <textarea
+                  required
+                  className="form-control"
+                  rows={3}
+                  placeholder="Write feedback, behavior notes, or academic observations for this student..."
+                  value={formData.remark_text}
+                  onChange={(e) => setFormData({ ...formData, remark_text: e.target.value })}
+                  style={{ resize: "vertical", fontSize: "0.88rem", lineHeight: 1.5, minHeight: "85px" }}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: "18px" }}>
+                <label className="form-label" style={{ fontWeight: 600, fontSize: "0.84rem" }}>
+                  Visibility Setting
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div
+                    onClick={() => setFormData({ ...formData, visibility: "PRIVATE" })}
+                    className={`visibility-selector-card ${formData.visibility === "PRIVATE" ? "active" : ""}`}
+                    style={{ border: "1.5px solid #e2e8f0" }}
+                  >
+                    <span style={{ fontSize: "1.2rem", marginTop: "2px" }}>🔒</span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: "0.84rem", color: "var(--color-text-primary)" }}>Private Note</div>
+                      <div style={{ fontSize: "0.74rem", color: "var(--color-text-secondary)", marginTop: "2px", lineHeight: 1.3 }}>
+                        Only you and faculty can view
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => setFormData({ ...formData, visibility: "STUDENT_VISIBLE" })}
+                    className={`visibility-selector-card ${formData.visibility === "STUDENT_VISIBLE" ? "active" : ""}`}
+                    style={{ border: "1.5px solid #e2e8f0" }}
+                  >
+                    <span style={{ fontSize: "1.2rem", marginTop: "2px" }}>👁️</span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: "0.84rem", color: "var(--color-text-primary)" }}>Student Visible</div>
+                      <div style={{ fontSize: "0.74rem", color: "var(--color-text-secondary)", marginTop: "2px", lineHeight: 1.3 }}>
+                        Student can read on their portal
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-              <button type="button" onClick={() => setIsFormOpen(false)} className="btn btn-secondary btn-sm">Cancel</button>
-              <button type="submit" className="btn btn-primary btn-sm" disabled={isSubmitting} style={{ minWidth: "90px" }}>
-                {isSubmitting ? "Saving..." : editingRemark ? "Update Remark" : "Post Remark"}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : (
-        <div style={{ marginTop: "16px", display: "flex", justifyContent: "flex-end" }}>
-          <button onClick={handleOpenAddForm} className="btn btn-primary btn-sm" style={{ fontWeight: 600, padding: "8px 16px" }}>
-            + Add Remark
-          </button>
-        </div>
-      )}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => setIsFormOpen(false)}
+                  className="btn btn-secondary btn-sm"
+                  style={{ minWidth: "80px", fontWeight: 600 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm"
+                  disabled={isSubmitting}
+                  style={{
+                    minWidth: "110px",
+                    fontWeight: 600,
+                  }}
+                >
+                  {isSubmitting ? "Saving..." : editingRemark ? "Update Remark" : "Post Remark"}
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : (
+          <div style={{ marginTop: "8px", display: "flex", justifyContent: "flex-end" }}>
+            <button
+              onClick={handleOpenAddForm}
+              className="btn btn-primary btn-sm"
+              style={{
+                fontWeight: 600,
+                padding: "8px 18px",
+              }}
+            >
+              + Add Remark
+            </button>
+          </div>
+        )}
 
-      <ConfirmDialog
-        isOpen={!!deleteConfirm}
-        title="Delete Remark"
-        message="Are you sure you want to delete this remark? This cannot be undone."
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteConfirm(null)}
-        confirmDisabled={isDeleting}
-      />
+        <ConfirmDialog
+          isOpen={!!deleteConfirm}
+          title="Delete Remark"
+          message="Are you sure you want to delete this remark? This cannot be undone."
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteConfirm(null)}
+          confirmDisabled={isDeleting}
+        />
+      </div>
     </Modal>
   );
 }
@@ -342,10 +441,17 @@ export default function ClassStudents() {
 
   return (
     <>
-      <div className="page-header">
-        <Link to="/teacher/courses" style={{ fontSize: "0.82rem", color: "var(--color-primary)", fontWeight: 600, textDecoration: "none", marginBottom: "4px", display: "inline-block" }}>
-          ← Back to My Classes
+      <div style={{ marginBottom: "20px" }}>
+        <Link to="/teacher/courses" className="btn-back">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+          </svg>
+          <span>Back to My Classes</span>
         </Link>
+      </div>
+
+      <div className="page-header">
         <h2>{courseName}{courseCode ? ` (${courseCode})` : ""}</h2>
         <p>{sectionName ? `Section ${sectionName} · ` : ""}Students enrolled in this class</p>
       </div>
@@ -356,8 +462,37 @@ export default function ClassStudents() {
         </div>
       ) : (
         <>
-          <div className="content-card" style={{ marginBottom: "18px", padding: "12px 20px", display: "flex", justifyContent: "flex-end" }}>
-            <span className="badge" style={{ backgroundColor: "var(--color-primary-light)", color: "var(--color-primary)", fontWeight: 700, padding: "5px 12px", fontSize: "0.78rem" }}>
+          <div
+            style={{
+              marginBottom: "18px",
+              padding: "14px 20px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              backgroundColor: "var(--color-primary)",
+              borderRadius: "var(--radius-lg)",
+              color: "#ffffff",
+              boxShadow: "0 4px 14px -2px rgba(30, 64, 175, 0.25)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span style={{ fontSize: "1.2rem" }}>🎓</span>
+              <span style={{ fontWeight: 600, fontSize: "0.92rem", color: "#ffffff" }}>
+                Class Roster
+              </span>
+            </div>
+            <span
+              style={{
+                backgroundColor: "rgba(255, 255, 255, 0.18)",
+                color: "#ffffff",
+                fontWeight: 700,
+                padding: "6px 14px",
+                fontSize: "0.82rem",
+                borderRadius: "999px",
+                border: "1px solid rgba(255, 255, 255, 0.25)",
+                letterSpacing: "0.02em",
+              }}
+            >
               {enrollments.length} {enrollments.length === 1 ? "Student" : "Students"} Enrolled
             </span>
           </div>
@@ -407,11 +542,15 @@ export default function ClassStudents() {
                       <td style={{ textAlign: "right" }}>
                         <button
                           onClick={() => setRemarksFor(e)}
-                          className="btn btn-sm btn-subtle-primary"
-                          style={{ fontWeight: 600, padding: "4px 11px", fontSize: "0.78rem" }}
+                          className="btn-remarks"
                           title="View or add remarks for this student"
                         >
-                          Remarks
+                          <span className="remarks-pencil-icon">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                            </svg>
+                          </span>
+                          <span>Remarks</span>
                         </button>
                       </td>
                     </tr>

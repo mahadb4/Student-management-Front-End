@@ -4,10 +4,12 @@ import { getMyStudentProfile, studentProfilePictureService, updateMyStudentProfi
 import { ProfilePictureUploader } from "../../components/common/ProfilePictureUploader";
 import type { StudentProfile } from "../../types/user";
 import { useToast } from "../../context/ToastContext";
+import { useProfilePicture } from "../../context/ProfilePictureContext";
 
 export default function StudentProfile() {
   const user = getCurrentUser();
   const { showToast } = useToast();
+  const { setProfilePictureUrl } = useProfilePicture();
   const [student, setStudent] = useState<StudentProfile | null>(null);
 
   const [loading, setLoading] = useState(true);
@@ -51,7 +53,7 @@ export default function StudentProfile() {
 
     getMyStudentProfile()
       .then(setStudent)
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -81,7 +83,10 @@ export default function StudentProfile() {
               requestUploadUrl={studentProfilePictureService.requestUploadUrl}
               confirmUpload={studentProfilePictureService.confirmUpload}
               removePicture={studentProfilePictureService.remove}
-              onChange={url => setStudent(prev => prev && { ...prev, profile_picture_url: url })}
+              onChange={url => {
+                setStudent(prev => prev && { ...prev, profile_picture_url: url });
+                setProfilePictureUrl(url);
+              }}
             />
 
             <div style={{ marginTop: "4px" }}>
@@ -137,54 +142,49 @@ export default function StudentProfile() {
           {/* Right Column: Academic & Personal Info */}
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
             {/* Academic Info Card */}
-            <div className="content-card" style={{ padding: "20px 24px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", paddingBottom: "12px", borderBottom: "1px solid var(--color-border)" }}>
-                <div style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "var(--radius-md)",
-                  backgroundColor: "var(--color-primary-light)",
-                  color: "var(--color-primary)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center"
-                }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <div className="content-card" style={{ padding: "22px 26px", borderRadius: "16px" }}>
+              <div className="profile-section-header-academic">
+                <div className="profile-section-icon-academic">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
                     <path d="M6 12v5c3 3 9 3 12 0v-5" />
                   </svg>
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700 }}>Academic Details</h3>
-                  <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--color-text-secondary)" }}>Department, class section, and enrollment status</p>
+                  <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700, color: "var(--color-text-primary)" }}>
+                    Academic Details
+                  </h3>
+                  <p style={{ margin: "2px 0 0", fontSize: "0.82rem", color: "var(--color-text-secondary)" }}>
+                    Department, class section, and enrollment status
+                  </p>
                 </div>
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
-                <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Department</div>
-                  <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
+                <div className="profile-stat-box">
+                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px", fontWeight: 600 }}>Department</div>
+                  <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-text-primary)" }}>
                     {student.department_name || "Not Assigned"}
                   </div>
                 </div>
 
-                <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Assigned Section</div>
-                  <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
+                <div className="profile-stat-box">
+                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px", fontWeight: 600 }}>Assigned Section</div>
+                  <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-text-primary)" }}>
                     {student.section_name || "Not Assigned"}
                   </div>
                 </div>
 
-                <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Enrollment Date</div>
-                  <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
+                <div className="profile-stat-box">
+                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px", fontWeight: 600 }}>Enrollment Date</div>
+                  <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-text-primary)" }}>
                     {student.date_of_enrollment || "N/A"}
                   </div>
                 </div>
 
-                <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Student Status</div>
-                  <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-success)" }}>
+                <div className="profile-stat-box">
+                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px", fontWeight: 600 }}>Student Status</div>
+                  <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-success)" }}>
                     Active &bull; Good Standing
                   </div>
                 </div>
@@ -192,31 +192,37 @@ export default function StudentProfile() {
             </div>
 
             {/* Personal Details Card */}
-            <div className="content-card" style={{ padding: "20px 24px" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "16px", paddingBottom: "12px", borderBottom: "1px solid var(--color-border)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <div style={{
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "var(--radius-md)",
-                    backgroundColor: "var(--color-primary-light)",
-                    color: "var(--color-primary)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center"
-                  }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <div className="content-card" style={{ padding: "22px 26px", borderRadius: "16px" }}>
+              <div className="profile-section-header-personal">
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div className="profile-section-icon-personal">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                       <circle cx="12" cy="7" r="4" />
                     </svg>
                   </div>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700 }}>Personal Information</h3>
-                    <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--color-text-secondary)" }}>Emergency contact and demographic details</p>
+                    <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700, color: "var(--color-text-primary)" }}>
+                      Personal Information
+                    </h3>
+                    <p style={{ margin: "2px 0 0", fontSize: "0.82rem", color: "var(--color-text-secondary)" }}>
+                      Emergency contact and demographic details
+                    </p>
                   </div>
                 </div>
                 {!isEditing && (
-                  <button type="button" className="btn btn-outline btn-sm" onClick={startEditing}>Edit Profile</button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={startEditing}
+                    style={{
+                      padding: "6px 16px",
+                      fontWeight: 600,
+                      boxShadow: "0 2px 6px rgba(15, 23, 42, 0.15)",
+                    }}
+                  >
+                    Edit Profile
+                  </button>
                 )}
               </div>
 

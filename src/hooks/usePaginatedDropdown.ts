@@ -28,6 +28,7 @@ export function usePaginatedDropdown<T>(
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
   const fetchAndAppend = useCallback((nextPage: number, replace: boolean, signal?: AbortSignal) => {
     setLoading(true);
@@ -38,6 +39,7 @@ export function usePaginatedDropdown<T>(
         // rather than rejected, or resolve with no usable body - either way,
         // a newer fetch already owns this dropdown's state, so skip it.
         if (!res || signal?.aborted) return;
+        setError(false);
         setItems(prev => replace ? res.results : [...prev, ...res.results]);
         setPage(res.current_page);
         setTotalPages(res.total_pages);
@@ -45,6 +47,11 @@ export function usePaginatedDropdown<T>(
       .catch(err => {
         if (err?.name === "AbortError") return;
         console.error(err);
+        // A silently-empty dropdown reads as broken/disabled to a user with
+        // no way to tell "nothing exists" from "the request failed" - so a
+        // genuine fetch failure (permission error, network error, etc.) must
+        // surface, not just log to the console.
+        setError(true);
       })
       .finally(() => setLoading(false));
     // fetchPage must be a dependency: callers can (and do, e.g. the
@@ -61,6 +68,7 @@ export function usePaginatedDropdown<T>(
     setItems([]);
     setPage(0);
     setTotalPages(1);
+    setError(false);
 
     // Not ready yet (e.g. Teacher before a Department is picked) - discard
     // any loaded items/pages above and stop here. No request fires, and any
@@ -83,6 +91,7 @@ export function usePaginatedDropdown<T>(
   return {
     items,
     loading,
+    error,
     hasMore: enabled && (page === 0 || page < totalPages),
     loadNext,
   };

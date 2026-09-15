@@ -373,7 +373,7 @@ export default function StudentAttendance() {
                 >
                   <span style={{ color: "var(--color-text-secondary)", fontWeight: 500 }}>Term:</span>
                   <span style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>
-                    {selectedEnrollment.semester ? selectedEnrollment.semester.toUpperCase() : "FALL"} {selectedEnrollment.academic_year || "2026"}
+                    {selectedEnrollment.semester.toUpperCase()} {selectedEnrollment.academic_year}
                   </span>
                 </div>
 
@@ -392,7 +392,7 @@ export default function StudentAttendance() {
                 >
                   <span style={{ color: "var(--color-text-secondary)", fontWeight: 500 }}>Section:</span>
                   <span style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>
-                    {selectedEnrollment.section_name || "D"}
+                    {selectedEnrollment.section_name || "—"}
                   </span>
                 </div>
               </div>

@@ -4,6 +4,7 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import PendingApproval from "./pages/auth/PendingApproval";
 import Onboarding from "./pages/auth/Onboarding";
+import AcademicReview from "./pages/auth/AcademicReview";
 
 // Layout
 import DashboardLayout from "./components/layout/DashboardLayout";
@@ -61,6 +62,13 @@ function hasCompletedOnboarding(user: ReturnType<typeof getCurrentUser>): boolea
   return true;
 }
 
+// A student who's completed onboarding still can't reach the dashboard
+// until an admin confirms their academic placement (Department + Section).
+function needsAcademicReview(user: ReturnType<typeof getCurrentUser>): boolean {
+  if (!user) return false;
+  return user.role === "student" && !!user.academic_review_pending;
+}
+
 function ProtectedRoute({
   children,
   allowedRole,
@@ -92,6 +100,10 @@ function ProtectedRoute({
     return <Navigate to="/onboarding" replace />;
   }
 
+  if (needsAcademicReview(user)) {
+    return <Navigate to="/academic-review" replace />;
+  }
+
   return <>{children}</>;
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -106,6 +118,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/pending-approval" element={<PendingApproval />} />
         <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/academic-review" element={<AcademicReview />} />
 
         {/* ── Admin routes (nested under shared DashboardLayout) ────────── */}
         <Route path="/admin" element={<ProtectedRoute allowedRole="admin"><DashboardLayout /></ProtectedRoute>}>

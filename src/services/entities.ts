@@ -1,6 +1,6 @@
 import{apiRequest}from"./api";
 import{getAccessToken}from"./auth";
-import type{Student,Teacher,Department,Course,CourseOffering,Enrollment,Attendance,RemarkTeacherListItem,RemarkStudentListItem,Section,StudentListItem,SectionListItem,TeacherListItem,CourseListItem,EnrollmentListItem,CourseOfferingListItem,CourseOfferingReference,CourseOfferingTeacherListItem,CourseOfferingAttendanceListItem,AttendanceListItem,AttendanceStatus,AttendanceRosterItem,StudentAttendanceListItem,TeacherAttendanceListItem,DepartmentReference,SectionReference,TeacherReference,CourseReference,StudentReference,StudentProfile,StudentSummary,StudentEnrollmentListItem,EnrollmentReference,EnrollmentTeacherListItem,TeacherDashboardSummary,TeacherProfile,AssignmentTeacherListItem,AssignmentTeacherDetail,AssignmentCourseSummary,AssignmentStudentListItem,MySubmissionStatus,SubmissionRosterItem,AiAssistantResponse,AssignmentEvaluation,AssignmentEvaluationReviewRequest}from"../types/user";
+import type{Student,Teacher,Department,Course,CourseOffering,Enrollment,Attendance,RemarkTeacherListItem,RemarkStudentListItem,Section,StudentListItem,SectionListItem,TeacherListItem,CourseListItem,EnrollmentListItem,CourseOfferingListItem,CourseOfferingReference,CourseOfferingTeacherListItem,CourseOfferingAttendanceListItem,CourseOfferingDashboardListItem,AttendanceListItem,AttendanceStatus,AttendanceRosterItem,StudentAttendanceListItem,TeacherAttendanceListItem,DepartmentReference,SectionReference,TeacherReference,CourseReference,StudentReference,StudentProfile,StudentIdentity,StudentSummary,StudentEnrollmentListItem,EnrollmentReference,EnrollmentTeacherListItem,TeacherDashboardSummary,TeacherProfile,TeacherIdentity,AssignmentTeacherListItem,AssignmentTeacherDetail,AssignmentCourseSummary,AssignmentStudentListItem,MySubmissionStatus,SubmissionRosterItem,AiAssistantResponse,AssignmentEvaluation,AssignmentEvaluationReviewRequest}from"../types/user";
 
 function authHeaders(signal?:AbortSignal){
   const token=getAccessToken();
@@ -64,11 +64,12 @@ export const studentService=createCrudService<Student>("/students");
 // Students LIST endpoint returns a narrower projection (StudentListItem, with
 // department/section already resolved to {id, name}) than the Student entity
 // used by studentService's getById/create/update/remove.
-export const getStudentList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,departmentId?:number,ordering?:string):Promise<PaginatedResponse<StudentListItem>>=>{
+export const getStudentList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,departmentId?:number,ordering?:string,placementConfirmed?:boolean):Promise<PaginatedResponse<StudentListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});
   if(search&&search.trim())params.set("search",search.trim());
   if(departmentId!==undefined)params.set("department",String(departmentId));
   if(ordering)params.set("ordering",ordering);
+  if(placementConfirmed!==undefined)params.set("placement_confirmed",String(placementConfirmed));
   return apiRequest<PaginatedResponse<StudentListItem>>(`/students/?${params.toString()}`,authHeaders(signal));
 };
 export const getTeacherList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,departmentId?:number,ordering?:string):Promise<PaginatedResponse<TeacherListItem>>=>{
@@ -276,6 +277,10 @@ export function invalidateMeCache(_key?:string){
 export const getMyStudentProfile=():Promise<StudentProfile>=>
   apiRequest<StudentProfile>("/students/me/",authHeaders());
 
+// Navbar-only projection of getMyStudentProfile above - see StudentIdentity.
+export const getMyStudentIdentity=():Promise<StudentIdentity>=>
+  apiRequest<StudentIdentity>("/students/me/identity/",authHeaders());
+
 // Partial update of only the caller's own personally-provided fields
 // (date_of_birth/gender/address/parents_phone_number) - the backend
 // whitelists to exactly these regardless of what else is sent, so
@@ -327,6 +332,10 @@ export const getMyStudentAttendance=(page:number=1,pageSize:number=10,courseOffe
 export const getMyTeacherProfile=():Promise<TeacherProfile>=>
   apiRequest<TeacherProfile>("/teachers/me/",authHeaders());
 
+// Navbar-only projection of getMyTeacherProfile above - see TeacherIdentity.
+export const getMyTeacherIdentity=():Promise<TeacherIdentity>=>
+  apiRequest<TeacherIdentity>("/teachers/me/identity/",authHeaders());
+
 // Partial update of only the caller's own personally-provided fields
 // (phone_number/date_of_birth/gender/address/qualification - none of which
 // TeacherProfile's read shape carries, since that DTO is display-only). The
@@ -362,6 +371,12 @@ export const getMyCourseOfferings=(page:number=1,pageSize:number=10):Promise<Pag
 // enrolled_students_count.
 export const getMyCourseOfferingsForAttendance=(page:number=1,pageSize:number=10):Promise<PaginatedResponse<CourseOfferingAttendanceListItem>>=>
   apiRequest<PaginatedResponse<CourseOfferingAttendanceListItem>>(`/teachers/me/courses/?view=attendance&page=${page}&page_size=${pageSize}`,authHeaders());
+
+// Narrower ?view=dashboard projection of the same /teachers/me/courses/
+// endpoint above - used only by the Teacher Dashboard's My Classes table,
+// which never needs semester/academic_year.
+export const getMyCourseOfferingsForDashboard=(page:number=1,pageSize:number=10):Promise<PaginatedResponse<CourseOfferingDashboardListItem>>=>
+  apiRequest<PaginatedResponse<CourseOfferingDashboardListItem>>(`/teachers/me/courses/?view=dashboard&page=${page}&page_size=${pageSize}`,authHeaders());
 
 export const getMyTeacherStudents=(page:number=1,pageSize:number=10,courseOfferingId?:number):Promise<PaginatedResponse<EnrollmentTeacherListItem>>=>{
   const params=new URLSearchParams({page:String(page),page_size:String(pageSize)});

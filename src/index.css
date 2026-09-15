@@ -1,8 +1,9 @@
 :root {
-  /*Color Palette - Deep Indigo & Clean Light Mode (Academic/Professional)*/
-  --color-primary: #1e3a8a; /*Deep Blue / Indigo*/
-  --color-primary-hover: #1e40af;
+  /*Color Palette - Vibrant Academic Blue (Balanced & Solid)*/
+  --color-primary: #1e40af; /*Vibrant Deep Blue (Balanced)*/
+  --color-primary-hover: #1d4ed8;
   --color-primary-light: #eff6ff;
+
 
   --color-background: #f7f8fa; /*Very Light Gray*/
   --color-surface: #ffffff; /*White Cards*/

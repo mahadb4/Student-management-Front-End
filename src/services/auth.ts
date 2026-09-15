@@ -231,3 +231,23 @@ export function getCurrentUser(): User | null {
 export function isAuthenticated(): boolean {
   return !!getAccessToken();
 }
+
+// Re-fetches the caller's own identity from the existing /users/me/ endpoint
+// and refreshes the cached copy - used by the "Application Under Review"
+// page's status check, so a student whose placement an admin just confirmed
+// can reach the dashboard without logging out and back in.
+export async function refreshCurrentUser(): Promise<User | null> {
+  const token = getAccessToken();
+  if (!token) return null;
+
+  try {
+    const response = await apiRequest<{ user: User }>("/users/me/", {
+      method: "GET",
+      token,
+    });
+    localStorage.setItem(USER_KEY, JSON.stringify(response.user));
+    return response.user;
+  } catch {
+    return null;
+  }
+}

@@ -64,7 +64,7 @@ export function PaginatedSelect<T>({
 
   // A disabled select has an unmet prerequisite filter (e.g. Teacher before a
   // Department is chosen) - it must not fetch page 1 just because it mounted.
-  const { items, loading, hasMore, loadNext } = usePaginatedDropdown<T>(
+  const { items, loading, error, hasMore, loadNext } = usePaginatedDropdown<T>(
     fetchPage, pageSize, resetKey, serverSearch ? debouncedSearch : undefined, !disabled,
   );
 
@@ -186,7 +186,13 @@ export function PaginatedSelect<T>({
                 );
               })}
 
-              {!loading && visibleItems.length === 0 && (
+              {!loading && error && (
+                <div style={{ padding: "12px", color: "var(--color-danger)", textAlign: "center" }}>
+                  Unable to load options. Please try again.
+                </div>
+              )}
+
+              {!loading && !error && visibleItems.length === 0 && (
                 <div style={{ padding: "12px", color: "var(--color-text-secondary)", textAlign: "center" }}>
                   {search ? "No matching results." : "No records found."}
                 </div>

@@ -4,10 +4,12 @@ import { getMyTeacherProfile, teacherProfilePictureService, updateMyTeacherProfi
 import { ProfilePictureUploader } from "../../components/common/ProfilePictureUploader";
 import type { TeacherProfile } from "../../types/user";
 import { useToast } from "../../context/ToastContext";
+import { useProfilePicture } from "../../context/ProfilePictureContext";
 
 export default function TeacherProfile() {
   const user = getCurrentUser();
   const { showToast } = useToast();
+  const { setProfilePictureUrl } = useProfilePicture();
   const [teacher, setTeacher] = useState<TeacherProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -84,7 +86,10 @@ export default function TeacherProfile() {
                 requestUploadUrl={teacherProfilePictureService.requestUploadUrl}
                 confirmUpload={teacherProfilePictureService.confirmUpload}
                 removePicture={teacherProfilePictureService.remove}
-                onChange={url => setTeacher(prev => prev && { ...prev, profile_picture_url: url })}
+                onChange={url => {
+                  setTeacher(prev => prev && { ...prev, profile_picture_url: url });
+                  setProfilePictureUrl(url);
+                }}
               />
               <span className="badge badge-success" style={{ padding: "4px 12px", fontSize: "0.74rem", fontWeight: 700 }}>
                 Active Faculty
@@ -107,7 +112,7 @@ export default function TeacherProfile() {
                 gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                 gap: "14px",
                 paddingTop: "18px",
-                borderTop: "1px solid var(--color-border)"
+                borderTop: "2px solid var(--color-primary)"
               }}>
                 <div style={{ padding: "14px 16px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
                   <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px", display: "flex", alignItems: "center", gap: "6px" }}>
@@ -164,11 +169,22 @@ export default function TeacherProfile() {
                 </div>
               </div>
 
-              <div style={{ marginTop: "20px", paddingTop: "18px", borderTop: "1px solid var(--color-border)" }}>
+              <div style={{ marginTop: "20px", paddingTop: "18px", borderTop: "2px solid var(--color-primary)" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
                   <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700 }}>Personal Information</h3>
                   {!isEditing && (
-                    <button type="button" className="btn btn-outline btn-sm" onClick={startEditing}>Edit Profile</button>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={startEditing}
+                      style={{
+                        padding: "6px 16px",
+                        fontWeight: 600,
+                        boxShadow: "0 2px 6px rgba(15, 23, 42, 0.15)",
+                      }}
+                    >
+                      Edit Profile
+                    </button>
                   )}
                 </div>
 
