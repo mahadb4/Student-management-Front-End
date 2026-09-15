@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { completeOnboarding, getCurrentUser } from "../../services/auth";
 import { departmentService } from "../../services/entities";
 import type { Department } from "../../types/user";
+import ThemeToggle from "../../components/common/ThemeToggle";
 import "../styles/Auth.css";
 
 const dashboardMap: Record<string, string> = {
@@ -95,6 +96,7 @@ export default function Onboarding() {
 
   return (
     <div className="auth-container">
+      <ThemeToggle className="theme-toggle-corner" />
       <div className="auth-card" style={{ maxWidth: "640px" }}>
         <h2>Complete Your Profile</h2>
         <p style={{ color: "var(--color-text-secondary, #666)", marginBottom: "24px" }}>

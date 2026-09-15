@@ -115,56 +115,49 @@ export function PaginatedSelect<T>({
       <button
         ref={buttonRef}
         type="button"
-        className="form-control"
+        className={`form-control paginated-select-btn ${open ? "is-open" : ""}`}
         disabled={disabled}
         onClick={() => setOpen(o => !o)}
-        style={{
-          textAlign: "left", cursor: disabled ? "not-allowed" : "pointer",
-          display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px",
-        }}
       >
         <span style={{
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          color: value === "" ? "var(--color-text-secondary, #888)" : "inherit",
+          color: value === "" ? "var(--color-text-tertiary)" : "var(--color-text-primary)",
+          fontWeight: value === "" ? 400 : 500,
         }}>
           {value === "" ? placeholder : (currentLabel || placeholder)}
         </span>
-        <span aria-hidden style={{ opacity: 0.6, fontSize: "0.75em", transform: open ? "rotate(180deg)" : undefined }}>▼</span>
+        <span className={`paginated-select-chevron ${open ? "is-open" : ""}`} aria-hidden>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </span>
       </button>
 
       {open && rect && createPortal(
         <>
           <div onClick={close} style={{ position: "fixed", inset: 0, zIndex: 1010 }} />
           <div
+            className="paginated-select-dropdown"
             style={{
-              position: "fixed", top: rect.top, left: rect.left, width: rect.width, zIndex: 1011,
-              background: "var(--color-surface, #fff)",
-              border: "1px solid var(--color-border, #ccc)", borderRadius: "6px", marginTop: "4px",
-              boxShadow: "0 4px 16px rgba(0,0,0,0.12)", overflow: "hidden",
-              display: "flex", flexDirection: "column",
+              position: "fixed", top: rect.top + 4, left: rect.left, width: rect.width, zIndex: 1011,
             }}
           >
-            <div style={{ padding: "8px", borderBottom: "1px solid var(--color-border, #eee)" }}>
+            <div className="paginated-select-search-wrap">
               <input
                 autoFocus
                 type="text"
-                className="form-control"
+                className="form-control paginated-select-search-input"
                 placeholder={searchPlaceholder}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                style={{ padding: "6px 8px" }}
               />
             </div>
 
-            <div onScroll={handleScroll} style={{ maxHeight: "200px", overflowY: "auto", overscrollBehavior: "contain" }}>
+            <div onScroll={handleScroll} className="paginated-select-options">
               {onClear && !search && (
                 <div
                   onClick={() => { onClear(); close(); }}
-                  style={{
-                    padding: "8px 12px", cursor: "pointer",
-                    background: value === "" ? "var(--color-primary-light, #eef2ff)" : "transparent",
-                    fontStyle: "italic",
-                  }}
+                  className="paginated-select-clear"
                 >
                   {clearLabel}
                 </div>
@@ -172,40 +165,43 @@ export function PaginatedSelect<T>({
 
               {visibleItems.map(item => {
                 const id = getId(item);
+                const isSelected = id === value;
                 return (
                   <div
                     key={id}
                     onClick={() => { onChange(id, item); close(); }}
-                    style={{
-                      padding: "8px 12px", cursor: "pointer",
-                      background: id === value ? "var(--color-primary-light, #eef2ff)" : "transparent",
-                    }}
+                    className={`paginated-select-option ${isSelected ? "is-selected" : ""}`}
                   >
-                    {getLabel(item)}
+                    <span>{getLabel(item)}</span>
+                    {isSelected && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--color-primary)" }}>
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
                   </div>
                 );
               })}
 
               {!loading && error && (
-                <div style={{ padding: "12px", color: "var(--color-danger)", textAlign: "center" }}>
+                <div style={{ padding: "12px", color: "var(--color-danger)", textAlign: "center", fontSize: "0.82rem" }}>
                   Unable to load options. Please try again.
                 </div>
               )}
 
               {!loading && !error && visibleItems.length === 0 && (
-                <div style={{ padding: "12px", color: "var(--color-text-secondary)", textAlign: "center" }}>
+                <div style={{ padding: "12px", color: "var(--color-text-secondary)", textAlign: "center", fontSize: "0.82rem" }}>
                   {search ? "No matching results." : "No records found."}
                 </div>
               )}
 
               {loading && (
-                <div style={{ padding: "10px 12px", color: "var(--color-text-secondary)", textAlign: "center", fontSize: "0.9em" }}>
+                <div style={{ padding: "10px 12px", color: "var(--color-text-secondary)", textAlign: "center", fontSize: "0.82rem" }}>
                   Loading...
                 </div>
               )}
 
               {!loading && !hasMore && visibleItems.length > 0 && !search && (
-                <div style={{ padding: "6px 12px", color: "var(--color-text-secondary)", textAlign: "center", fontSize: "0.8em" }}>
+                <div style={{ padding: "6px 12px", color: "var(--color-text-tertiary)", textAlign: "center", fontSize: "0.75rem" }}>
                   End of list
                 </div>
               )}

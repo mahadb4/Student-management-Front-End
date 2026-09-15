@@ -114,7 +114,7 @@ export default function TeacherProfile() {
                 paddingTop: "18px",
                 borderTop: "2px solid var(--color-primary)"
               }}>
-                <div style={{ padding: "14px 16px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                <div style={{ padding: "14px 16px", backgroundColor: "var(--color-surface-muted)", borderRadius: "var(--radius-md)", border: "1px solid var(--color-surface-hover)" }}>
                   <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px", display: "flex", alignItems: "center", gap: "6px" }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
                       <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
@@ -127,7 +127,7 @@ export default function TeacherProfile() {
                   </div>
                 </div>
 
-                <div style={{ padding: "14px 16px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                <div style={{ padding: "14px 16px", backgroundColor: "var(--color-surface-muted)", borderRadius: "var(--radius-md)", border: "1px solid var(--color-surface-hover)" }}>
                   <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px", display: "flex", alignItems: "center", gap: "6px" }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
                       <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -142,7 +142,7 @@ export default function TeacherProfile() {
                   </div>
                 </div>
 
-                <div style={{ padding: "14px 16px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                <div style={{ padding: "14px 16px", backgroundColor: "var(--color-surface-muted)", borderRadius: "var(--radius-md)", border: "1px solid var(--color-surface-hover)" }}>
                   <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px", display: "flex", alignItems: "center", gap: "6px" }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
                       <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
@@ -155,7 +155,7 @@ export default function TeacherProfile() {
                   </div>
                 </div>
 
-                <div style={{ padding: "14px 16px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                <div style={{ padding: "14px 16px", backgroundColor: "var(--color-surface-muted)", borderRadius: "var(--radius-md)", border: "1px solid var(--color-surface-hover)" }}>
                   <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px", display: "flex", alignItems: "center", gap: "6px" }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
                       <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
@@ -239,25 +239,25 @@ export default function TeacherProfile() {
                   </form>
                 ) : (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
-                    <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                    <div style={{ padding: "12px 14px", backgroundColor: "var(--color-surface-muted)", borderRadius: "var(--radius-md)", border: "1px solid var(--color-surface-hover)" }}>
                       <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Phone Number</div>
                       <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>{teacher.phone_number || "N/A"}</div>
                     </div>
-                    <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                    <div style={{ padding: "12px 14px", backgroundColor: "var(--color-surface-muted)", borderRadius: "var(--radius-md)", border: "1px solid var(--color-surface-hover)" }}>
                       <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Date of Birth</div>
                       <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>{teacher.date_of_birth || "N/A"}</div>
                     </div>
-                    <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                    <div style={{ padding: "12px 14px", backgroundColor: "var(--color-surface-muted)", borderRadius: "var(--radius-md)", border: "1px solid var(--color-surface-hover)" }}>
                       <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Gender</div>
                       <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
                         {teacher.gender === "M" ? "Male" : teacher.gender === "F" ? "Female" : teacher.gender || "N/A"}
                       </div>
                     </div>
-                    <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                    <div style={{ padding: "12px 14px", backgroundColor: "var(--color-surface-muted)", borderRadius: "var(--radius-md)", border: "1px solid var(--color-surface-hover)" }}>
                       <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Qualification</div>
                       <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>{teacher.qualification || "N/A"}</div>
                     </div>
-                    <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                    <div style={{ padding: "12px 14px", backgroundColor: "var(--color-surface-muted)", borderRadius: "var(--radius-md)", border: "1px solid var(--color-surface-hover)" }}>
                       <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Residential Address</div>
                       <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>{teacher.address || "Not Provided"}</div>
                     </div>

@@ -270,28 +270,28 @@ export default function StudentProfile() {
                 </form>
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
-                  <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                  <div style={{ padding: "12px 14px", backgroundColor: "var(--color-surface-muted)", borderRadius: "var(--radius-md)", border: "1px solid var(--color-surface-hover)" }}>
                     <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Date of Birth</div>
                     <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
                       {student.date_of_birth || "N/A"}
                     </div>
                   </div>
 
-                  <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                  <div style={{ padding: "12px 14px", backgroundColor: "var(--color-surface-muted)", borderRadius: "var(--radius-md)", border: "1px solid var(--color-surface-hover)" }}>
                     <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Gender</div>
                     <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
                       {student.gender === "M" ? "Male" : student.gender === "F" ? "Female" : student.gender || "N/A"}
                     </div>
                   </div>
 
-                  <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                  <div style={{ padding: "12px 14px", backgroundColor: "var(--color-surface-muted)", borderRadius: "var(--radius-md)", border: "1px solid var(--color-surface-hover)" }}>
                     <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Guardian Contact</div>
                     <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
                       {student.parents_phone_number || "N/A"}
                     </div>
                   </div>
 
-                  <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "var(--radius-md)", border: "1px solid #f1f5f9" }}>
+                  <div style={{ padding: "12px 14px", backgroundColor: "var(--color-surface-muted)", borderRadius: "var(--radius-md)", border: "1px solid var(--color-surface-hover)" }}>
                     <div style={{ fontSize: "0.75rem", color: "var(--color-text-secondary)", marginBottom: "4px" }}>Residential Address</div>
                     <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
                       {student.address || "Not Provided"}

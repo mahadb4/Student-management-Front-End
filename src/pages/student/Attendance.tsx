@@ -194,7 +194,7 @@ export default function StudentAttendance() {
                     minWidth: "320px",
                     maxWidth: "440px",
                     padding: "9px 14px",
-                    backgroundColor: "#ffffff",
+                    backgroundColor: "var(--color-surface)",
                     border: isDropdownOpen ? "1.5px solid var(--color-primary)" : "1px solid var(--color-border)",
                     borderRadius: "var(--radius-md)",
                     boxShadow: isDropdownOpen ? "0 0 0 3px rgba(37, 99, 235, 0.12)" : "var(--shadow-sm)",
@@ -269,7 +269,7 @@ export default function StudentAttendance() {
                       width: "100%",
                       minWidth: "340px",
                       maxWidth: "460px",
-                      backgroundColor: "#ffffff",
+                      backgroundColor: "var(--color-surface)",
                       border: "1px solid var(--color-border)",
                       borderRadius: "var(--radius-md)",
                       boxShadow: "0 12px 28px -4px rgba(0, 0, 0, 0.16), 0 6px 12px -2px rgba(0, 0, 0, 0.08)",
@@ -306,7 +306,7 @@ export default function StudentAttendance() {
                               transition: "background-color 0.12s ease",
                             }}
                             onMouseEnter={evt => {
-                              if (!isSelected) evt.currentTarget.style.backgroundColor = "#f8fafc";
+                              if (!isSelected) evt.currentTarget.style.backgroundColor = "var(--color-surface-muted)";
                             }}
                             onMouseLeave={evt => {
                               if (!isSelected) evt.currentTarget.style.backgroundColor = "transparent";
@@ -363,9 +363,9 @@ export default function StudentAttendance() {
                     display: "inline-flex",
                     alignItems: "center",
                     gap: "6px",
-                    backgroundColor: "#f8fafc",
+                    backgroundColor: "var(--color-surface-muted)",
                     color: "var(--color-text-secondary)",
-                    border: "1px solid #e2e8f0",
+                    border: "1px solid var(--color-border)",
                     padding: "6px 14px",
                     borderRadius: "8px",
                     fontSize: "0.82rem",
@@ -382,9 +382,9 @@ export default function StudentAttendance() {
                     display: "inline-flex",
                     alignItems: "center",
                     gap: "6px",
-                    backgroundColor: "#f8fafc",
+                    backgroundColor: "var(--color-surface-muted)",
                     color: "var(--color-text-secondary)",
-                    border: "1px solid #e2e8f0",
+                    border: "1px solid var(--color-border)",
                     padding: "6px 14px",
                     borderRadius: "8px",
                     fontSize: "0.82rem",
@@ -418,7 +418,7 @@ export default function StudentAttendance() {
                   display: "flex",
                   flexDirection: "column",
                   gap: "6px",
-                  borderLeft: `4px solid ${rate !== null && rate >= 80 ? "#10b981" : rate !== null && rate >= 65 ? "#f59e0b" : "#ef4444"}`,
+                  borderLeft: `4px solid ${rate !== null && rate >= 80 ? "var(--color-success)" : rate !== null && rate >= 65 ? "var(--color-warning)" : "var(--color-danger)"}`,
                 }}
               >
                 <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em", color: "var(--color-text-secondary)" }}>
@@ -428,7 +428,7 @@ export default function StudentAttendance() {
                   <span style={{
                     fontSize: "1.5rem",
                     fontWeight: 700,
-                    color: rate !== null && rate >= 80 ? "#059669" : rate !== null && rate >= 65 ? "#d97706" : "#dc2626",
+                    color: rate !== null && rate >= 80 ? "var(--color-success)" : rate !== null && rate >= 65 ? "var(--color-warning)" : "var(--color-danger)",
                   }}>
                     {rate !== null ? `${rate}%` : "—"}
                   </span>
@@ -438,8 +438,8 @@ export default function StudentAttendance() {
                       fontWeight: 600,
                       padding: "2px 6px",
                       borderRadius: "4px",
-                      backgroundColor: rate >= 80 ? "#ecfdf5" : rate >= 65 ? "#fffbeb" : "#fef2f2",
-                      color: rate >= 80 ? "#059669" : rate >= 65 ? "#d97706" : "#dc2626",
+                      backgroundColor: rate >= 80 ? "var(--color-success-bg)" : rate >= 65 ? "var(--color-warning-bg)" : "var(--color-danger-bg)",
+                      color: rate >= 80 ? "var(--color-success)" : rate >= 65 ? "var(--color-warning)" : "var(--color-danger)",
                     }}>
                       {rate >= 80 ? "Good" : rate >= 65 ? "Average" : "Low"}
                     </span>
@@ -456,13 +456,13 @@ export default function StudentAttendance() {
                   display: "flex",
                   flexDirection: "column",
                   gap: "6px",
-                  borderLeft: "4px solid #10b981",
+                  borderLeft: "4px solid var(--color-success)",
                 }}
               >
-                <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em", color: "#059669" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em", color: "var(--color-success)" }}>
                   Present
                 </span>
-                <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#059669" }}>
+                <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-success)" }}>
                   {presentCount}
                 </span>
               </div>
@@ -476,13 +476,13 @@ export default function StudentAttendance() {
                   display: "flex",
                   flexDirection: "column",
                   gap: "6px",
-                  borderLeft: "4px solid #f59e0b",
+                  borderLeft: "4px solid var(--color-warning)",
                 }}
               >
-                <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em", color: "#d97706" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em", color: "var(--color-warning)" }}>
                   Late
                 </span>
-                <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#d97706" }}>
+                <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-warning)" }}>
                   {lateCount}
                 </span>
               </div>
@@ -496,13 +496,13 @@ export default function StudentAttendance() {
                   display: "flex",
                   flexDirection: "column",
                   gap: "6px",
-                  borderLeft: "4px solid #ef4444",
+                  borderLeft: "4px solid var(--color-danger)",
                 }}
               >
-                <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em", color: "#dc2626" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em", color: "var(--color-danger)" }}>
                   Absent
                 </span>
-                <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "#dc2626" }}>
+                <span style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-danger)" }}>
                   {absentCount}
                 </span>
               </div>
@@ -516,7 +516,7 @@ export default function StudentAttendance() {
                   display: "flex",
                   flexDirection: "column",
                   gap: "6px",
-                  borderLeft: "4px solid #64748b",
+                  borderLeft: "4px solid var(--color-text-secondary)",
                 }}
               >
                 <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em", color: "var(--color-text-secondary)" }}>
@@ -581,15 +581,15 @@ export default function StudentAttendance() {
                 {/* Status Key */}
                 <div style={{ display: "flex", alignItems: "center", gap: "22px", fontSize: "0.82rem" }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: "7px", color: "var(--color-text-secondary)" }}>
-                    <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#10b981" }} />
+                    <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--color-success)" }} />
                     <span style={{ color: "var(--color-text-secondary)", fontWeight: 500 }}>Present</span>
                   </span>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: "7px", color: "var(--color-text-secondary)" }}>
-                    <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#f59e0b" }} />
+                    <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--color-warning)" }} />
                     <span style={{ color: "var(--color-text-secondary)", fontWeight: 500 }}>Late</span>
                   </span>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: "7px", color: "var(--color-text-secondary)" }}>
-                    <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#ef4444" }} />
+                    <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--color-danger)" }} />
                     <span style={{ color: "var(--color-text-secondary)", fontWeight: 500 }}>Absent</span>
                   </span>
                 </div>
@@ -653,14 +653,14 @@ export default function StudentAttendance() {
                                 fontSize: "0.8rem",
                                 fontWeight: 500,
                                 backgroundColor:
-                                  a.status === "PRESENT" ? "#ecfdf5" :
-                                  a.status === "ABSENT" ? "#fef2f2" : "#fffbeb",
+                                  a.status === "PRESENT" ? "var(--color-success-bg)" :
+                                  a.status === "ABSENT" ? "var(--color-danger-bg)" : "var(--color-warning-bg)",
                                 color:
-                                  a.status === "PRESENT" ? "#065f46" :
-                                  a.status === "ABSENT" ? "#991b1b" : "#92400e",
+                                  a.status === "PRESENT" ? "var(--color-success-text)" :
+                                  a.status === "ABSENT" ? "var(--color-danger-text)" : "var(--color-warning-text)",
                                 border: `1px solid ${
-                                  a.status === "PRESENT" ? "#a7f3d0" :
-                                  a.status === "ABSENT" ? "#fecaca" : "#fde68a"
+                                  a.status === "PRESENT" ? "var(--color-success-border)" :
+                                  a.status === "ABSENT" ? "var(--color-danger-border)" : "var(--color-warning-border)"
                                 }`,
                               }}
                             >
@@ -670,8 +670,8 @@ export default function StudentAttendance() {
                                   height: "6px",
                                   borderRadius: "50%",
                                   backgroundColor:
-                                    a.status === "PRESENT" ? "#10b981" :
-                                    a.status === "ABSENT" ? "#ef4444" : "#f59e0b",
+                                    a.status === "PRESENT" ? "var(--color-success)" :
+                                    a.status === "ABSENT" ? "var(--color-danger)" : "var(--color-warning)",
                                 }}
                               />
                               {a.status === "PRESENT" ? "Present" : a.status === "ABSENT" ? "Absent" : a.status === "LATE" ? "Late" : a.status}

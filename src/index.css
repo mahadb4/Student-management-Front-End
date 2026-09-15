@@ -3,6 +3,7 @@
   --color-primary: #1e40af; /*Vibrant Deep Blue (Balanced)*/
   --color-primary-hover: #1d4ed8;
   --color-primary-light: #eff6ff;
+  --color-on-primary: #ffffff; /*Text/icons placed directly on a saturated accent bg (primary/success/warning/danger chips) - stays light in both themes*/
 
 
   --color-background: #f7f8fa; /*Very Light Gray*/
@@ -16,6 +17,10 @@
   --color-border: #e2e8f0;
   --color-border-strong: #cbd5e1;
 
+  --color-surface-hover: #f1f5f9; /*Subtle hover/active tint for rows, chips, toggles*/
+  --color-text-heading: #0f172a; /*Slightly stronger than primary text, for headings/emphasis*/
+  --color-text-strong: #334155; /*Secondary text variant, a touch stronger than --color-text-secondary*/
+
   --color-success: #10b981;
   --color-success-bg: #ecfdf5;
   --color-warning: #f59e0b;
@@ -24,6 +29,17 @@
   --color-danger-bg: #fef2f2;
   --color-info: #3b82f6;
   --color-info-bg: #eff6ff;
+
+  /*Status pill text/border tones - used by badges & status chips across
+    Admin/Teacher/Student (e.g. Attendance, Assignments, AI assistant).
+    Kept separate from --color-success etc. so badge text stays high
+    contrast on its own pastel background in both themes.*/
+  --color-success-text: #065f46;
+  --color-success-border: #a7f3d0;
+  --color-warning-text: #92400e;
+  --color-warning-border: #fde68a;
+  --color-danger-text: #991b1b;
+  --color-danger-border: #fecaca;
 
   /*Shadows - kept subtle for a flat, academic feel*/
   --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
@@ -45,6 +61,49 @@
   --transition-normal: 250ms ease-in-out;
 }
 
+[data-theme="dark"] {
+  /* Dark Mode Palette - Professional Navy/Slate (Not pure black) */
+  --color-primary: #3b82f6;
+  --color-primary-hover: #60a5fa;
+  --color-primary-light: rgba(59, 130, 246, 0.15);
+  --color-on-primary: #ffffff;
+
+  --color-background: #0b0f19; /* Deep navy-black canvas */
+  --color-surface: #131b2e; /* Elevated navy surface */
+  --color-surface-muted: #1e293b; /* Subtle card/panel inset */
+
+  --color-text-primary: #f8fafc; /* Crisp white-slate text */
+  --color-text-secondary: #94a3b8; /* Muted text */
+  --color-text-tertiary: #64748b; /* Faint meta text */
+
+  --color-border: #1e293b;
+  --color-border-strong: #334155;
+
+  --color-surface-hover: #1c2740; /*Subtle hover/active tint on dark surfaces*/
+  --color-text-heading: #f8fafc; /*Headings/emphasis text*/
+  --color-text-strong: #cbd5e1; /*Secondary text variant, a touch brighter than --color-text-secondary*/
+
+  --color-success: #34d399;
+  --color-success-bg: rgba(16, 185, 129, 0.16);
+  --color-warning: #fbbf24;
+  --color-warning-bg: rgba(245, 158, 11, 0.16);
+  --color-danger: #f87171;
+  --color-danger-bg: rgba(239, 68, 68, 0.16);
+  --color-info: #60a5fa;
+  --color-info-bg: rgba(59, 130, 246, 0.16);
+
+  --color-success-text: #6ee7b7;
+  --color-success-border: rgba(16, 185, 129, 0.35);
+  --color-warning-text: #fbbf24;
+  --color-warning-border: rgba(245, 158, 11, 0.35);
+  --color-danger-text: #fca5a5;
+  --color-danger-border: rgba(239, 68, 68, 0.35);
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 28px -6px rgba(0, 0, 0, 0.6);
+}
+
 /*Base Reset & Box Sizing*/*, *::before, *::after {
   box-sizing: border-box;
 }
@@ -64,6 +123,7 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /*Override previous fixed #root styling*/
@@ -139,7 +199,7 @@ button:disabled {
   box-shadow: var(--shadow-lg);
   font-size: 0.9rem;
   font-weight: 500;
-  color: var(--color-surface);
+  color: var(--color-on-primary);
   cursor: pointer;
   animation: toast-slide-in var(--transition-normal);
 }

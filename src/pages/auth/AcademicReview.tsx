@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCurrentUser, logoutUser, refreshCurrentUser } from "../../services/auth";
+import ThemeToggle from "../../components/common/ThemeToggle";
 import "../styles/Auth.css";
 
 const dashboardMap: Record<string, string> = {
@@ -52,6 +53,7 @@ export default function AcademicReview() {
 
   return (
     <div className="pending-container">
+      <ThemeToggle className="theme-toggle-corner" />
       <div className="pending-card">
         <div className="pending-success-badge-wrapper">
           <div className="pending-success-badge">

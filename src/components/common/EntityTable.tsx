@@ -60,6 +60,7 @@ interface EntityTableProps<T> {
   // the parent just needs to setOrdering(next) and reset its page state,
   // same as onPageSizeChange.
   onSortChange?: (ordering: string) => void;
+  renderCustomActions?: (item: T) => React.ReactNode;
 }
 
 export function EntityTable<T extends { id: number | string }>({
@@ -78,10 +79,11 @@ export function EntityTable<T extends { id: number | string }>({
   onPageSizeChange,
   ordering,
   onSortChange,
+  renderCustomActions,
 }: EntityTableProps<T>) {
   const { canUpdate, canDelete } = usePermissions();
 
-  const showActions = !!onEdit || !!onDelete || !!onView;
+  const showActions = !!onEdit || !!onDelete || !!onView || !!renderCustomActions;
   const canEdit = onEdit && canUpdate(resourceName);
   const canRemove = onDelete && canDelete(resourceName);
 
@@ -161,23 +163,54 @@ export function EntityTable<T extends { id: number | string }>({
               ))}
               {showActions && (
                 <td>
-                  <div className="action-group">
-                    {onView && (
-                      <button onClick={() => onView(item)} className="btn btn-outline" style={{ padding: "4px 8px", fontSize: "0.75rem" }}>
-                        View
-                      </button>
-                    )}
-                    {canEdit && (
-                      <button onClick={() => onEdit(item)} className="btn btn-outline" style={{ padding: "4px 8px", fontSize: "0.75rem" }}>
-                        Edit
-                      </button>
-                    )}
-                    {canRemove && (
-                      <button onClick={() => onDelete(item)} className="btn btn-danger" style={{ padding: "4px 8px", fontSize: "0.75rem" }}>
-                        Delete
-                      </button>
-                    )}
-                  </div>
+                  {renderCustomActions ? (
+                    renderCustomActions(item)
+                  ) : (
+                    <div className="table-row-actions">
+                      {onView && (
+                        <button
+                          type="button"
+                          onClick={() => onView(item)}
+                          className="btn-table-action btn-table-edit"
+                          title="View details"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                          <span>View</span>
+                        </button>
+                      )}
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => onEdit(item)}
+                          className="btn-table-action btn-table-edit"
+                          title={`Edit ${resourceName ? resourceName.replace(/s$/, '') : 'item'}`}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                          <span>Edit</span>
+                        </button>
+                      )}
+                      {canRemove && (
+                        <button
+                          type="button"
+                          onClick={() => onDelete(item)}
+                          className="btn-table-action btn-table-delete"
+                          title={`Delete ${resourceName ? resourceName.replace(/s$/, '') : 'item'}`}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
+                          <span>Delete</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </td>
               )}
             </tr>

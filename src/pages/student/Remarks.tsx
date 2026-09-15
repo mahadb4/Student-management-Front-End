@@ -113,9 +113,9 @@ export default function StudentRemarks() {
                       <td style={{ padding: "12px 20px", color: "var(--color-text-primary)", fontSize: "0.875rem", lineHeight: 1.45 }}>
                         <div style={{
                           padding: "8px 12px",
-                          backgroundColor: "#f8fafc",
+                          backgroundColor: "var(--color-surface-muted)",
                           borderRadius: "6px",
-                          border: "1px solid #f1f5f9",
+                          border: "1px solid var(--color-surface-hover)",
                           borderLeft: "3px solid var(--color-primary)",
                         }}>
                           {r.remark}

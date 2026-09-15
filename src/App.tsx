@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ToastProvider } from "./context/ToastContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import PendingApproval from "./pages/auth/PendingApproval";
@@ -110,64 +111,66 @@ function ProtectedRoute({
 
 function App() {
   return (
-    <ToastProvider>
-    <BrowserRouter>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/pending-approval" element={<PendingApproval />} />
-        <Route path="/onboarding" element={<Onboarding />} />
-        <Route path="/academic-review" element={<AcademicReview />} />
+    <ThemeProvider>
+      <ToastProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/pending-approval" element={<PendingApproval />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/academic-review" element={<AcademicReview />} />
 
-        {/* ── Admin routes (nested under shared DashboardLayout) ────────── */}
-        <Route path="/admin" element={<ProtectedRoute allowedRole="admin"><DashboardLayout /></ProtectedRoute>}>
-          <Route index element={<AdminDashboard />} />
-          <Route path="students" element={<Students />} />
-          <Route path="teachers" element={<Teachers />} />
-          <Route path="departments" element={<Departments />} />
-          <Route path="sections" element={<Sections />} />
-          <Route path="courses" element={<AdminCourses />} />
-          <Route path="course-offerings" element={<CourseOfferings />} />
-          <Route path="enrollments" element={<Enrollments />} />
-          <Route path="attendance" element={<AdminAttendance />} />
-          <Route path="staff" element={<Staff />} />
-          <Route path="approvals" element={<PendingApprovals />} />
-          <Route path="permissions" element={<Permissions />} />
-        </Route>
+            {/* ── Admin routes (nested under shared DashboardLayout) ────────── */}
+            <Route path="/admin" element={<ProtectedRoute allowedRole="admin"><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="students" element={<Students />} />
+              <Route path="teachers" element={<Teachers />} />
+              <Route path="departments" element={<Departments />} />
+              <Route path="sections" element={<Sections />} />
+              <Route path="courses" element={<AdminCourses />} />
+              <Route path="course-offerings" element={<CourseOfferings />} />
+              <Route path="enrollments" element={<Enrollments />} />
+              <Route path="attendance" element={<AdminAttendance />} />
+              <Route path="staff" element={<Staff />} />
+              <Route path="approvals" element={<PendingApprovals />} />
+              <Route path="permissions" element={<Permissions />} />
+            </Route>
 
-        {/* ── Student routes (nested under shared DashboardLayout) ──────── */}
-        <Route path="/student" element={<ProtectedRoute allowedRole="student"><DashboardLayout /></ProtectedRoute>}>
-          <Route index element={<StudentDashboard />} />
-          <Route path="courses" element={<StudentCourses />} />
-          <Route path="attendance" element={<StudentAttendance />} />
-          <Route path="remarks" element={<StudentRemarks />} />
-          <Route path="assignments" element={<StudentAssignments />} />
-          <Route path="ai-assistant" element={<StudentAiAssistant />} />
-          <Route path="profile" element={<StudentProfile />} />
-        </Route>
+            {/* ── Student routes (nested under shared DashboardLayout) ──────── */}
+            <Route path="/student" element={<ProtectedRoute allowedRole="student"><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<StudentDashboard />} />
+              <Route path="courses" element={<StudentCourses />} />
+              <Route path="attendance" element={<StudentAttendance />} />
+              <Route path="remarks" element={<StudentRemarks />} />
+              <Route path="assignments" element={<StudentAssignments />} />
+              <Route path="ai-assistant" element={<StudentAiAssistant />} />
+              <Route path="profile" element={<StudentProfile />} />
+            </Route>
 
-        {/* ── Teacher routes (nested under shared DashboardLayout) ──────── */}
-        <Route path="/teacher" element={<ProtectedRoute allowedRole="teacher"><DashboardLayout /></ProtectedRoute>}>
-          <Route index element={<TeacherDashboard />} />
-          <Route path="courses" element={<TeacherCourses />} />
-          <Route path="attendance" element={<TeacherAttendance />} />
-          <Route path="assignments" element={<TeacherCourses />} />
-          <Route path="classes/:courseOfferingId/assignments" element={<TeacherClassAssignments />} />
-          <Route path="classes/:courseOfferingId/students" element={<TeacherClassStudents />} />
-          <Route path="profile" element={<TeacherProfile />} />
-        </Route>
+            {/* ── Teacher routes (nested under shared DashboardLayout) ──────── */}
+            <Route path="/teacher" element={<ProtectedRoute allowedRole="teacher"><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<TeacherDashboard />} />
+              <Route path="courses" element={<TeacherCourses />} />
+              <Route path="attendance" element={<TeacherAttendance />} />
+              <Route path="assignments" element={<TeacherCourses />} />
+              <Route path="classes/:courseOfferingId/assignments" element={<TeacherClassAssignments />} />
+              <Route path="classes/:courseOfferingId/students" element={<TeacherClassStudents />} />
+              <Route path="profile" element={<TeacherProfile />} />
+            </Route>
 
-        {/* ── Staff routes (nested under shared DashboardLayout) ────────── */}
-        <Route path="/staff" element={<ProtectedRoute allowedRole="staff"><DashboardLayout /></ProtectedRoute>}>
-          <Route index element={<StaffDashboard />} />
-        </Route>
+            {/* ── Staff routes (nested under shared DashboardLayout) ────────── */}
+            <Route path="/staff" element={<ProtectedRoute allowedRole="staff"><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<StaffDashboard />} />
+            </Route>
 
-        {/* Catch-all → Login */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
-    </ToastProvider>
+            {/* Catch-all → Login */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }
 

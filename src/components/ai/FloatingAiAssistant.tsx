@@ -74,9 +74,9 @@ const ASSIGNMENT_STATUS_LABEL: Record<string, string> = {
 };
 
 const ASSIGNMENT_STATUS_BADGE_STYLE: Record<string, { bg: string; color: string; border: string }> = {
-  pending: { bg: "#fffbeb", color: "#92400e", border: "#fde68a" },
-  overdue: { bg: "#fef2f2", color: "#991b1b", border: "#fecaca" },
-  submitted: { bg: "#ecfdf5", color: "#065f46", border: "#a7f3d0" },
+  pending: { bg: "var(--color-warning-bg)", color: "var(--color-warning-text)", border: "var(--color-warning-border)" },
+  overdue: { bg: "var(--color-danger-bg)", color: "var(--color-danger-text)", border: "var(--color-danger-border)" },
+  submitted: { bg: "var(--color-success-bg)", color: "var(--color-success-text)", border: "var(--color-success-border)" },
 };
 
 interface ChatMessage {
@@ -386,7 +386,7 @@ export default function FloatingAiAssistant() {
                               if (source.type === "attendance") {
                                 return (
                                   <div key={`src-att-${idx}`} className="floating-ai-source-item">
-                                    <span className="floating-ai-source-tag" style={{ backgroundColor: "#ecfdf5", color: "#065f46", borderColor: "#a7f3d0" }}>
+                                    <span className="floating-ai-source-tag" style={{ backgroundColor: "var(--color-success-bg)", color: "var(--color-success-text)", borderColor: "var(--color-success-border)" }}>
                                       Attendance
                                     </span>
                                     <span className="floating-ai-source-name">{source.course_name}</span>
@@ -395,7 +395,7 @@ export default function FloatingAiAssistant() {
                                 );
                               }
                               if (source.type === "assignment") {
-                                const st = ASSIGNMENT_STATUS_BADGE_STYLE[source.status] || { bg: "#f1f5f9", color: "#475569", border: "#e2e8f0" };
+                                const st = ASSIGNMENT_STATUS_BADGE_STYLE[source.status] || { bg: "var(--color-surface-hover)", color: "var(--color-text-strong)", border: "var(--color-border)" };
                                 return (
                                   <div key={`src-asg-${idx}`} className="floating-ai-source-item">
                                     <span className="floating-ai-source-tag" style={{ backgroundColor: st.bg, color: st.color, borderColor: st.border }}>
@@ -423,7 +423,7 @@ export default function FloatingAiAssistant() {
                               }
                               return (
                                 <div key={`src-crs-${idx}`} className="floating-ai-source-item">
-                                  <span className="floating-ai-source-tag" style={{ backgroundColor: "#eff6ff", color: "#1e40af", borderColor: "#bfdbfe" }}>
+                                  <span className="floating-ai-source-tag" style={{ backgroundColor: "var(--color-info-bg)", color: "#1e40af", borderColor: "#bfdbfe" }}>
                                     Course
                                   </span>
                                   <span className="floating-ai-source-name">{source.course_name}</span>

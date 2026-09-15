@@ -17,9 +17,9 @@ interface AssignmentEvaluationModalProps {
 }
 
 const CONFIDENCE_STYLES: Record<string, { bg: string; color: string; border: string; dot: string }> = {
-  high: { bg: "#ecfdf5", color: "#065f46", border: "#a7f3d0", dot: "#10b981" },
-  medium: { bg: "#fffbeb", color: "#92400e", border: "#fde68a", dot: "#f59e0b" },
-  low: { bg: "#fef2f2", color: "#991b1b", border: "#fecaca", dot: "#ef4444" },
+  high: { bg: "var(--color-success-bg)", color: "var(--color-success-text)", border: "var(--color-success-border)", dot: "var(--color-success)" },
+  medium: { bg: "var(--color-warning-bg)", color: "var(--color-warning-text)", border: "var(--color-warning-border)", dot: "var(--color-warning)" },
+  low: { bg: "var(--color-danger-bg)", color: "var(--color-danger-text)", border: "var(--color-danger-border)", dot: "var(--color-danger)" },
 };
 
 function ConfidenceBadge({ confidence }: { confidence: AssignmentEvaluationConfidence }) {
@@ -67,11 +67,11 @@ function ScoreDial({ score, size = 88 }: { score: number | null; size?: number }
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#f1f5f9",
+          backgroundColor: "var(--color-surface-hover)",
           color: "var(--color-text-secondary)",
           fontSize: "0.75rem",
           fontWeight: 700,
-          border: "2px dashed #cbd5e1",
+          border: "2px dashed var(--color-border-strong)",
         }}
       >
         N/A
@@ -79,7 +79,7 @@ function ScoreDial({ score, size = 88 }: { score: number | null; size?: number }
     );
   }
   const pct = Math.max(0, Math.min(100, score));
-  const color = pct >= 70 ? "#059669" : pct >= 40 ? "#d97706" : "#dc2626";
+  const color = pct >= 70 ? "var(--color-success)" : pct >= 40 ? "var(--color-warning)" : "var(--color-danger)";
   return (
     <div
       style={{
@@ -89,7 +89,7 @@ function ScoreDial({ score, size = 88 }: { score: number | null; size?: number }
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: `conic-gradient(${color} ${pct * 3.6}deg, #e2e8f0 0deg)`,
+        background: `conic-gradient(${color} ${pct * 3.6}deg, var(--color-border) 0deg)`,
         flexShrink: 0,
         boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
         transition: "all 0.3s ease",
@@ -100,7 +100,7 @@ function ScoreDial({ score, size = 88 }: { score: number | null; size?: number }
           width: size - 14,
           height: size - 14,
           borderRadius: "50%",
-          backgroundColor: "#fff",
+          backgroundColor: "var(--color-surface)",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -216,7 +216,7 @@ export function AssignmentEvaluationModal({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: "#fff",
+          color: "var(--color-on-primary)",
           fontSize: "1.15rem",
           boxShadow: "0 2px 6px rgba(15, 23, 42, 0.15)",
         }}
@@ -264,7 +264,7 @@ export function AssignmentEvaluationModal({
               textAlign: "center",
               background: "#fafbfc",
               borderRadius: "16px",
-              border: "1px dashed #cbd5e1",
+              border: "1px dashed var(--color-border-strong)",
             }}
           >
             <div
@@ -408,12 +408,12 @@ export function AssignmentEvaluationModal({
 
               {/* Strengths */}
               {evaluation.strengths.length > 0 && (
-                <div className="ai-eval-card-section" style={{ borderLeft: "4px solid #10b981" }}>
+                <div className="ai-eval-card-section" style={{ borderLeft: "4px solid var(--color-success)" }}>
                   <div
                     style={{
                       fontSize: "0.82rem",
                       fontWeight: 700,
-                      color: "#065f46",
+                      color: "var(--color-success-text)",
                       marginBottom: "8px",
                       display: "flex",
                       alignItems: "center",
@@ -434,12 +434,12 @@ export function AssignmentEvaluationModal({
 
               {/* Areas for Improvement */}
               {evaluation.weaknesses.length > 0 && (
-                <div className="ai-eval-card-section" style={{ borderLeft: "4px solid #f59e0b" }}>
+                <div className="ai-eval-card-section" style={{ borderLeft: "4px solid var(--color-warning)" }}>
                   <div
                     style={{
                       fontSize: "0.82rem",
                       fontWeight: 700,
-                      color: "#92400e",
+                      color: "var(--color-warning-text)",
                       marginBottom: "8px",
                       display: "flex",
                       alignItems: "center",

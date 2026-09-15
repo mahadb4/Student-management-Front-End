@@ -290,15 +290,15 @@ export default function AttendanceMgmt() {
 
               <div style={{ display: "flex", alignItems: "center", gap: "20px", fontSize: "0.82rem" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--color-text-secondary)", fontWeight: 500 }}>
-                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#10b981" }} />
+                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--color-success)" }} />
                   Present
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--color-text-secondary)", fontWeight: 500 }}>
-                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#f59e0b" }} />
+                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--color-warning)" }} />
                   Late
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--color-text-secondary)", fontWeight: 500 }}>
-                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#ef4444" }} />
+                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--color-danger)" }} />
                   Absent
                 </span>
               </div>
@@ -359,14 +359,14 @@ export default function AttendanceMgmt() {
                         fontSize: "0.8rem",
                         fontWeight: 500,
                         backgroundColor:
-                          a.status === "PRESENT" ? "#ecfdf5" :
-                          a.status === "ABSENT" ? "#fef2f2" : "#fffbeb",
+                          a.status === "PRESENT" ? "var(--color-success-bg)" :
+                          a.status === "ABSENT" ? "var(--color-danger-bg)" : "var(--color-warning-bg)",
                         color:
-                          a.status === "PRESENT" ? "#065f46" :
-                          a.status === "ABSENT" ? "#991b1b" : "#92400e",
+                          a.status === "PRESENT" ? "var(--color-success-text)" :
+                          a.status === "ABSENT" ? "var(--color-danger-text)" : "var(--color-warning-text)",
                         border: `1px solid ${
-                          a.status === "PRESENT" ? "#a7f3d0" :
-                          a.status === "ABSENT" ? "#fecaca" : "#fde68a"
+                          a.status === "PRESENT" ? "var(--color-success-border)" :
+                          a.status === "ABSENT" ? "var(--color-danger-border)" : "var(--color-warning-border)"
                         }`,
                       }}
                     >
@@ -376,8 +376,8 @@ export default function AttendanceMgmt() {
                           height: "6px",
                           borderRadius: "50%",
                           backgroundColor:
-                            a.status === "PRESENT" ? "#10b981" :
-                            a.status === "ABSENT" ? "#ef4444" : "#f59e0b",
+                            a.status === "PRESENT" ? "var(--color-success)" :
+                            a.status === "ABSENT" ? "var(--color-danger)" : "var(--color-warning)",
                         }}
                       />
                       {a.status === "PRESENT" ? "Present" : a.status === "ABSENT" ? "Absent" : a.status === "LATE" ? "Late" : a.status}

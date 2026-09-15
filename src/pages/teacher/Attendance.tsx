@@ -348,7 +348,7 @@ export default function TeacherAttendance() {
                   className="form-control"
                   value={courseFilter}
                   onChange={e => setCourseFilter(e.target.value)}
-                  style={{ fontWeight: 500, backgroundColor: "#ffffff", padding: "7px 12px", fontSize: "0.86rem", minWidth: "220px" }}
+                  style={{ fontWeight: 500, backgroundColor: "var(--color-surface)", padding: "7px 12px", fontSize: "0.86rem", minWidth: "220px" }}
                 >
                   {offerings.length === 0 && <option value="">-- No Classes --</option>}
                   {offerings.map(o => (
@@ -367,7 +367,7 @@ export default function TeacherAttendance() {
                   className="form-control"
                   value={date}
                   onChange={e => setDate(e.target.value)}
-                  style={{ padding: "7px 12px", fontSize: "0.86rem", backgroundColor: "#ffffff" }}
+                  style={{ padding: "7px 12px", fontSize: "0.86rem", backgroundColor: "var(--color-surface)" }}
                 />
               </div>
 
@@ -377,7 +377,7 @@ export default function TeacherAttendance() {
                     Session Summary
                   </label>
                   <div style={{ display: "flex", gap: "8px", alignItems: "center", minHeight: "36px" }}>
-                    <span className="badge" style={{ backgroundColor: "#f1f5f9", color: "#475569", fontWeight: 500, padding: "5px 12px", fontSize: "0.78rem" }}>
+                    <span className="badge" style={{ backgroundColor: "var(--color-surface-hover)", color: "var(--color-text-strong)", fontWeight: 500, padding: "5px 12px", fontSize: "0.78rem" }}>
                       <strong style={{ fontWeight: 600 }}>{classRoster.length}</strong> Students
                     </span>
                     <span className="badge badge-success" style={{ padding: "5px 12px", fontSize: "0.78rem", fontWeight: 500 }}>
@@ -425,10 +425,10 @@ export default function TeacherAttendance() {
                 gap: "6px",
                 padding: "6px 12px",
                 borderRadius: "6px",
-                backgroundColor: "#ecfdf5",
-                border: "1px solid #a7f3d0",
+                backgroundColor: "var(--color-success-bg)",
+                border: "1px solid var(--color-success-border)",
                 fontSize: "0.8rem",
-                color: "#065f46",
+                color: "var(--color-success-text)",
                 fontWeight: 600,
               }}>
                 ✓ Attendance already recorded for {formatDateShort(date)}
@@ -443,10 +443,10 @@ export default function TeacherAttendance() {
                 gap: "8px",
                 padding: "8px 12px",
                 borderRadius: "6px",
-                backgroundColor: "#fef2f2",
+                backgroundColor: "var(--color-danger-bg)",
                 border: "1px solid rgba(239, 68, 68, 0.3)",
                 fontSize: "0.8rem",
-                color: "#991b1b",
+                color: "var(--color-danger-text)",
               }}>
                 <span style={{ fontWeight: 700 }}>⚠</span>
                 <span>Please mark attendance for all students before saving.</span>
@@ -475,15 +475,15 @@ export default function TeacherAttendance() {
               {/* Status Legend */}
               <div style={{ display: "flex", alignItems: "center", gap: "20px", fontSize: "0.82rem" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--color-text-secondary)", fontWeight: 500 }}>
-                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#10b981" }} />
+                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--color-success)" }} />
                   Present
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--color-text-secondary)", fontWeight: 500 }}>
-                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#f59e0b" }} />
+                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--color-warning)" }} />
                   Late
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--color-text-secondary)", fontWeight: 500 }}>
-                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#ef4444" }} />
+                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--color-danger)" }} />
                   Absent
                 </span>
               </div>
@@ -513,7 +513,7 @@ export default function TeacherAttendance() {
                         style={{
                           textAlign: "center",
                           padding: "10px 14px",
-                          backgroundColor: "#f8fafc",
+                          backgroundColor: "var(--color-surface-muted)",
                           borderLeft: "1px solid var(--color-border)",
                           borderRight: "1px solid var(--color-border)",
                         }}
@@ -557,18 +557,18 @@ export default function TeacherAttendance() {
                       const rate = rateByStudent.get(student.enrollment_id);
                       const currentStatus = statusByEnrollment[student.enrollment_id];
 
-                      let rateBg = "#ecfdf5";
-                      let rateColor = "#065f46";
-                      let rateBorder = "#a7f3d0";
+                      let rateBg = "var(--color-success-bg)";
+                      let rateColor = "var(--color-success-text)";
+                      let rateBorder = "var(--color-success-border)";
                       if (rate !== undefined) {
                         if (rate < 65) {
-                          rateBg = "#fef2f2";
-                          rateColor = "#991b1b";
-                          rateBorder = "#fecaca";
+                          rateBg = "var(--color-danger-bg)";
+                          rateColor = "var(--color-danger-text)";
+                          rateBorder = "var(--color-danger-border)";
                         } else if (rate < 80) {
-                          rateBg = "#fffbeb";
-                          rateColor = "#92400e";
-                          rateBorder = "#fde68a";
+                          rateBg = "var(--color-warning-bg)";
+                          rateColor = "var(--color-warning-text)";
+                          rateBorder = "var(--color-warning-border)";
                         }
                       }
 
@@ -618,9 +618,9 @@ export default function TeacherAttendance() {
                             }
 
                             const badgeColors = {
-                              PRESENT: { bg: "#ecfdf5", color: "#065f46", border: "#a7f3d0", dot: "#10b981" },
-                              LATE: { bg: "#fffbeb", color: "#92400e", border: "#fde68a", dot: "#f59e0b" },
-                              ABSENT: { bg: "#fef2f2", color: "#991b1b", border: "#fecaca", dot: "#ef4444" },
+                              PRESENT: { bg: "var(--color-success-bg)", color: "var(--color-success-text)", border: "var(--color-success-border)", dot: "var(--color-success)" },
+                              LATE: { bg: "var(--color-warning-bg)", color: "var(--color-warning-text)", border: "var(--color-warning-border)", dot: "var(--color-warning)" },
+                              ABSENT: { bg: "var(--color-danger-bg)", color: "var(--color-danger-text)", border: "var(--color-danger-border)", dot: "var(--color-danger)" },
                             }[histStatus];
 
                             return (
@@ -651,7 +651,7 @@ export default function TeacherAttendance() {
                               style={{
                                 textAlign: "center",
                                 padding: "8px 14px",
-                                backgroundColor: "#f8fafc",
+                                backgroundColor: "var(--color-surface-muted)",
                                 borderLeft: "1px solid var(--color-border)",
                                 borderRight: "1px solid var(--color-border)",
                               }}
@@ -667,19 +667,19 @@ export default function TeacherAttendance() {
                                 style={{
                                   display: "inline-flex",
                                   alignItems: "center",
-                                  backgroundColor: "#ffffff",
+                                  backgroundColor: "var(--color-surface)",
                                   borderRadius: "6px",
                                   padding: "2px",
-                                  border: currentStatus ? "1px solid var(--color-border)" : "1px solid #fecaca",
+                                  border: currentStatus ? "1px solid var(--color-border)" : "1px solid var(--color-danger-border)",
                                   gap: "2px",
                                 }}
                               >
                                 {(["PRESENT", "LATE", "ABSENT"] as AttendanceStatus[]).map(statusKey => {
                                   const isActive = currentStatus === statusKey;
                                   const activeStyles = {
-                                    PRESENT: { bg: "#10b981", color: "#ffffff", shadow: "0 1px 3px rgba(16, 185, 129, 0.35)" },
-                                    LATE: { bg: "#f59e0b", color: "#ffffff", shadow: "0 1px 3px rgba(245, 158, 11, 0.35)" },
-                                    ABSENT: { bg: "#ef4444", color: "#ffffff", shadow: "0 1px 3px rgba(239, 68, 68, 0.35)" },
+                                    PRESENT: { bg: "var(--color-success)", color: "var(--color-on-primary)", shadow: "0 1px 3px rgba(16, 185, 129, 0.35)" },
+                                    LATE: { bg: "var(--color-warning)", color: "var(--color-on-primary)", shadow: "0 1px 3px rgba(245, 158, 11, 0.35)" },
+                                    ABSENT: { bg: "var(--color-danger)", color: "var(--color-on-primary)", shadow: "0 1px 3px rgba(239, 68, 68, 0.35)" },
                                   }[statusKey];
 
                                   return (
@@ -701,7 +701,7 @@ export default function TeacherAttendance() {
                                         justifyContent: "center",
                                         transition: "all 0.15s ease",
                                         backgroundColor: isActive ? activeStyles.bg : "transparent",
-                                        color: isActive ? activeStyles.color : "#64748b",
+                                        color: isActive ? activeStyles.color : "var(--color-text-secondary)",
                                         boxShadow: isActive ? activeStyles.shadow : "none",
                                       }}
                                       title={`Mark ${STATUS_LABEL[statusKey]}`}

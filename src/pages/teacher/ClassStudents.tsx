@@ -128,7 +128,7 @@ function RemarksModal({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: "#fff",
+          color: "var(--color-on-primary)",
           fontSize: "1.1rem",
           boxShadow: "0 2px 6px rgba(15, 23, 42, 0.15)",
         }}
@@ -173,8 +173,8 @@ function RemarksModal({
             style={{
               fontSize: "0.76rem",
               fontWeight: 600,
-              color: "#475569",
-              background: "#e2e8f0",
+              color: "var(--color-text-strong)",
+              background: "var(--color-border)",
               padding: "3px 10px",
               borderRadius: "999px",
             }}
@@ -250,7 +250,7 @@ function RemarksModal({
 
                 <div
                   style={{
-                    backgroundColor: "#f8fafc",
+                    backgroundColor: "var(--color-surface-muted)",
                     borderLeft: "3.5px solid var(--color-primary)",
                     borderRadius: "0 8px 8px 0",
                     padding: "12px 16px",
@@ -309,7 +309,7 @@ function RemarksModal({
                   <div
                     onClick={() => setFormData({ ...formData, visibility: "PRIVATE" })}
                     className={`visibility-selector-card ${formData.visibility === "PRIVATE" ? "active" : ""}`}
-                    style={{ border: "1.5px solid #e2e8f0" }}
+                    style={{ border: "1.5px solid var(--color-border)" }}
                   >
                     <span style={{ fontSize: "1.2rem", marginTop: "2px" }}>🔒</span>
                     <div>
@@ -323,7 +323,7 @@ function RemarksModal({
                   <div
                     onClick={() => setFormData({ ...formData, visibility: "STUDENT_VISIBLE" })}
                     className={`visibility-selector-card ${formData.visibility === "STUDENT_VISIBLE" ? "active" : ""}`}
-                    style={{ border: "1.5px solid #e2e8f0" }}
+                    style={{ border: "1.5px solid var(--color-border)" }}
                   >
                     <span style={{ fontSize: "1.2rem", marginTop: "2px" }}>👁️</span>
                     <div>
@@ -471,20 +471,20 @@ export default function ClassStudents() {
               alignItems: "center",
               backgroundColor: "var(--color-primary)",
               borderRadius: "var(--radius-lg)",
-              color: "#ffffff",
+              color: "var(--color-on-primary)",
               boxShadow: "0 4px 14px -2px rgba(30, 64, 175, 0.25)",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <span style={{ fontSize: "1.2rem" }}>🎓</span>
-              <span style={{ fontWeight: 600, fontSize: "0.92rem", color: "#ffffff" }}>
+              <span style={{ fontWeight: 600, fontSize: "0.92rem", color: "var(--color-on-primary)" }}>
                 Class Roster
               </span>
             </div>
             <span
               style={{
                 backgroundColor: "rgba(255, 255, 255, 0.18)",
-                color: "#ffffff",
+                color: "var(--color-on-primary)",
                 fontWeight: 700,
                 padding: "6px 14px",
                 fontSize: "0.82rem",

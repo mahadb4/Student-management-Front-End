@@ -87,9 +87,9 @@ const ASSIGNMENT_STATUS_LABEL: Record<string, string> = {
 };
 
 const ASSIGNMENT_STATUS_BADGE_STYLE: Record<string, { bg: string; color: string; border: string }> = {
-  pending: { bg: "#fffbeb", color: "#92400e", border: "#fde68a" },
-  overdue: { bg: "#fef2f2", color: "#991b1b", border: "#fecaca" },
-  submitted: { bg: "#ecfdf5", color: "#065f46", border: "#a7f3d0" },
+  pending: { bg: "var(--color-warning-bg)", color: "var(--color-warning-text)", border: "var(--color-warning-border)" },
+  overdue: { bg: "var(--color-danger-bg)", color: "var(--color-danger-text)", border: "var(--color-danger-border)" },
+  submitted: { bg: "var(--color-success-bg)", color: "var(--color-success-text)", border: "var(--color-success-border)" },
 };
 
 interface ChatMessage {
@@ -324,8 +324,8 @@ export default function StudentAiAssistant() {
                     >
                       {copiedId === message.id ? (
                         <>
-                          <span style={{ color: "#059669", fontWeight: 700 }}>✓</span>
-                          <span style={{ color: "#059669", fontWeight: 600 }}>Copied</span>
+                          <span style={{ color: "var(--color-success)", fontWeight: 700 }}>✓</span>
+                          <span style={{ color: "var(--color-success)", fontWeight: 600 }}>Copied</span>
                         </>
                       ) : (
                         <>
@@ -372,8 +372,8 @@ export default function StudentAiAssistant() {
                           <div className="modern-chat-source-item" key={`attendance-${source.course_name}-${index}`}>
                             <span style={{
                               display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px",
-                              borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, backgroundColor: "#ecfdf5",
-                              color: "#065f46", border: "1px solid #a7f3d0",
+                              borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, backgroundColor: "var(--color-success-bg)",
+                              color: "var(--color-success-text)", border: "1px solid var(--color-success-border)",
                             }}>
                               📊 Attendance Record
                             </span>
@@ -409,7 +409,7 @@ export default function StudentAiAssistant() {
                         <div className="modern-chat-source-item" key={`course-${source.course_code}-${index}`}>
                           <span style={{
                             display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px",
-                            borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, backgroundColor: "#eff6ff",
+                            borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, backgroundColor: "var(--color-info-bg)",
                             color: "#1e40af", border: "1px solid #bfdbfe",
                           }}>
                             🎓 Course
@@ -450,7 +450,7 @@ export default function StudentAiAssistant() {
 
         <div className="pro-ai-input-container">
           <div className="pro-ai-quick-chips">
-            <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.04em", marginRight: "2px" }}>
+            <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", marginRight: "2px" }}>
               Quick topics:
             </span>
             {QUICK_TOPICS.map((topic) => (
@@ -501,7 +501,7 @@ export default function StudentAiAssistant() {
               >
                 {asking ? (
                   <>
-                    <span className="ai-check-spinner" style={{ borderColor: "rgba(255,255,255,0.3)", borderTopColor: "#fff" }} />
+                    <span className="ai-check-spinner" style={{ borderColor: "rgba(255,255,255,0.3)", borderTopColor: "var(--color-surface)" }} />
                     <span>Thinking...</span>
                   </>
                 ) : (

@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import type { User } from "../../types/user";
+import ThemeToggle from "../../components/common/ThemeToggle";
 import "../styles/Auth.css";
 
 interface LocationState {
@@ -30,6 +31,7 @@ function PendingApproval() {
 
   return (
     <div className="pending-container">
+      <ThemeToggle className="theme-toggle-corner" />
       <div className="pending-card">
         {/* Animated Success Checkmark Header */}
         <div className="pending-success-badge-wrapper">

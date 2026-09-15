@@ -196,7 +196,7 @@
 }
 
 .form-input.input-error {
-  border-color: #ef4444;
+  border-color: var(--color-danger);
 }
 
 .form-input.input-error:focus {

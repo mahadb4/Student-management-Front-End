@@ -126,17 +126,17 @@ function SubmissionsModal({ assignment, onClose }: { assignment: AssignmentTeach
             <div className="submissions-summary-item">
               <span className="status-dot-submitted" />
               <span>Submitted:</span>
-              <strong style={{ color: "#065f46" }}>{submittedCount}</strong>
+              <strong style={{ color: "var(--color-success-text)" }}>{submittedCount}</strong>
             </div>
             <div className="submissions-summary-divider" />
             <div className="submissions-summary-item">
               <span className="status-dot-pending" />
               <span>Pending:</span>
-              <strong style={{ color: "#92400e" }}>{pendingCount}</strong>
+              <strong style={{ color: "var(--color-warning-text)" }}>{pendingCount}</strong>
             </div>
           </div>
 
-          <div className="table-responsive" style={{ border: "1px solid #e2e8f0", borderRadius: "10px", overflow: "hidden" }}>
+          <div className="table-responsive" style={{ border: "1px solid var(--color-border)", borderRadius: "10px", overflow: "hidden" }}>
             <table className="submissions-table">
               <thead>
                 <tr>
@@ -174,7 +174,7 @@ function SubmissionsModal({ assignment, onClose }: { assignment: AssignmentTeach
                           {formatDate(r.submitted_at)}
                         </span>
                       ) : (
-                        <span style={{ color: "#94a3b8" }}>—</span>
+                        <span style={{ color: "var(--color-text-tertiary)" }}>—</span>
                       )}
                     </td>
                     <td>
@@ -187,7 +187,7 @@ function SubmissionsModal({ assignment, onClose }: { assignment: AssignmentTeach
                           View / Download
                         </a>
                       ) : (
-                        <span style={{ color: "#94a3b8" }}>—</span>
+                        <span style={{ color: "var(--color-text-tertiary)" }}>—</span>
                       )}
                     </td>
                     <td style={{ textAlign: "right" }}>
@@ -211,7 +211,7 @@ function SubmissionsModal({ assignment, onClose }: { assignment: AssignmentTeach
                           )}
                         </button>
                       ) : (
-                        <span style={{ color: "#94a3b8", display: "inline-block", paddingRight: "16px" }}>—</span>
+                        <span style={{ color: "var(--color-text-tertiary)", display: "inline-block", paddingRight: "16px" }}>—</span>
                       )}
                     </td>
                   </tr>
@@ -490,7 +490,7 @@ export default function TeacherClassAssignments() {
                       width: "48px",
                       height: "48px",
                       borderRadius: "50%",
-                      backgroundColor: "#f1f5f9",
+                      backgroundColor: "var(--color-surface-hover)",
                       color: "var(--color-text-secondary)",
                       display: "flex",
                       alignItems: "center",

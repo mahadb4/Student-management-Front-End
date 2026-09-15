@@ -147,7 +147,7 @@ export default function StudentCourses() {
       {/* Segmented Tab Bar */}
       <div style={{
         display: "inline-flex",
-        backgroundColor: "#f1f5f9",
+        backgroundColor: "var(--color-surface-hover)",
         borderRadius: "var(--radius-md)",
         padding: "4px",
         gap: "4px",
@@ -165,7 +165,7 @@ export default function StudentCourses() {
             fontSize: "0.85rem",
             fontWeight: 600,
             transition: "all 0.15s ease",
-            backgroundColor: activeTab === "my-courses" ? "#ffffff" : "transparent",
+            backgroundColor: activeTab === "my-courses" ? "var(--color-surface)" : "transparent",
             color: activeTab === "my-courses" ? "var(--color-primary)" : "var(--color-text-secondary)",
             boxShadow: activeTab === "my-courses" ? "var(--shadow-sm)" : "none",
           }}
@@ -183,7 +183,7 @@ export default function StudentCourses() {
             fontSize: "0.85rem",
             fontWeight: 600,
             transition: "all 0.15s ease",
-            backgroundColor: activeTab === "available" ? "#ffffff" : "transparent",
+            backgroundColor: activeTab === "available" ? "var(--color-surface)" : "transparent",
             color: activeTab === "available" ? "var(--color-primary)" : "var(--color-text-secondary)",
             boxShadow: activeTab === "available" ? "var(--shadow-sm)" : "none",
           }}
@@ -343,7 +343,7 @@ export default function StudentCourses() {
                           {offering.semester} {offering.academic_year}
                         </td>
                         <td style={{ padding: "12px 20px" }}>
-                          <span className="badge" style={{ backgroundColor: "#f1f5f9", color: "#475569", fontWeight: 600 }}>
+                          <span className="badge" style={{ backgroundColor: "var(--color-surface-hover)", color: "var(--color-text-strong)", fontWeight: 600 }}>
                             {offering.section_name || "No Section"}
                           </span>
                         </td>

@@ -129,15 +129,15 @@ export default function StudentDashboard() {
                     alignItems: "center",
                     justifyContent: "space-between",
                     padding: "12px 16px",
-                    backgroundColor: "#f8fafc",
+                    backgroundColor: "var(--color-surface-muted)",
                     borderRadius: "var(--radius-md)",
-                    border: "1px solid #f1f5f9",
+                    border: "1px solid var(--color-surface-hover)",
                     textDecoration: "none",
                     color: "var(--color-text-primary)",
                     transition: "all 0.15s ease",
                   }}
                   onMouseEnter={e => (e.currentTarget.style.backgroundColor = "var(--color-primary-light)")}
-                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#f8fafc")}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = "var(--color-surface-muted)")}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                     <div style={{ width: "32px", height: "32px", borderRadius: "6px", backgroundColor: "var(--color-primary-light)", color: "var(--color-primary)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -161,18 +161,18 @@ export default function StudentDashboard() {
                     alignItems: "center",
                     justifyContent: "space-between",
                     padding: "12px 16px",
-                    backgroundColor: "#f8fafc",
+                    backgroundColor: "var(--color-surface-muted)",
                     borderRadius: "var(--radius-md)",
-                    border: "1px solid #f1f5f9",
+                    border: "1px solid var(--color-surface-hover)",
                     textDecoration: "none",
                     color: "var(--color-text-primary)",
                     transition: "all 0.15s ease",
                   }}
                   onMouseEnter={e => (e.currentTarget.style.backgroundColor = "var(--color-primary-light)")}
-                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#f8fafc")}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = "var(--color-surface-muted)")}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    <div style={{ width: "32px", height: "32px", borderRadius: "6px", backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#059669", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ width: "32px", height: "32px", borderRadius: "6px", backgroundColor: "rgba(16, 185, 129, 0.1)", color: "var(--color-success)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                         <polyline points="14 2 14 8 20 8" />
@@ -195,18 +195,18 @@ export default function StudentDashboard() {
                     alignItems: "center",
                     justifyContent: "space-between",
                     padding: "12px 16px",
-                    backgroundColor: "#f8fafc",
+                    backgroundColor: "var(--color-surface-muted)",
                     borderRadius: "var(--radius-md)",
-                    border: "1px solid #f1f5f9",
+                    border: "1px solid var(--color-surface-hover)",
                     textDecoration: "none",
                     color: "var(--color-text-primary)",
                     transition: "all 0.15s ease",
                   }}
                   onMouseEnter={e => (e.currentTarget.style.backgroundColor = "var(--color-primary-light)")}
-                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#f8fafc")}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = "var(--color-surface-muted)")}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    <div style={{ width: "32px", height: "32px", borderRadius: "6px", backgroundColor: "rgba(245, 158, 11, 0.1)", color: "#d97706", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ width: "32px", height: "32px", borderRadius: "6px", backgroundColor: "rgba(245, 158, 11, 0.1)", color: "var(--color-warning)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                         <line x1="16" y1="2" x2="16" y2="6" />
@@ -241,9 +241,9 @@ export default function StudentDashboard() {
                         alignItems: "center",
                         justifyContent: "space-between",
                         padding: "10px 14px",
-                        backgroundColor: "#f8fafc",
+                        backgroundColor: "var(--color-surface-muted)",
                         borderRadius: "var(--radius-md)",
-                        border: "1px solid #f1f5f9",
+                        border: "1px solid var(--color-surface-hover)",
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -268,14 +268,14 @@ export default function StudentDashboard() {
                           fontSize: "0.78rem",
                           fontWeight: 500,
                           backgroundColor:
-                            a.status === "PRESENT" ? "#ecfdf5" :
-                            a.status === "ABSENT" ? "#fef2f2" : "#fffbeb",
+                            a.status === "PRESENT" ? "var(--color-success-bg)" :
+                            a.status === "ABSENT" ? "var(--color-danger-bg)" : "var(--color-warning-bg)",
                           color:
-                            a.status === "PRESENT" ? "#065f46" :
-                            a.status === "ABSENT" ? "#991b1b" : "#92400e",
+                            a.status === "PRESENT" ? "var(--color-success-text)" :
+                            a.status === "ABSENT" ? "var(--color-danger-text)" : "var(--color-warning-text)",
                           border: `1px solid ${
-                            a.status === "PRESENT" ? "#a7f3d0" :
-                            a.status === "ABSENT" ? "#fecaca" : "#fde68a"
+                            a.status === "PRESENT" ? "var(--color-success-border)" :
+                            a.status === "ABSENT" ? "var(--color-danger-border)" : "var(--color-warning-border)"
                           }`,
                         }}
                       >
@@ -285,8 +285,8 @@ export default function StudentDashboard() {
                             height: "6px",
                             borderRadius: "50%",
                             backgroundColor:
-                              a.status === "PRESENT" ? "#10b981" :
-                              a.status === "ABSENT" ? "#ef4444" : "#f59e0b",
+                              a.status === "PRESENT" ? "var(--color-success)" :
+                              a.status === "ABSENT" ? "var(--color-danger)" : "var(--color-warning)",
                           }}
                         />
                         {a.status === "PRESENT" ? "Present" : a.status === "ABSENT" ? "Absent" : a.status === "LATE" ? "Late" : a.status}
