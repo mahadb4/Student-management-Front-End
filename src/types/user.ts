@@ -29,8 +29,6 @@ export interface User {
   academic_review_pending?: boolean;
 }
 
-// ── Domain Entities ──────────────────────────────────────────────────────────
-
 export interface Student {
   id: number;
   first_name: string;
@@ -671,8 +669,7 @@ export interface AiAssistantResponse {
   sources: AiAssistantSource[];
 }
 
-// ── AI Assignment Evaluation (Phase 11B/11C) ───────────────────────────────
-// A SEPARATE AI capability from the Student RAG Assistant above - a
+// A separate AI capability from the Student RAG Assistant above - a
 // teacher-triggered, single-document evaluation of one submission, not
 // retrieval-augmented Q&A. Shape returned by both
 // POST /assignments/<id>/submissions/<studentId>/ai-check/ and

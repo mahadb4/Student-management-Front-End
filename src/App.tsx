@@ -47,7 +47,6 @@ import StaffDashboard from "./pages/staff/StaffDashboard";
 import { getCurrentUser, isAuthenticated } from "./services/auth";
 import type { UserRole } from "./types/user";
 
-// ── Route guard ──────────────────────────────────────────────────────────────
 // Roles whose account isn't usable until they've completed their own
 // Student/Teacher profile via /onboarding. admin/staff have no profile
 // entity, so they're never gated here.
@@ -107,7 +106,6 @@ function ProtectedRoute({
 
   return <>{children}</>;
 }
-// ─────────────────────────────────────────────────────────────────────────────
 
 function App() {
   return (
@@ -122,7 +120,7 @@ function App() {
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/academic-review" element={<AcademicReview />} />
 
-            {/* ── Admin routes (nested under shared DashboardLayout) ────────── */}
+            {/* Admin routes */}
             <Route path="/admin" element={<ProtectedRoute allowedRole="admin"><DashboardLayout /></ProtectedRoute>}>
               <Route index element={<AdminDashboard />} />
               <Route path="students" element={<Students />} />
@@ -138,7 +136,7 @@ function App() {
               <Route path="permissions" element={<Permissions />} />
             </Route>
 
-            {/* ── Student routes (nested under shared DashboardLayout) ──────── */}
+            {/* Student routes */}
             <Route path="/student" element={<ProtectedRoute allowedRole="student"><DashboardLayout /></ProtectedRoute>}>
               <Route index element={<StudentDashboard />} />
               <Route path="courses" element={<StudentCourses />} />
@@ -149,7 +147,7 @@ function App() {
               <Route path="profile" element={<StudentProfile />} />
             </Route>
 
-            {/* ── Teacher routes (nested under shared DashboardLayout) ──────── */}
+            {/* Teacher routes */}
             <Route path="/teacher" element={<ProtectedRoute allowedRole="teacher"><DashboardLayout /></ProtectedRoute>}>
               <Route index element={<TeacherDashboard />} />
               <Route path="courses" element={<TeacherCourses />} />
@@ -160,7 +158,7 @@ function App() {
               <Route path="profile" element={<TeacherProfile />} />
             </Route>
 
-            {/* ── Staff routes (nested under shared DashboardLayout) ────────── */}
+            {/* Staff routes */}
             <Route path="/staff" element={<ProtectedRoute allowedRole="staff"><DashboardLayout /></ProtectedRoute>}>
               <Route index element={<StaffDashboard />} />
             </Route>

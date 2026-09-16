@@ -83,8 +83,7 @@ export const teacherService=createCrudService<Teacher>("/teachers");
 export const departmentService=createCrudService<Department>("/departments");
 export const sectionService=createCrudService<Section>("/sections");
 
-// ── Reference (dropdown/foreign-key selection) endpoints ────────────────────
-// Return only {id, name[, ...]} — the minimal shape a <select>/scrollable
+// Reference endpoints return only {id, name[, ...]} — the minimal shape a <select>/scrollable
 // dropdown needs — using the same paginated envelope as the LIST endpoints
 // (page_size defaults to 10, matching backend default_page_size). These exist
 // alongside (not instead of) the LIST endpoints above, whose fuller field set
@@ -264,10 +263,8 @@ export const dashboardService={
     apiRequest<AdminSummary>("/dashboard/admin-summary/",authHeaders(signal))
 };
 
-// ── Authenticated "me" endpoints ────────────────────────────────────────────
-// Resolve the caller's own Student/Teacher data server-side from request.user
-// - never a full-collection fetch filtered client-side to find "myself".
-// Each call performs a fresh authenticated request; no client-side caching.
+// "me" endpoints resolve the caller's own Student/Teacher data server-side from
+// request.user - never a full-collection fetch filtered client-side to find "myself".
 
 export function invalidateMeCache(_key?:string){
   // No-op: retained so existing call sites (post-mutation refresh, logout)
@@ -442,7 +439,6 @@ function profilePictureService(basePath:string){
 export const studentProfilePictureService=profilePictureService("/students/me");
 export const teacherProfilePictureService=profilePictureService("/teachers/me");
 
-// ── Assignments ──────────────────────────────────────────────────────────────
 // create/update/remove/getById on /assignments/ are teacher-only server-side
 // (assignment_api._get_teacher_or_error for POST/PATCH/DELETE; GET detail as
 // a teacher returns exactly AssignmentTeacherDetail), so this CRUD service is
@@ -535,8 +531,7 @@ export const askAiAssistant=(question:string,signal?:AbortSignal):Promise<AiAssi
   });
 };
 
-// ── AI Assignment Evaluation (Phase 11C) ────────────────────────────────────
-// A SEPARATE AI capability from askAiAssistant above - teacher-triggered,
+// A separate AI capability from askAiAssistant above - teacher-triggered,
 // single-document evaluation of one student's submission. Both calls are
 // authorized server-side against the calling teacher owning the assignment
 // (assignments.api.ai_evaluation_api) - no student/teacher id is ever
