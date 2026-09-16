@@ -354,8 +354,8 @@ export default function StudentAiAssistant() {
                           <div className="modern-chat-source-item" key={`remark-${source.remark_id}-${index}`}>
                             <span style={{
                               display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px",
-                              borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, backgroundColor: "#faf5ff",
-                              color: "#6b21a8", border: "1px solid #e9d5ff",
+                              borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, backgroundColor: "var(--color-purple-bg)",
+                              color: "var(--color-purple-text)", border: "1px solid var(--color-purple-border)",
                             }}>
                               👨‍🏫 Teacher Remark
                             </span>
@@ -410,7 +410,7 @@ export default function StudentAiAssistant() {
                           <span style={{
                             display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px",
                             borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, backgroundColor: "var(--color-info-bg)",
-                            color: "#1e40af", border: "1px solid #bfdbfe",
+                            color: "var(--color-info-text)", border: "1px solid var(--color-info-border)",
                           }}>
                             🎓 Course
                           </span>

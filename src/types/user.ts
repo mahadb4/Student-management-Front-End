@@ -20,13 +20,23 @@ export interface User {
   email: string;
   role: UserRole;
   status: UserStatus;
-  permissions: Permission[];
   student_id?: number;
   teacher_id?: number;
   // Student-only: true once onboarding created the Student record but an
   // admin hasn't yet confirmed Department/Section. Drives the redirect to
   // the "Application Under Review" page instead of the dashboard.
   academic_review_pending?: boolean;
+}
+
+// Shape returned by POST /users/login/'s `user` field - identity only, no
+// permissions/student_id/teacher_id/academic_review_pending. loginUser()
+// fetches the full User via /users/me/ right after login before caching it.
+export interface LoginIdentity {
+  id: number | string;
+  name: string;
+  email: string;
+  role: UserRole;
+  status: UserStatus;
 }
 
 export interface Student {
@@ -215,8 +225,6 @@ export interface DepartmentReference {
 export interface SectionReference {
   id: number;
   name: string;
-  semester_number: number | null;
-  department_name: string | null;
 }
 
 // Shape returned by the Teachers REFERENCE endpoint (GET /teachers/reference/),
@@ -289,6 +297,18 @@ export interface CourseOfferingListItem {
   section_name: string | null;
 }
 
+// Shape returned by GET /course_offerings/?view=class_assignment: the Admin
+// Student Edit form's Course Offering picker - section is already fixed by
+// the form's own Section field, and semester/academic_year/is_active are
+// never shown, via the backend's CourseOfferingMapper.to_class_assignment_dto.
+export interface CourseOfferingClassAssignmentItem {
+  id: number;
+  course_name: string | null;
+  course_code: string | null;
+  teacher_name: string | null;
+  section_name: string | null;
+}
+
 // Shape returned by the Course Offerings REFERENCE endpoint (GET
 // /course_offerings/reference/): a read-only projection - no raw
 // course/teacher/section ids, since consumers here (Student/Teacher browse
@@ -303,6 +323,16 @@ export interface CourseOfferingReference {
   course_name: string | null;
   course_code: string | null;
   teacher_name: string | null;
+  section_name: string | null;
+}
+
+// Shape returned by GET /course_offerings/reference/?view=attendance: the
+// Admin Attendance page's Course/Section picker - Department and Teacher are
+// already picked in earlier steps of that same form, via the backend's
+// CourseOfferingMapper.to_attendance_reference_dto.
+export interface CourseOfferingAttendanceReferenceItem {
+  id: number;
+  course_code: string | null;
   section_name: string | null;
 }
 
@@ -441,6 +471,15 @@ export interface EnrollmentListItem {
   course_name: string;
   course_code: string;
   section_name: string | null;
+}
+
+// Shape returned by GET /enrollments/?course_offering_id=&view=attendance:
+// the Admin Attendance page's Add/Edit modal Student picker - already scoped
+// to one course offering, via the backend's EnrollmentMapper.to_attendance_picker_dto.
+export interface EnrollmentAttendancePickerItem {
+  id: number;
+  student_name: string;
+  course_code: string;
 }
 
 export type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE";

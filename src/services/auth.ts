@@ -1,6 +1,6 @@
 import { apiRequest } from "./api";
 import { clearScheduledTokenRefresh } from "./tokenScheduler";
-import type { User } from "../types/user";
+import type { LoginIdentity, User } from "../types/user";
 
 export interface LoginCredentials {
   email: string;
@@ -22,7 +22,7 @@ export interface AuthResponse {
 }
 
 interface LoginApiResponse {
-  user: User;
+  user: LoginIdentity;
   access: string;
   refresh: string;
 }
@@ -47,11 +47,21 @@ export async function loginUser(
 
     localStorage.setItem(ACCESS_TOKEN_KEY, response.access);
     localStorage.setItem(REFRESH_TOKEN_KEY, response.refresh);
-    localStorage.setItem(USER_KEY, JSON.stringify(response.user));
+
+    // Login response carries identity only; fetch full state (student_id/
+    // teacher_id/academic_review_pending/permissions) before routing decisions
+    // are made.
+    const fullUser = await refreshCurrentUser();
+
+    if (!fullUser) {
+      localStorage.removeItem(ACCESS_TOKEN_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
+      return { success: false, error: "Login failed." };
+    }
 
     return {
       success: true,
-      user: response.user,
+      user: fullUser,
     };
   } catch (error) {
     return {

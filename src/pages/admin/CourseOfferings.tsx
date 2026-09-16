@@ -376,7 +376,7 @@ export default function CourseOfferings() {
               fetchPage={(page, pageSize, signal) => getSectionReference(selectedDepartmentId === "" ? undefined : selectedDepartmentId, page, pageSize, signal, selectedSemesterNumber === "" ? undefined : selectedSemesterNumber, formData.academic_year)}
               resetKey={`${selectedDepartmentId}-${selectedSemesterNumber}-${formData.academic_year}`}
               getId={s => s.id}
-              getLabel={s => s.department_name ? `${s.name} - ${s.department_name}` : s.name}
+              getLabel={s => s.name}
               value={formData.section}
               onChange={id => setFormData({...formData, section: id})}
               onClear={() => setFormData({...formData, section: ""})}

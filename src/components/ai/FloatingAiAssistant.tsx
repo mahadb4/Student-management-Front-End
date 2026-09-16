@@ -413,7 +413,7 @@ export default function FloatingAiAssistant() {
                               if (source.type === "remark") {
                                 return (
                                   <div key={`src-rem-${idx}`} className="floating-ai-source-item">
-                                    <span className="floating-ai-source-tag" style={{ backgroundColor: "#faf5ff", color: "#6b21a8", borderColor: "#e9d5ff" }}>
+                                    <span className="floating-ai-source-tag" style={{ backgroundColor: "var(--color-purple-bg)", color: "var(--color-purple-text)", borderColor: "var(--color-purple-border)" }}>
                                       Feedback
                                     </span>
                                     <span className="floating-ai-source-name">{source.course_name}</span>
@@ -423,7 +423,7 @@ export default function FloatingAiAssistant() {
                               }
                               return (
                                 <div key={`src-crs-${idx}`} className="floating-ai-source-item">
-                                  <span className="floating-ai-source-tag" style={{ backgroundColor: "var(--color-info-bg)", color: "#1e40af", borderColor: "#bfdbfe" }}>
+                                  <span className="floating-ai-source-tag" style={{ backgroundColor: "var(--color-info-bg)", color: "var(--color-info-text)", borderColor: "var(--color-info-border)" }}>
                                     Course
                                   </span>
                                   <span className="floating-ai-source-name">{source.course_name}</span>

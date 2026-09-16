@@ -1,6 +1,6 @@
 import{apiRequest}from"./api";
 import{getAccessToken}from"./auth";
-import type{Student,Teacher,Department,Course,CourseOffering,Enrollment,Attendance,RemarkTeacherListItem,RemarkStudentListItem,Section,StudentListItem,SectionListItem,TeacherListItem,CourseListItem,EnrollmentListItem,CourseOfferingListItem,CourseOfferingReference,CourseOfferingTeacherListItem,CourseOfferingAttendanceListItem,CourseOfferingDashboardListItem,AttendanceListItem,AttendanceStatus,AttendanceRosterItem,StudentAttendanceListItem,TeacherAttendanceListItem,DepartmentReference,SectionReference,TeacherReference,CourseReference,StudentReference,StudentProfile,StudentIdentity,StudentSummary,StudentEnrollmentListItem,EnrollmentReference,EnrollmentTeacherListItem,TeacherDashboardSummary,TeacherProfile,TeacherIdentity,AssignmentTeacherListItem,AssignmentTeacherDetail,AssignmentCourseSummary,AssignmentStudentListItem,MySubmissionStatus,SubmissionRosterItem,AiAssistantResponse,AssignmentEvaluation,AssignmentEvaluationReviewRequest}from"../types/user";
+import type{Student,Teacher,Department,Course,CourseOffering,Enrollment,Attendance,RemarkTeacherListItem,RemarkStudentListItem,Section,StudentListItem,SectionListItem,TeacherListItem,CourseListItem,EnrollmentListItem,EnrollmentAttendancePickerItem,CourseOfferingListItem,CourseOfferingClassAssignmentItem,CourseOfferingReference,CourseOfferingAttendanceReferenceItem,CourseOfferingTeacherListItem,CourseOfferingAttendanceListItem,CourseOfferingDashboardListItem,AttendanceListItem,AttendanceStatus,AttendanceRosterItem,StudentAttendanceListItem,TeacherAttendanceListItem,DepartmentReference,SectionReference,TeacherReference,CourseReference,StudentReference,StudentProfile,StudentIdentity,StudentSummary,StudentEnrollmentListItem,EnrollmentReference,EnrollmentTeacherListItem,TeacherDashboardSummary,TeacherProfile,TeacherIdentity,AssignmentTeacherListItem,AssignmentTeacherDetail,AssignmentCourseSummary,AssignmentStudentListItem,MySubmissionStatus,SubmissionRosterItem,AiAssistantResponse,AssignmentEvaluation,AssignmentEvaluationReviewRequest}from"../types/user";
 
 function authHeaders(signal?:AbortSignal){
   const token=getAccessToken();
@@ -122,6 +122,15 @@ export const getCourseOfferingReference=(page:number=1,pageSize:number=10,signal
   return apiRequest<PaginatedResponse<CourseOfferingReference>>(`/course_offerings/reference/?${params.toString()}`,authHeaders(signal));
 };
 
+// Admin Attendance page's Course/Section picker - the minimal
+// view=attendance projection (id/course_code/section_name).
+export const getCourseOfferingAttendanceReference=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,teacherId?:number):Promise<PaginatedResponse<CourseOfferingAttendanceReferenceItem>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize),view:"attendance"});
+  if(search&&search.trim())params.set("search",search.trim());
+  if(teacherId!==undefined)params.set("teacher_id",String(teacherId));
+  return apiRequest<PaginatedResponse<CourseOfferingAttendanceReferenceItem>>(`/course_offerings/reference/?${params.toString()}`,authHeaders(signal));
+};
+
 export const getStudentReference=(page:number=1,pageSize:number=10,signal?:AbortSignal):Promise<PaginatedResponse<StudentReference>>=>
   apiRequest<PaginatedResponse<StudentReference>>(`/students/reference/?page=${page}&page_size=${pageSize}`,authHeaders(signal));
 
@@ -158,6 +167,15 @@ export const getCourseOfferingList=(page:number=1,pageSize:number=10,signal?:Abo
   if(ordering)params.set("ordering",ordering);
   return apiRequest<PaginatedResponse<CourseOfferingListItem>>(`/course_offerings/?${params.toString()}`,authHeaders(signal));
 };
+// Admin Student Edit form's Course Offering picker - the minimal
+// view=class_assignment projection (id/course_name/course_code/teacher_name/section_name).
+export const getCourseOfferingClassAssignmentList=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,sectionId?:number):Promise<PaginatedResponse<CourseOfferingClassAssignmentItem>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize),view:"class_assignment",active_only:"true"});
+  if(search&&search.trim())params.set("search",search.trim());
+  if(sectionId!==undefined)params.set("section_id",String(sectionId));
+  return apiRequest<PaginatedResponse<CourseOfferingClassAssignmentItem>>(`/course_offerings/?${params.toString()}`,authHeaders(signal));
+};
+
 export const enrollmentService=createCrudService<Enrollment>("/enrollments");
 
 // Enrollments LIST endpoint returns a narrower projection (EnrollmentListItem, with
@@ -170,6 +188,16 @@ export const getEnrollmentList=(page:number=1,pageSize:number=10,signal?:AbortSi
   if(courseOfferingId!==undefined)params.set("course_offering_id",String(courseOfferingId));
   return apiRequest<PaginatedResponse<EnrollmentListItem>>(`/enrollments/?${params.toString()}`,authHeaders(signal));
 };
+
+// Admin Attendance page's Add/Edit modal Student picker - the minimal
+// view=attendance projection (id/student_name/course_code), always scoped to one course offering.
+export const getEnrollmentAttendancePicker=(page:number=1,pageSize:number=10,signal?:AbortSignal,search?:string,courseOfferingId?:number):Promise<PaginatedResponse<EnrollmentAttendancePickerItem>>=>{
+  const params=new URLSearchParams({page:String(page),page_size:String(pageSize),view:"attendance"});
+  if(search&&search.trim())params.set("search",search.trim());
+  if(courseOfferingId!==undefined)params.set("course_offering_id",String(courseOfferingId));
+  return apiRequest<PaginatedResponse<EnrollmentAttendancePickerItem>>(`/enrollments/?${params.toString()}`,authHeaders(signal));
+};
+
 export const attendanceService=createCrudService<Attendance>("/attendance");
 
 // Attendance LIST endpoint returns a narrower projection (AttendanceListItem, with

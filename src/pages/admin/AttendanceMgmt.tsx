@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  attendanceService, getAttendanceList, getEnrollmentList,
-  getDepartmentReference, getTeacherReference, getCourseOfferingReference,
+  attendanceService, getAttendanceList, getEnrollmentAttendancePicker,
+  getDepartmentReference, getTeacherReference, getCourseOfferingAttendanceReference,
 } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
@@ -234,7 +234,7 @@ export default function AttendanceMgmt() {
 
           <div style={{ maxWidth: "260px", width: "100%" }}>
             <PaginatedSelect
-              fetchPage={(page, pageSize, signal, search) => getCourseOfferingReference(page, pageSize, signal, search, teacherId === "" ? undefined : teacherId)}
+              fetchPage={(page, pageSize, signal, search) => getCourseOfferingAttendanceReference(page, pageSize, signal, search, teacherId === "" ? undefined : teacherId)}
               resetKey={teacherId}
               getId={c => c.id}
               getLabel={c => `${c.course_code} - ${c.section_name || "No Section"}`}
@@ -403,7 +403,7 @@ export default function AttendanceMgmt() {
           <div className="form-group">
             <label className="form-label">Student</label>
             <PaginatedSelect
-              fetchPage={(page, pageSize, signal, search) => getEnrollmentList(page, pageSize, signal, search, undefined, courseOfferingId === "" ? undefined : courseOfferingId)}
+              fetchPage={(page, pageSize, signal, search) => getEnrollmentAttendancePicker(page, pageSize, signal, search, courseOfferingId === "" ? undefined : courseOfferingId)}
               resetKey={courseOfferingId}
               getId={e => e.id}
               getLabel={e => `${e.student_name} - ${e.course_code}`}

@@ -76,7 +76,7 @@ function PendingApproval() {
 
               <div className="pending-detail-cell">
                 <span className="pending-cell-label">Portal Access</span>
-                <span style={{ fontWeight: 600, color: "#92400e", fontSize: "0.85rem" }}>
+                <span style={{ fontWeight: 600, color: "var(--color-warning-text)", fontSize: "0.85rem" }}>
                   Awaiting Activation
                 </span>
               </div>

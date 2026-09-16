@@ -99,7 +99,7 @@ export default function Onboarding() {
       <ThemeToggle className="theme-toggle-corner" />
       <div className="auth-card" style={{ maxWidth: "640px" }}>
         <h2>Complete Your Profile</h2>
-        <p style={{ color: "var(--color-text-secondary, #666)", marginBottom: "24px" }}>
+        <p style={{ color: "var(--color-text-secondary)", marginBottom: "24px" }}>
           Welcome, {user.name}. Before you can access the dashboard, please complete your {user.role} profile.
         </p>
 

@@ -55,7 +55,7 @@ export function Avatar({ src, name, size = 40 }: AvatarProps) {
       style={{
         ...baseStyle,
         backgroundColor: "var(--color-primary)",
-        color: "white",
+        color: "var(--color-on-primary)",
         fontWeight: 600,
         fontSize: size * 0.4,
       }}

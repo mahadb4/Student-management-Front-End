@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { studentService, getStudentList, getDepartmentReference, getSectionReference, getCourseOfferingList, enrollmentService } from "../../services/entities";
+import { studentService, getStudentList, getDepartmentReference, getSectionReference, getCourseOfferingClassAssignmentList, enrollmentService } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
@@ -492,7 +492,7 @@ export default function Students() {
               <label className="form-label">Course Offering (Optional)</label>
               <PaginatedSelect
                 fetchPage={(page, pageSize, signal, search) =>
-                  getCourseOfferingList(page, pageSize, signal, search, formData.section === "" ? undefined : formData.section, true)
+                  getCourseOfferingClassAssignmentList(page, pageSize, signal, search, formData.section === "" ? undefined : formData.section)
                 }
                 resetKey={formData.section}
                 getId={o => o.id}
@@ -512,9 +512,9 @@ export default function Students() {
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "14px 0 16px" }}>
-            <input type="checkbox" id="student-is-active" checked={formData.is_active} onChange={e => setFormData({...formData, is_active: e.target.checked})} />
-            <label htmlFor="student-is-active" style={{ margin: 0, fontSize: "0.875rem", cursor: "pointer" }}>Active</label>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "10px", margin: "16px 0 14px", padding: "8px 12px", background: "var(--color-surface-muted)", borderRadius: "8px", border: "1px solid var(--color-border)" }}>
+            <input type="checkbox" id="student-is-active" style={{ cursor: "pointer", width: "16px", height: "16px" }} checked={formData.is_active} onChange={e => setFormData({...formData, is_active: e.target.checked})} />
+            <label htmlFor="student-is-active" style={{ margin: 0, fontSize: "0.875rem", fontWeight: 500, color: "var(--color-text-primary)", cursor: "pointer" }}>Active Student</label>
           </div>
 
           <label
