@@ -262,7 +262,7 @@ export function AssignmentEvaluationModal({
             style={{
               padding: "54px 24px",
               textAlign: "center",
-              background: "#fafbfc",
+              background: "var(--color-surface-muted)",
               borderRadius: "16px",
               border: "1px dashed var(--color-border-strong)",
             }}
@@ -275,8 +275,8 @@ export function AssignmentEvaluationModal({
                 width: "56px",
                 height: "56px",
                 borderRadius: "50%",
-                background: "rgba(99, 102, 241, 0.1)",
-                color: "#4f46e5",
+                background: "var(--color-info-bg)",
+                color: "var(--color-info-text)",
                 fontSize: "1.8rem",
                 marginBottom: "14px",
                 animation: "pulse 1.5s infinite",
@@ -311,7 +311,7 @@ export function AssignmentEvaluationModal({
               padding: "16px 20px",
               borderRadius: "12px",
               backgroundColor: "var(--color-danger-bg)",
-              border: "1px solid rgba(239, 68, 68, 0.25)",
+              border: "1px solid var(--color-danger-border)",
               color: "var(--color-danger)",
               fontSize: "0.88rem",
               display: "flex",
@@ -345,8 +345,8 @@ export function AssignmentEvaluationModal({
                       width: "22px",
                       height: "22px",
                       borderRadius: "6px",
-                      background: "#e0e7ff",
-                      color: "#4338ca",
+                      background: "var(--color-info-bg)",
+                      color: "var(--color-info-text)",
                       fontSize: "0.75rem",
                       fontWeight: 800,
                     }}
@@ -359,7 +359,7 @@ export function AssignmentEvaluationModal({
                       fontWeight: 800,
                       letterSpacing: "0.06em",
                       textTransform: "uppercase",
-                      color: "#4338ca",
+                      color: "var(--color-info-text)",
                     }}
                   >
                     Suggestion &middot; Not Final

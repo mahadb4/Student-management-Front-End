@@ -2564,9 +2564,9 @@ select.form-control option {
   gap: 6px;
   font-size: 0.82rem;
   font-weight: 600;
-  color: #2563eb;
+  color: var(--color-info-text);
   background: var(--color-info-bg);
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--color-info-border);
   border-radius: 6px;
   padding: 5px 10px;
   text-decoration: none;
@@ -2576,8 +2576,8 @@ select.form-control option {
 
 .btn-file-link:hover {
   background: var(--color-info-bg);
-  border-color: #93c5fd;
-  color: #1d4ed8;
+  border-color: var(--color-info-border);
+  color: var(--color-primary-hover);
   text-decoration: none;
 }
 
@@ -2588,9 +2588,9 @@ select.form-control option {
   gap: 6px;
   font-size: 0.82rem;
   font-weight: 600;
-  color: #4338ca;
-  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
-  border: 1px solid #c7d2fe;
+  color: var(--color-purple-text);
+  background: var(--color-purple-bg);
+  border: 1px solid var(--color-purple-border);
   border-radius: 8px;
   padding: 6px 14px;
   cursor: pointer;
@@ -2600,9 +2600,9 @@ select.form-control option {
 }
 
 .btn-ai-action:hover:not(:disabled) {
-  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
-  border-color: #a5b4fc;
-  color: #3730a3;
+  background: var(--color-purple-border);
+  border-color: var(--color-purple-border);
+  color: var(--color-purple-text);
   transform: translateY(-1px);
   box-shadow: 0 3px 8px rgba(99, 102, 241, 0.16);
 }
@@ -2758,8 +2758,8 @@ select.form-control option {
 
 .ai-eval-suggestion-card {
   position: relative;
-  background: linear-gradient(145deg, #f8faff 0%, #f0f4ff 100%);
-  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: var(--color-info-bg);
+  border: 1px solid var(--color-info-border);
   border-radius: 16px;
   padding: 20px;
   box-shadow: 0 4px 16px -2px rgba(99, 102, 241, 0.08);
@@ -2783,7 +2783,7 @@ select.form-control option {
   background: var(--color-surface);
   padding: 16px 20px;
   border-radius: 14px;
-  border: 1px solid rgba(99, 102, 241, 0.15);
+  border: 1px solid var(--color-info-border);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 }
 
@@ -2791,7 +2791,7 @@ select.form-control option {
   background: var(--color-surface);
   border-radius: 12px;
   padding: 14px 16px;
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  border: 1px solid var(--color-border);
   margin-top: 12px;
 }
 
@@ -2811,7 +2811,7 @@ select.form-control option {
   content: '✓';
   position: absolute;
   left: 0;
-  color: #059669;
+  color: var(--color-success);
   font-weight: 800;
 }
 
@@ -2819,7 +2819,7 @@ select.form-control option {
   content: '•';
   position: absolute;
   left: 2px;
-  color: #d97706;
+  color: var(--color-warning);
   font-size: 1.2rem;
   line-height: 1;
   top: -1px;
@@ -2876,7 +2876,7 @@ select.form-control option {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  background: #fafbfc;
+  background: var(--color-surface-muted);
   border-radius: 14px;
   border: 1px dashed var(--color-border-strong);
   margin-bottom: 20px;
@@ -2914,9 +2914,9 @@ select.form-control option {
 .remarks-form-card {
   margin-top: 20px;
   padding: 20px;
-  background: #f8faff;
+  background: var(--color-info-bg);
   border-radius: 16px;
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  border: 1px solid var(--color-info-border);
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.04);
 }
 
@@ -3138,14 +3138,14 @@ select.form-control option {
 }
 
 .placement-confirmed {
-  background-color: #f0fdf4;
+  background-color: var(--color-success-bg);
   color: var(--color-success-text);
-  border: 1px solid #bbf7d0;
+  border: 1px solid var(--color-success-border);
 }
 
 .placement-dot-confirmed {
-  background-color: #22c55e;
-  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+  background-color: var(--color-success);
+  box-shadow: 0 0 0 2px var(--color-success-bg);
 }
 
 .placement-pending {
