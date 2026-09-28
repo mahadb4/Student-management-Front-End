@@ -1548,6 +1548,26 @@ select.form-control option {
   white-space: pre-wrap;
 }
 
+.modern-chat-bubble-text p {
+  margin: 0 0 8px;
+  color: inherit;
+}
+
+.modern-chat-bubble-text ul, .modern-chat-bubble-text ol {
+  margin: 0 0 8px;
+  padding-left: 20px;
+  color: inherit;
+}
+
+.modern-chat-bubble-text p:last-child, .modern-chat-bubble-text ul:last-child, .modern-chat-bubble-text ol:last-child {
+  margin-bottom: 0;
+}
+
+.modern-chat-bubble-text h4, .modern-chat-bubble-text h5, .modern-chat-bubble-text h6 {
+  margin: 0 0 6px;
+  font-size: 0.95em;
+}
+
 /* Sources Panel */
 .modern-chat-sources-panel {
   margin-top: 14px;
@@ -2263,6 +2283,20 @@ select.form-control option {
 
 .floating-ai-bubble-text {
   white-space: pre-wrap;
+}
+
+.floating-ai-bubble-text p, .floating-ai-bubble-text ul, .floating-ai-bubble-text ol {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
+.floating-ai-bubble-text p:last-child, .floating-ai-bubble-text ul:last-child, .floating-ai-bubble-text ol:last-child {
+  margin-bottom: 0;
+}
+
+.floating-ai-bubble-text h4, .floating-ai-bubble-text h5, .floating-ai-bubble-text h6 {
+  margin: 0 0 6px;
+  font-size: 0.95em;
 }
 
 /* Sources */

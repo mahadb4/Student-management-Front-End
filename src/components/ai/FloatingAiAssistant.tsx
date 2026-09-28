@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { askAiAssistant } from "../../services/entities";
 import { getCurrentUser } from "../../services/auth";
 import { useToast } from "../../context/ToastContext";
+import { renderMarkdown } from "../../utils/renderMarkdown";
 import type { AiAssistantSource } from "../../types/user";
 
 const MAX_QUESTION_LENGTH = 2000;
@@ -375,7 +376,9 @@ export default function FloatingAiAssistant() {
                         </div>
                       )}
 
-                      <div className="floating-ai-bubble-text">{message.text}</div>
+                      <div className="floating-ai-bubble-text">
+                        {message.role === "assistant" && !message.isError ? renderMarkdown(message.text) : message.text}
+                      </div>
 
                       {/* Source Chips */}
                       {message.sources && message.sources.length > 0 && (

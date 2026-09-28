@@ -3,6 +3,7 @@ import { askAiAssistant } from "../../services/entities";
 import { getCurrentUser } from "../../services/auth";
 import { useToast } from "../../context/ToastContext";
 import { Avatar } from "../../components/common/Avatar";
+import { renderMarkdown } from "../../utils/renderMarkdown";
 import type { AiAssistantSource } from "../../types/user";
 
 const MAX_QUESTION_LENGTH = 2000;
@@ -109,6 +110,177 @@ let messageIdCounter = 0;
 function nextMessageId(): string {
   messageIdCounter += 1;
   return `msg-${messageIdCounter}`;
+}
+
+function CollapsibleSources({ sources }: { sources: AiAssistantSource[] }) {
+  const [isOpen, setIsOpen] = useState(() => {
+    return sources.some(s => s.type === "remark");
+  });
+
+  const typeCounts = sources.reduce((acc, source) => {
+    acc[source.type] = (acc[source.type] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const types = Object.keys(typeCounts);
+  let summaryText = `${sources.length} records`;
+  if (types.length === 1) {
+    const type = types[0];
+    const count = typeCounts[type];
+    if (type === 'course') summaryText = `${count} course${count !== 1 ? 's' : ''}`;
+    else if (type === 'assignment') summaryText = `${count} assignment${count !== 1 ? 's' : ''}`;
+    else if (type === 'remark') summaryText = `${count} teacher remark${count !== 1 ? 's' : ''}`;
+    else if (type === 'attendance') summaryText = `${count} attendance record${count !== 1 ? 's' : ''}`;
+  }
+
+  const summaryParts: string[] = [];
+  if (types.length > 1) {
+    if (typeCounts['remark']) summaryParts.push(`${typeCounts['remark']} Teacher Remark${typeCounts['remark'] > 1 ? 's' : ''}`);
+    if (typeCounts['attendance']) summaryParts.push(`${typeCounts['attendance']} Attendance Record${typeCounts['attendance'] > 1 ? 's' : ''}`);
+    if (typeCounts['assignment']) summaryParts.push(`${typeCounts['assignment']} Assignment${typeCounts['assignment'] > 1 ? 's' : ''}`);
+    if (typeCounts['course']) summaryParts.push(`${typeCounts['course']} Course${typeCounts['course'] > 1 ? 's' : ''}`);
+  }
+
+  return (
+    <div className="modern-chat-sources-panel">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          background: "var(--color-surface-muted)",
+          border: "1px solid var(--color-border)",
+          padding: "8px 12px",
+          borderRadius: "8px",
+          cursor: "pointer",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          width: "100%",
+          textAlign: "left",
+          fontFamily: "inherit",
+          color: "inherit",
+          transition: "background 0.2s ease"
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.background = "var(--color-surface-hover)"}
+        onMouseLeave={(e) => e.currentTarget.style.background = "var(--color-surface-muted)"}
+        aria-expanded={isOpen}
+      >
+        <div style={{ display: "flex", alignItems: "center", width: "100%", gap: "8px" }}>
+          <span style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transform: isOpen ? "rotate(90deg)" : "none",
+            transition: "transform 0.2s ease",
+            fontSize: "1rem",
+            color: "var(--color-text-secondary)"
+          }}>
+            ▸
+          </span>
+          <span style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--color-text-primary)" }}>
+            📚 Academic Sources
+          </span>
+          <span style={{ color: "var(--color-text-secondary)", fontSize: "0.85rem", marginLeft: "4px" }}>
+            · {summaryText}
+          </span>
+        </div>
+
+        {summaryParts.length > 0 && !isOpen && (
+          <div style={{
+            paddingLeft: "24px",
+            marginTop: "6px",
+            fontSize: "0.8rem",
+            color: "var(--color-text-secondary)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "2px"
+          }}>
+            {summaryParts.map((part, i) => (
+              <div key={i}>{part}</div>
+            ))}
+          </div>
+        )}
+      </button>
+
+      {isOpen && (
+        <div style={{ marginTop: "12px", display: "flex", flexDirection: "column" }}>
+          {sources.map((source, index) => {
+            if (source.type === "remark") {
+              return (
+                <div className="modern-chat-source-item" key={`remark-${source.remark_id}-${index}`}>
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px",
+                    borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, backgroundColor: "var(--color-purple-bg)",
+                    color: "var(--color-purple-text)", border: "1px solid var(--color-purple-border)",
+                  }}>
+                    👨‍🏫 Teacher Remark
+                  </span>
+                  <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{source.course_name}</span>
+                  <span style={{ color: "var(--color-text-secondary)", fontSize: "0.78rem" }}>by {source.teacher_name}</span>
+                  <span style={{ marginLeft: "auto", color: "var(--color-text-secondary)", fontSize: "0.76rem" }}>
+                    {formatSourceDate(source.created_at)}
+                  </span>
+                </div>
+              );
+            }
+            if (source.type === "attendance") {
+              return (
+                <div className="modern-chat-source-item" key={`attendance-${source.course_name}-${index}`}>
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px",
+                    borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, backgroundColor: "var(--color-success-bg)",
+                    color: "var(--color-success-text)", border: "1px solid var(--color-success-border)",
+                  }}>
+                    📊 Attendance Record
+                  </span>
+                  <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{source.course_name}</span>
+                  <span style={{ marginLeft: "auto", color: "var(--color-text-secondary)", fontSize: "0.78rem", fontWeight: 500 }}>
+                    {source.detail}
+                  </span>
+                </div>
+              );
+            }
+            if (source.type === "assignment") {
+              const style = ASSIGNMENT_STATUS_BADGE_STYLE[source.status] || ASSIGNMENT_STATUS_BADGE_STYLE.pending;
+              return (
+                <div className="modern-chat-source-item" key={`assignment-${source.title}-${index}`}>
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px",
+                    borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, backgroundColor: style.bg,
+                    color: style.color, border: `1px solid ${style.border}`,
+                  }}>
+                    📄 {ASSIGNMENT_STATUS_LABEL[source.status] || source.status}
+                  </span>
+                  <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>
+                    {source.title}
+                    {source.attachment_available ? " 📎" : ""}
+                  </span>
+                  <span style={{ marginLeft: "auto", color: "var(--color-text-secondary)", fontSize: "0.76rem" }}>
+                    {source.course_name}
+                  </span>
+                </div>
+              );
+            }
+            return (
+              <div className="modern-chat-source-item" key={`course-${source.course_code}-${index}`}>
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px",
+                  borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, backgroundColor: "var(--color-info-bg)",
+                  color: "var(--color-info-text)", border: "1px solid var(--color-info-border)",
+                }}>
+                  🎓 Course
+                </span>
+                <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{source.course_name}</span>
+                <span style={{ marginLeft: "auto", color: "var(--color-text-secondary)", fontSize: "0.78rem" }}>
+                  {source.teacher_name ? `Instructor: ${source.teacher_name}` : ""}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function StudentAiAssistant() {
@@ -283,246 +455,170 @@ export default function StudentAiAssistant() {
           </div>
         )}
 
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`chat-bubble-row ${message.role === "user" ? "chat-row-user" : ""}`}
-            >
-              {message.role === "assistant" ? (
-                <div className="pro-chat-avatar-bot" aria-hidden="true">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-                  </svg>
-                </div>
-              ) : (
-                <Avatar name={user?.name || "You"} size={32} />
-              )}
-
-              <div
-                className={
-                  message.role === "user"
-                    ? "modern-chat-bubble-user"
-                    : message.isError
-                      ? "chat-bubble-error"
-                      : "modern-chat-bubble-bot"
-                }
-                role={message.isError ? "alert" : undefined}
-              >
-                {message.role === "assistant" && !message.isError && (
-                  <div className="pro-chat-bot-header">
-                    <div className="pro-chat-bot-identity">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-                      </svg>
-                      <span>AI Assistant</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="modern-chat-copy-btn"
-                      onClick={() => handleCopy(message.id, message.text)}
-                      title="Copy response"
-                    >
-                      {copiedId === message.id ? (
-                        <>
-                          <span style={{ color: "var(--color-success)", fontWeight: 700 }}>✓</span>
-                          <span style={{ color: "var(--color-success)", fontWeight: 600 }}>Copied</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                          </svg>
-                          <span>Copy</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-
-                <div className="modern-chat-bubble-text">{message.text}</div>
-
-                {message.sources && message.sources.length > 0 && (
-                  <div className="modern-chat-sources-panel">
-                    <div className="modern-chat-sources-header">
-                      <span>📚</span>
-                      <span>Academic Sources & Citations</span>
-                    </div>
-                    {message.sources.map((source, index) => {
-                      if (source.type === "remark") {
-                        return (
-                          <div className="modern-chat-source-item" key={`remark-${source.remark_id}-${index}`}>
-                            <span style={{
-                              display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px",
-                              borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, backgroundColor: "var(--color-purple-bg)",
-                              color: "var(--color-purple-text)", border: "1px solid var(--color-purple-border)",
-                            }}>
-                              👨‍🏫 Teacher Remark
-                            </span>
-                            <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{source.course_name}</span>
-                            <span style={{ color: "var(--color-text-secondary)", fontSize: "0.78rem" }}>by {source.teacher_name}</span>
-                            <span style={{ marginLeft: "auto", color: "var(--color-text-secondary)", fontSize: "0.76rem" }}>
-                              {formatSourceDate(source.created_at)}
-                            </span>
-                          </div>
-                        );
-                      }
-                      if (source.type === "attendance") {
-                        return (
-                          <div className="modern-chat-source-item" key={`attendance-${source.course_name}-${index}`}>
-                            <span style={{
-                              display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px",
-                              borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, backgroundColor: "var(--color-success-bg)",
-                              color: "var(--color-success-text)", border: "1px solid var(--color-success-border)",
-                            }}>
-                              📊 Attendance Record
-                            </span>
-                            <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{source.course_name}</span>
-                            <span style={{ marginLeft: "auto", color: "var(--color-text-secondary)", fontSize: "0.78rem", fontWeight: 500 }}>
-                              {source.detail}
-                            </span>
-                          </div>
-                        );
-                      }
-                      if (source.type === "assignment") {
-                        const style = ASSIGNMENT_STATUS_BADGE_STYLE[source.status] || ASSIGNMENT_STATUS_BADGE_STYLE.pending;
-                        return (
-                          <div className="modern-chat-source-item" key={`assignment-${source.title}-${index}`}>
-                            <span style={{
-                              display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px",
-                              borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, backgroundColor: style.bg,
-                              color: style.color, border: `1px solid ${style.border}`,
-                            }}>
-                              📄 {ASSIGNMENT_STATUS_LABEL[source.status] || source.status}
-                            </span>
-                            <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>
-                              {source.title}
-                              {source.attachment_available ? " 📎" : ""}
-                            </span>
-                            <span style={{ marginLeft: "auto", color: "var(--color-text-secondary)", fontSize: "0.76rem" }}>
-                              {source.course_name}
-                            </span>
-                          </div>
-                        );
-                      }
-                      return (
-                        <div className="modern-chat-source-item" key={`course-${source.course_code}-${index}`}>
-                          <span style={{
-                            display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px",
-                            borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, backgroundColor: "var(--color-info-bg)",
-                            color: "var(--color-info-text)", border: "1px solid var(--color-info-border)",
-                          }}>
-                            🎓 Course
-                          </span>
-                          <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>{source.course_name}</span>
-                          <span style={{ marginLeft: "auto", color: "var(--color-text-secondary)", fontSize: "0.78rem" }}>
-                            {source.teacher_name ? `Instructor: ${source.teacher_name}` : ""}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {asking && (
-            <div className="chat-bubble-row" role="status" aria-live="polite" aria-label="Assistant is thinking">
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={`chat-bubble-row ${message.role === "user" ? "chat-row-user" : ""}`}
+          >
+            {message.role === "assistant" ? (
               <div className="pro-chat-avatar-bot" aria-hidden="true">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
                 </svg>
               </div>
-              <div className="pro-ai-thinking-card">
-                <span className="chat-typing">
-                  <span></span><span></span><span></span>
-                </span>
-                <span className="pro-ai-thinking-text">
-                  Synthesizing your academic records...
-                </span>
-              </div>
-            </div>
-          )}
+            ) : (
+              <Avatar name={user?.name || "You"} size={32} />
+            )}
 
-          <div ref={messagesEndRef} />
-        </div>
-
-        <div className="pro-ai-input-container">
-          <div className="pro-ai-quick-chips">
-            <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", marginRight: "2px" }}>
-              Quick topics:
-            </span>
-            {QUICK_TOPICS.map((topic) => (
-              <button
-                key={topic.label}
-                type="button"
-                className="pro-ai-quick-chip"
-                onClick={() => sendQuestion(topic.prompt)}
-                disabled={asking}
-              >
-                <span>{topic.label}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="pro-ai-prompt-box">
-            <textarea
-              id="ai-assistant-question"
-              className="pro-ai-textarea"
-              value={question}
-              onChange={(e) => {
-                setQuestion(e.target.value);
-                if (validationError) setValidationError(null);
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask anything about your courses, attendance, assignments, or teacher feedback..."
-              rows={2}
-              maxLength={MAX_QUESTION_LENGTH}
-              disabled={asking}
-              aria-invalid={!!validationError}
-              aria-describedby={validationError ? "ai-assistant-question-error" : undefined}
-            />
-
-            <div className="pro-ai-prompt-bottom">
-              <div className="pro-ai-prompt-hint">
-                <span>↵ Enter to send</span>
-                <span style={{ margin: "0 4px", opacity: 0.5 }}>·</span>
-                <span>Shift+↵ new line</span>
-              </div>
-
-              <button
-                type="button"
-                className="pro-ai-send-button"
-                onClick={handleAsk}
-                disabled={asking || !question.trim()}
-                aria-busy={asking}
-                aria-label="Send question"
-              >
-                {asking ? (
-                  <>
-                    <span className="ai-check-spinner" style={{ borderColor: "rgba(255,255,255,0.3)", borderTopColor: "var(--color-surface)" }} />
-                    <span>Thinking...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Ask AI</span>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="12" y1="19" x2="12" y2="5" />
-                      <polyline points="5 12 12 5 19 12" />
+            <div
+              className={
+                message.role === "user"
+                  ? "modern-chat-bubble-user"
+                  : message.isError
+                    ? "chat-bubble-error"
+                    : "modern-chat-bubble-bot"
+              }
+              role={message.isError ? "alert" : undefined}
+            >
+              {message.role === "assistant" && !message.isError && (
+                <div className="pro-chat-bot-header">
+                  <div className="pro-chat-bot-identity">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
                     </svg>
-                  </>
-                )}
-              </button>
+                    <span>AI Assistant</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="modern-chat-copy-btn"
+                    onClick={() => handleCopy(message.id, message.text)}
+                    title="Copy response"
+                  >
+                    {copiedId === message.id ? (
+                      <>
+                        <span style={{ color: "var(--color-success)", fontWeight: 700 }}>✓</span>
+                        <span style={{ color: "var(--color-success)", fontWeight: 600 }}>Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              <div className="modern-chat-bubble-text">
+                {message.role === "assistant" && !message.isError ? renderMarkdown(message.text) : message.text}
+              </div>
+
+              {message.sources && message.sources.length > 0 && (
+                <CollapsibleSources sources={message.sources} />
+              )}
             </div>
           </div>
+        ))}
 
-          {validationError && (
-            <p id="ai-assistant-question-error" role="alert" style={{ color: "var(--color-danger)", fontSize: "0.82rem", margin: "2px 0 0 8px" }}>
-              {validationError}
-            </p>
-          )}
-        </div>
+        {asking && (
+          <div className="chat-bubble-row" role="status" aria-live="polite" aria-label="Assistant is thinking">
+            <div className="pro-chat-avatar-bot" aria-hidden="true">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+              </svg>
+            </div>
+            <div className="pro-ai-thinking-card">
+              <span className="chat-typing">
+                <span></span><span></span><span></span>
+              </span>
+              <span className="pro-ai-thinking-text">
+                Synthesizing your academic records...
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
       </div>
+
+      <div className="pro-ai-input-container">
+        <div className="pro-ai-quick-chips">
+          <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", marginRight: "2px" }}>
+            Quick topics:
+          </span>
+          {QUICK_TOPICS.map((topic) => (
+            <button
+              key={topic.label}
+              type="button"
+              className="pro-ai-quick-chip"
+              onClick={() => sendQuestion(topic.prompt)}
+              disabled={asking}
+            >
+              <span>{topic.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="pro-ai-prompt-box">
+          <textarea
+            id="ai-assistant-question"
+            className="pro-ai-textarea"
+            value={question}
+            onChange={(e) => {
+              setQuestion(e.target.value);
+              if (validationError) setValidationError(null);
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask anything about your courses, attendance, assignments, or teacher feedback..."
+            rows={2}
+            maxLength={MAX_QUESTION_LENGTH}
+            disabled={asking}
+            aria-invalid={!!validationError}
+            aria-describedby={validationError ? "ai-assistant-question-error" : undefined}
+          />
+
+          <div className="pro-ai-prompt-bottom">
+            <div className="pro-ai-prompt-hint">
+              <span>↵ Enter to send</span>
+              <span style={{ margin: "0 4px", opacity: 0.5 }}>·</span>
+              <span>Shift+↵ new line</span>
+            </div>
+
+            <button
+              type="button"
+              className="pro-ai-send-button"
+              onClick={handleAsk}
+              disabled={asking || !question.trim()}
+              aria-busy={asking}
+              aria-label="Send question"
+            >
+              {asking ? (
+                <>
+                  <span className="ai-check-spinner" style={{ borderColor: "rgba(255,255,255,0.3)", borderTopColor: "var(--color-surface)" }} />
+                  <span>Thinking...</span>
+                </>
+              ) : (
+                <>
+                  <span>Ask AI</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="19" x2="12" y2="5" />
+                    <polyline points="5 12 12 5 19 12" />
+                  </svg>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {validationError && (
+          <p id="ai-assistant-question-error" role="alert" style={{ color: "var(--color-danger)", fontSize: "0.82rem", margin: "2px 0 0 8px" }}>
+            {validationError}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
