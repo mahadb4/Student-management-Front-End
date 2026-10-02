@@ -1,13 +1,21 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { ToastProvider } from "./context/ToastContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import PendingApproval from "./pages/auth/PendingApproval";
+import Onboarding from "./pages/auth/Onboarding";
+import AcademicReview from "./pages/auth/AcademicReview";
+
+// Layout
+import DashboardLayout from "./components/layout/DashboardLayout";
 
 // Admin
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import Students from "./pages/admin/Students";
 import Teachers from "./pages/admin/Teachers";
 import Departments from "./pages/admin/Departments";
+import Sections from "./pages/admin/Sections";
 import AdminCourses from "./pages/admin/Courses";
 import CourseOfferings from "./pages/admin/CourseOfferings";
 import Enrollments from "./pages/admin/Enrollments";
@@ -20,13 +28,18 @@ import Permissions from "./pages/admin/Permissions";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import StudentCourses from "./pages/student/Courses";
 import StudentAttendance from "./pages/student/Attendance";
+import StudentRemarks from "./pages/student/Remarks";
+import StudentAssignments from "./pages/student/Assignments";
+import StudentAiAssistant from "./pages/student/AiAssistant";
 import StudentProfile from "./pages/student/Profile";
 
 // Teacher
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
 import TeacherCourses from "./pages/teacher/Courses";
-import TeacherStudents from "./pages/teacher/Students";
 import TeacherAttendance from "./pages/teacher/Attendance";
+import TeacherClassAssignments from "./pages/teacher/ClassAssignments";
+import TeacherClassStudents from "./pages/teacher/ClassStudents";
+import TeacherProfile from "./pages/teacher/Profile";
 
 // Staff
 import StaffDashboard from "./pages/staff/StaffDashboard";
@@ -34,7 +47,28 @@ import StaffDashboard from "./pages/staff/StaffDashboard";
 import { getCurrentUser, isAuthenticated } from "./services/auth";
 import type { UserRole } from "./types/user";
 
-// ── Route guard ──────────────────────────────────────────────────────────────
+// Roles whose account isn't usable until they've completed their own
+// Student/Teacher profile via /onboarding. admin/staff have no profile
+// entity, so they're never gated here.
+const ROLE_NEEDS_PROFILE: Partial<Record<UserRole, boolean>> = {
+  student: true,
+  teacher: true,
+};
+
+function hasCompletedOnboarding(user: ReturnType<typeof getCurrentUser>): boolean {
+  if (!user) return false;
+  if (user.role === "student") return !!user.student_id;
+  if (user.role === "teacher") return !!user.teacher_id;
+  return true;
+}
+
+// A student who's completed onboarding still can't reach the dashboard
+// until an admin confirms their academic placement (Department + Section).
+function needsAcademicReview(user: ReturnType<typeof getCurrentUser>): boolean {
+  if (!user) return false;
+  return user.role === "student" && !!user.academic_review_pending;
+}
+
 function ProtectedRoute({
   children,
   allowedRole,
@@ -62,51 +96,79 @@ function ProtectedRoute({
     return <Navigate to={dashboardMap[user.role]} replace />;
   }
 
+  if (ROLE_NEEDS_PROFILE[user.role] && !hasCompletedOnboarding(user)) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  if (needsAcademicReview(user)) {
+    return <Navigate to="/academic-review" replace />;
+  }
+
   return <>{children}</>;
 }
-// ─────────────────────────────────────────────────────────────────────────────
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/pending-approval" element={<PendingApproval />} />
+    <ThemeProvider>
+      <ToastProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/pending-approval" element={<PendingApproval />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/academic-review" element={<AcademicReview />} />
 
-        {/* Admin routes */}
-        <Route path="/admin" element={<ProtectedRoute allowedRole="admin"><AdminDashboard /></ProtectedRoute>} />
-        <Route path="/admin/students" element={<ProtectedRoute allowedRole="admin"><Students /></ProtectedRoute>} />
-        <Route path="/admin/teachers" element={<ProtectedRoute allowedRole="admin"><Teachers /></ProtectedRoute>} />
-        <Route path="/admin/departments" element={<ProtectedRoute allowedRole="admin"><Departments /></ProtectedRoute>} />
-        <Route path="/admin/courses" element={<ProtectedRoute allowedRole="admin"><AdminCourses /></ProtectedRoute>} />
-        <Route path="/admin/course-offerings" element={<ProtectedRoute allowedRole="admin"><CourseOfferings /></ProtectedRoute>} />
-        <Route path="/admin/enrollments" element={<ProtectedRoute allowedRole="admin"><Enrollments /></ProtectedRoute>} />
-        <Route path="/admin/attendance" element={<ProtectedRoute allowedRole="admin"><AdminAttendance /></ProtectedRoute>} />
-        <Route path="/admin/staff" element={<ProtectedRoute allowedRole="admin"><Staff /></ProtectedRoute>} />
-        <Route path="/admin/approvals" element={<ProtectedRoute allowedRole="admin"><PendingApprovals /></ProtectedRoute>} />
-        <Route path="/admin/permissions" element={<ProtectedRoute allowedRole="admin"><Permissions /></ProtectedRoute>} />
+            {/* Admin routes */}
+            <Route path="/admin" element={<ProtectedRoute allowedRole="admin"><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="students" element={<Students />} />
+              <Route path="teachers" element={<Teachers />} />
+              <Route path="departments" element={<Departments />} />
+              <Route path="sections" element={<Sections />} />
+              <Route path="courses" element={<AdminCourses />} />
+              <Route path="course-offerings" element={<CourseOfferings />} />
+              <Route path="enrollments" element={<Enrollments />} />
+              <Route path="attendance" element={<AdminAttendance />} />
+              <Route path="staff" element={<Staff />} />
+              <Route path="approvals" element={<PendingApprovals />} />
+              <Route path="permissions" element={<Permissions />} />
+            </Route>
 
-        {/* Student routes */}
-        <Route path="/student" element={<ProtectedRoute allowedRole="student"><StudentDashboard /></ProtectedRoute>} />
-        <Route path="/student/courses" element={<ProtectedRoute allowedRole="student"><StudentCourses /></ProtectedRoute>} />
-        <Route path="/student/attendance" element={<ProtectedRoute allowedRole="student"><StudentAttendance /></ProtectedRoute>} />
-        <Route path="/student/profile" element={<ProtectedRoute allowedRole="student"><StudentProfile /></ProtectedRoute>} />
+            {/* Student routes */}
+            <Route path="/student" element={<ProtectedRoute allowedRole="student"><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<StudentDashboard />} />
+              <Route path="courses" element={<StudentCourses />} />
+              <Route path="attendance" element={<StudentAttendance />} />
+              <Route path="remarks" element={<StudentRemarks />} />
+              <Route path="assignments" element={<StudentAssignments />} />
+              <Route path="ai-assistant" element={<StudentAiAssistant />} />
+              <Route path="profile" element={<StudentProfile />} />
+            </Route>
 
-        {/* Teacher routes */}
-        <Route path="/teacher" element={<ProtectedRoute allowedRole="teacher"><TeacherDashboard /></ProtectedRoute>} />
-        <Route path="/teacher/courses" element={<ProtectedRoute allowedRole="teacher"><TeacherCourses /></ProtectedRoute>} />
-        <Route path="/teacher/students" element={<ProtectedRoute allowedRole="teacher"><TeacherStudents /></ProtectedRoute>} />
-        <Route path="/teacher/attendance" element={<ProtectedRoute allowedRole="teacher"><TeacherAttendance /></ProtectedRoute>} />
+            {/* Teacher routes */}
+            <Route path="/teacher" element={<ProtectedRoute allowedRole="teacher"><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<TeacherDashboard />} />
+              <Route path="courses" element={<TeacherCourses />} />
+              <Route path="attendance" element={<TeacherAttendance />} />
+              <Route path="assignments" element={<TeacherCourses />} />
+              <Route path="classes/:courseOfferingId/assignments" element={<TeacherClassAssignments />} />
+              <Route path="classes/:courseOfferingId/students" element={<TeacherClassStudents />} />
+              <Route path="profile" element={<TeacherProfile />} />
+            </Route>
 
-        {/* Staff routes */}
-        <Route path="/staff" element={<ProtectedRoute allowedRole="staff"><StaffDashboard /></ProtectedRoute>} />
+            {/* Staff routes */}
+            <Route path="/staff" element={<ProtectedRoute allowedRole="staff"><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<StaffDashboard />} />
+            </Route>
 
-        {/* Catch-all → Login */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+            {/* Catch-all → Login */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }
 

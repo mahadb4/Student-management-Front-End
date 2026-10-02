@@ -1,109 +1,190 @@
-import { useEffect, useState, useMemo } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
-import { teacherService, departmentService } from "../../services/entities";
+import { useEffect, useState } from "react";
+import { teacherService, getTeacherList, getDepartmentReference } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { Teacher, Department } from "../../types/user";
+import { PaginatedSelect } from "../../components/common/PaginatedSelect";
+import { Avatar } from "../../components/common/Avatar";
+import type { Teacher, TeacherListItem } from "../../types/user";
+import { useToast } from "../../context/ToastContext";
 
 export default function Teachers() {
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
+  const { showToast } = useToast();
+  const [teachers, setTeachers] = useState<TeacherListItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const [loading, setLoading] = useState(true);
-  
+  // Label for the currently-edited row's Department, shown until the
+  // paginated dropdown's own loaded page happens to include that option.
+  const [editingDeptLabel, setEditingDeptLabel] = useState<string | undefined>(undefined);
+
   const [search, setSearch] = useState("");
-  const [deptFilter, setDeptFilter] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [deptFilter, setDeptFilter] = useState<number | "">("");
+  const [ordering, setOrdering] = useState("name");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<Teacher | null>(null);
-  
-  const [formData, setFormData] = useState({ 
+  const [deleteConfirm, setDeleteConfirm] = useState<TeacherListItem | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  // Separate from the Delete ConfirmDialog: shown only when an edit flips an
+  // existing, currently-active Teacher to inactive.
+  const [pendingDeactivation, setPendingDeactivation] = useState(false);
+
+  const [formData, setFormData] = useState({
     first_name: "", last_name: "", employee_id: "", email: "", phone_number: "",
     department: "" as number | "", designation: "", qualification: "", gender: "M",
-    date_of_birth: "", date_of_joining: "", salary: "", address: "", is_active: true 
+    date_of_birth: "", date_of_joining: "", salary: "", address: "", is_active: true
   });
 
-  const loadData = () => {
+  const loadTeachers = async (signal?: AbortSignal) => {
     setLoading(true);
-    Promise.all([
-      teacherService.getAll(),
-      departmentService.getAll()
-    ]).then(([t, d]) => {
-      setTeachers(t);
-      setDepartments(d);
-    }).catch(console.error).finally(() => setLoading(false));
+
+    try {
+      const result = await getTeacherList(currentPage,pageSize,signal,debouncedSearch,deptFilter === "" ? undefined : deptFilter,ordering);
+      setTeachers(result.results);
+      setTotalCount(result.total_count);
+    } catch (err:any) {
+      if (err.name === "AbortError") return;
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    },400);
 
-  const handleOpenModal = (teacher?: Teacher) => {
-    if (teacher) {
-      setEditingTeacher(teacher);
-      setFormData({ 
-        first_name: teacher.first_name, last_name: teacher.last_name, 
-        employee_id: teacher.employee_id, email: teacher.email, phone_number: teacher.phone_number,
-        department: teacher.department || "", designation: teacher.designation, qualification: teacher.qualification, 
-        gender: teacher.gender, date_of_birth: teacher.date_of_birth, date_of_joining: teacher.date_of_joining, 
-        salary: teacher.salary, address: teacher.address, is_active: teacher.is_active 
-      });
+    return () => clearTimeout(timer);
+  },[search]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadTeachers(controller.signal);
+
+    return () => controller.abort();
+  },[currentPage,pageSize,debouncedSearch,deptFilter,ordering]);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
+  const handleDeptFilterChange = (id: number | "") => {
+    setDeptFilter(id);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (nextOrdering: string) => {
+    setOrdering(nextOrdering);
+    setCurrentPage(1);
+  };
+
+  // The Teachers list only carries the narrow TeacherListItem projection, so editing
+  // fetches the full Teacher record (detail endpoint, unchanged) to populate the form.
+  const handleOpenModal = async (row?: TeacherListItem) => {
+    if (row) {
+      try {
+        const teacher = await teacherService.getById(row.id);
+        setEditingTeacher(teacher);
+        setEditingDeptLabel(row.department_name || undefined);
+        setFormData({
+          first_name: teacher.first_name, last_name: teacher.last_name,
+          employee_id: teacher.employee_id, email: teacher.email, phone_number: teacher.phone_number,
+          department: teacher.department || "", designation: teacher.designation, qualification: teacher.qualification,
+          gender: teacher.gender, date_of_birth: teacher.date_of_birth, date_of_joining: teacher.date_of_joining,
+          salary: teacher.salary, address: teacher.address, is_active: teacher.is_active
+        });
+      } catch (error) {
+        console.error(error);
+        showToast(error instanceof Error ? error.message : "Failed to load teacher.", "error");
+        return;
+      }
     } else {
       setEditingTeacher(null);
-      setFormData({ 
+      setEditingDeptLabel(undefined);
+      setFormData({
         first_name: "", last_name: "", employee_id: "", email: "", phone_number: "",
         department: "", designation: "", qualification: "", gender: "M",
-        date_of_birth: "", date_of_joining: "", salary: "", address: "", is_active: true 
+        date_of_birth: "", date_of_joining: "", salary: "", address: "", is_active: true
       });
     }
+
     setIsModalOpen(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    if (formData.department === "") {
+      showToast("Please select a department.", "error");
+      return;
+    }
+
+    if (editingTeacher && editingTeacher.is_active && !formData.is_active) {
+      setPendingDeactivation(true);
+      return;
+    }
+
+    await saveTeacher();
+  };
+
+  const saveTeacher = async () => {
+    setIsSubmitting(true);
     try {
       const payload = {
         ...formData,
         department: formData.department === "" ? null : Number(formData.department),
       };
-      
+
       if (editingTeacher) {
         await teacherService.update(editingTeacher.id, payload);
+        showToast("Teacher updated successfully.", "success");
       } else {
         await teacherService.create(payload);
+        showToast("Teacher created successfully.", "success");
       }
+      setPendingDeactivation(false);
       setIsModalOpen(false);
-      loadData();
+      loadTeachers();
     } catch (error) {
       console.error(error);
-      alert("Failed to save teacher.");
+      showToast(error instanceof Error ? error.message : "Failed to save teacher.", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm || isDeleting) return;
+    setIsDeleting(true);
     try {
       await teacherService.remove(deleteConfirm.id);
       setDeleteConfirm(null);
-      loadData();
+      showToast("Teacher deleted successfully.", "success");
+      loadTeachers();
     } catch (error) {
       console.error(error);
-      alert("Failed to delete teacher.");
+      showToast("Failed to delete teacher.", "error");
+      setDeleteConfirm(null);
+      loadTeachers();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  const filteredTeachers = useMemo(() => {
-    return teachers.filter(t => {
-      const matchSearch = (t.first_name + " " + t.last_name).toLowerCase().includes(search.toLowerCase()) || 
-                          t.email.toLowerCase().includes(search.toLowerCase());
-      const matchDept = deptFilter ? t.department?.toString() === deptFilter : true;
-      return matchSearch && matchDept;
-    });
-  }, [teachers, search, deptFilter]);
-
   return (
-    <DashboardLayout title="Manage Teachers">
+    <>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
           <h2>Teachers</h2>
@@ -114,44 +195,66 @@ export default function Teachers() {
         </button>
       </div>
 
-      <div className="content-card" style={{ marginBottom: "24px", padding: "16px" }}>
+      <div className="content-card" style={{ marginBottom: "24px", padding: "16px", overflow: "visible" }}>
         <div style={{ display: "flex", gap: "16px" }}>
-          <input 
-            type="text" 
-            placeholder="Search by name or email..." 
-            className="form-control" 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
+          <input
+            type="text"
+            placeholder="Search by name or email..."
+            className="form-control"
+            value={search}
+            onChange={e => handleSearchChange(e.target.value)}
           />
-          <select className="form-control" value={deptFilter} onChange={e => setDeptFilter(e.target.value)} style={{ maxWidth: "250px" }}>
-            <option value="">All Departments</option>
-            {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
+          <div style={{ maxWidth: "250px", width: "100%" }}>
+            <PaginatedSelect
+              fetchPage={(page, pageSize, signal, search) => getDepartmentReference(page, pageSize, signal, search)}
+              getId={d => d.id}
+              getLabel={d => d.name}
+              value={deptFilter}
+              onChange={id => handleDeptFilterChange(id)}
+              onClear={() => handleDeptFilterChange("")}
+              clearLabel="All Departments"
+              placeholder="All Departments"
+              serverSearch
+            />
+          </div>
         </div>
       </div>
 
       <div className="content-card">
-        <EntityTable<Teacher>
-          data={filteredTeachers}
+        <EntityTable<TeacherListItem>
+          data={teachers}
           loading={loading}
           resourceName="teachers"
           columns={[
+            {
+              key: "profile_picture_url",
+              label: "",
+              render: t => <Avatar src={t.profile_picture_url} name={t.name} size={32} />
+            },
             { key: "employee_id", label: "Emp ID" },
-            { 
-              key: "name", 
+            {
+              key: "name",
               label: "Name",
-              render: (t) => `${t.first_name} ${t.last_name}`
+              render: (t) => t.name,
+              sortKey: "name"
             },
             { key: "email", label: "Email" },
-            { 
-              key: "department", 
+            {
+              key: "department",
               label: "Department",
-              render: (t) => departments.find(d => d.id === t.department)?.name || "-"
+              render: (t) => t.department_name || "-"
             },
             { key: "designation", label: "Designation" }
           ]}
           onEdit={handleOpenModal}
           onDelete={setDeleteConfirm}
+          totalCount={totalCount}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={handlePageSizeChange}
+          ordering={ordering}
+          onSortChange={handleSortChange}
         />
       </div>
 
@@ -180,10 +283,16 @@ export default function Teachers() {
             </div>
             <div className="form-group">
               <label className="form-label">Department</label>
-              <select required className="form-control" value={formData.department} onChange={(e) => setFormData({...formData, department: Number(e.target.value)})}>
-                <option value="">-- Select Department --</option>
-                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              <PaginatedSelect
+                fetchPage={(page, pageSize, signal, search) => getDepartmentReference(page, pageSize, signal, search)}
+                getId={d => d.id}
+                getLabel={d => d.name}
+                value={formData.department}
+                onChange={id => setFormData({...formData, department: id})}
+                selectedLabel={editingDeptLabel}
+                placeholder="-- Select Department --"
+                serverSearch
+              />
             </div>
             <div className="form-group">
               <label className="form-label">Designation</label>
@@ -213,15 +322,20 @@ export default function Teachers() {
               <input required type="number" step="0.01" className="form-control" value={formData.salary} onChange={(e) => setFormData({...formData, salary: e.target.value})} />
             </div>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Address</label>
             <textarea className="form-control" rows={2} value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})}></textarea>
           </div>
-          
+
+          <div className="form-group" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <input type="checkbox" checked={formData.is_active} onChange={(e) => setFormData({...formData, is_active: e.target.checked})} />
+            <label style={{ margin: 0 }}>Active</label>
+          </div>
+
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px" }}>
             <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline">Cancel</button>
-            <button type="submit" className="btn btn-primary">Save</button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save"}</button>
           </div>
         </form>
       </Modal>
@@ -229,10 +343,23 @@ export default function Teachers() {
       <ConfirmDialog
         isOpen={!!deleteConfirm}
         title="Delete Teacher"
-        message={`Are you sure you want to delete ${deleteConfirm?.first_name} ${deleteConfirm?.last_name}?`}
+        message={`Are you sure you want to delete ${deleteConfirm?.name}?`}
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
+        confirmDisabled={isDeleting}
       />
-    </DashboardLayout>
+
+      <ConfirmDialog
+        isOpen={pendingDeactivation}
+        title="Deactivate Teacher"
+        message="Deactivating this teacher will make them unavailable for new Course Offering assignments. Existing offerings, enrollments, and attendance records are not affected. Continue?"
+        onConfirm={saveTeacher}
+        onCancel={() => setPendingDeactivation(false)}
+        variant="warning"
+        confirmDisabled={isSubmitting}
+        confirmLabel="Deactivate"
+        pendingLabel="Deactivating..."
+      />
+    </>
   );
 }

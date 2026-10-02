@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
-import { apiRequest } from "../../services/api";
-import { getAccessToken } from "../../services/auth";
+import { getUsers } from "../../services/auth";
 import type { User } from "../../types/user";
 
 export default function Permissions() {
@@ -9,22 +7,26 @@ export default function Permissions() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchUsers = async () => {
       try {
-        const token = getAccessToken();
-        const data = await apiRequest<User[]>("/users/", { method: "GET", token: token || undefined });
+        const data = await getUsers(controller.signal);
         setUsers(data);
-      } catch (err) {
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
         console.error("Failed to load users", err);
       } finally {
         setLoading(false);
       }
     };
     fetchUsers();
+    
+    return () => controller.abort();
   }, []);
 
   return (
-    <DashboardLayout title="Role Permissions">
+    <>
       <div className="page-header">
         <h2>System Permissions</h2>
         <p>Manage access controls across the platform</p>
@@ -68,10 +70,7 @@ export default function Permissions() {
                     <td>{u.email}</td>
                     <td><span className={`badge ${u.role === 'admin' ? 'badge-warning' : 'badge-success'}`} style={{textTransform:"capitalize"}}>{u.role}</span></td>
                     <td>
-                      {u.permissions && u.permissions.length > 0 
-                        ? <code style={{ fontSize: "0.75rem", background: "var(--color-background)", padding: "4px" }}>{JSON.stringify(u.permissions)}</code>
-                        : <span style={{ color: "var(--color-text-secondary)", fontSize: "0.875rem" }}>[Empty] - Default Role Access</span>
-                      }
+                      <span style={{ color: "var(--color-text-secondary)", fontSize: "0.875rem" }}>Default Role Access</span>
                     </td>
                     <td>
                       <button disabled className="btn btn-outline" style={{ opacity: 0.5, cursor: "not-allowed" }}>
@@ -85,6 +84,6 @@ export default function Permissions() {
           </table>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 }

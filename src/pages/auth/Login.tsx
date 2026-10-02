@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { loginUser } from "../../services/auth";
+import ThemeToggle from "../../components/common/ThemeToggle";
 import "../styles/Auth.css";
 
 const loginSchema = z.object({
@@ -69,6 +70,7 @@ function Login() {
   return (
     <div className="auth-container">
       <div className="auth-background"></div>
+      <ThemeToggle className="theme-toggle-corner" />
 
       <div className="auth-wrapper">
         <div className="auth-card">

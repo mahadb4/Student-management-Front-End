@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { registerUser, type RegisterCredentials } from "../../services/auth";
 import type { User } from "../../types/user";
+import ThemeToggle from "../../components/common/ThemeToggle";
 import "../styles/Auth.css";
 
 // Validation schema
@@ -88,6 +89,7 @@ function Register() {
   return (
     <div className="auth-container">
       <div className="auth-background"></div>
+      <ThemeToggle className="theme-toggle-corner" />
 
       <div className="auth-wrapper">
         <div className="auth-card">

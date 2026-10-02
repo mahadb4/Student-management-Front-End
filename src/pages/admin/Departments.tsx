@@ -1,33 +1,78 @@
 import { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
 import { departmentService } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import type { Department } from "../../types/user";
+import { useToast } from "../../context/ToastContext";
 
 export default function Departments() {
+  const { showToast } = useToast();
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
-  
+
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [ordering, setOrdering] = useState("name");
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   
   const [deleteConfirm, setDeleteConfirm] = useState<Department | null>(null);
-  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  // Separate from the Delete ConfirmDialog: shown only when an edit flips an
+  // existing, currently-active Department to inactive (never on create, never
+  // when it's already inactive, never when reactivating).
+  const [pendingDeactivation, setPendingDeactivation] = useState(false);
+
   const [formData, setFormData] = useState({ name: "", code: "", description: "", is_active: true });
 
-  const loadData = () => {
+  const loadData = (signal?: AbortSignal) => {
     setLoading(true);
-    departmentService.getAll()
-      .then(setDepartments)
-      .catch(console.error)
+    departmentService.getList(currentPage, pageSize, signal, debouncedSearch, ordering)
+      .then(res => {
+        setDepartments(res.results);
+        setTotalCount(res.total_count);
+      })
+      .catch(err => {
+        if (err.name === 'AbortError') return;
+        console.error(err);
+      })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    },400);
+
+    return () => clearTimeout(timer);
+  },[search]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadData(controller.signal);
+    return () => controller.abort();
+  }, [currentPage,pageSize,debouncedSearch,ordering]);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (nextOrdering: string) => {
+    setOrdering(nextOrdering);
+    setCurrentPage(1);
+  };
 
   const handleOpenModal = (dept?: Department) => {
     if (dept) {
@@ -42,34 +87,57 @@ export default function Departments() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    if (editingDept && editingDept.is_active && !formData.is_active) {
+      setPendingDeactivation(true);
+      return;
+    }
+
+    await saveDepartment();
+  };
+
+  const saveDepartment = async () => {
+    setIsSubmitting(true);
     try {
       if (editingDept) {
         await departmentService.update(editingDept.id, formData);
+        showToast("Department updated successfully.", "success");
       } else {
         await departmentService.create(formData);
+        showToast("Department created successfully.", "success");
       }
+      setPendingDeactivation(false);
       setIsModalOpen(false);
       loadData();
     } catch (error) {
       console.error(error);
-      alert("Failed to save department.");
+      showToast(error instanceof Error ? error.message : "Failed to save department.", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm || isDeleting) return;
+    setIsDeleting(true);
     try {
       await departmentService.remove(deleteConfirm.id);
       setDeleteConfirm(null);
+      showToast("Department deleted successfully.", "success");
       loadData();
     } catch (error) {
       console.error(error);
-      alert("Failed to delete department.");
+      showToast("Failed to delete department.", "error");
+      setDeleteConfirm(null);
+      loadData();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   return (
-    <DashboardLayout title="Manage Departments">
+    <>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h2>Departments</h2>
@@ -80,23 +148,40 @@ export default function Departments() {
         </button>
       </div>
 
+      <div className="content-card" style={{ marginBottom: "24px", padding: "16px" }}>
+        <input
+          type="text"
+          placeholder="Search by name or code..."
+          className="form-control"
+          value={search}
+          onChange={e => handleSearchChange(e.target.value)}
+        />
+      </div>
+
       <div className="content-card">
         <EntityTable<Department>
           data={departments}
           loading={loading}
           resourceName="departments"
           columns={[
-            { key: "name", label: "Name" },
+            { key: "name", label: "Name", sortKey: "name" },
             { key: "code", label: "Code" },
             { key: "description", label: "Description" },
-            { 
-              key: "is_active", 
+            {
+              key: "is_active",
               label: "Status",
               render: (d) => <span className={`badge ${d.is_active ? 'badge-success' : 'badge-warning'}`}>{d.is_active ? 'Active' : 'Inactive'}</span>
             }
           ]}
           onEdit={handleOpenModal}
           onDelete={setDeleteConfirm}
+          totalCount={totalCount}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={handlePageSizeChange}
+          ordering={ordering}
+          onSortChange={handleSortChange}
         />
       </div>
 
@@ -120,7 +205,7 @@ export default function Departments() {
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px" }}>
             <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline">Cancel</button>
-            <button type="submit" className="btn btn-primary">Save</button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save"}</button>
           </div>
         </form>
       </Modal>
@@ -131,7 +216,20 @@ export default function Departments() {
         message={`Are you sure you want to delete ${deleteConfirm?.name}? This action cannot be undone.`}
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
+        confirmDisabled={isDeleting}
       />
-    </DashboardLayout>
+
+      <ConfirmDialog
+        isOpen={pendingDeactivation}
+        title="Deactivate Department"
+        message={`Deactivating "${formData.name}" will make it unavailable for new Student, Teacher, Course, and Section assignments. Existing records already linked to it are not affected. Continue?`}
+        onConfirm={saveDepartment}
+        onCancel={() => setPendingDeactivation(false)}
+        variant="warning"
+        confirmDisabled={isSubmitting}
+        confirmLabel="Deactivate"
+        pendingLabel="Deactivating..."
+      />
+    </>
   );
 }

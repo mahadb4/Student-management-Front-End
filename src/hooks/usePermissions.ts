@@ -5,18 +5,16 @@ export function usePermissions() {
   const user = getCurrentUser();
 
   const role = user?.role as UserRole | undefined;
-  const permissions = user?.permissions || [];
 
   const isAdmin = role === "admin";
   const isStudent = role === "student";
   const isTeacher = role === "teacher";
   const isStaff = role === "staff";
 
-  // Admins always have all permissions.
-  // Others check their permissions array.
-  const hasPermission = (permission: Permission): boolean => {
-    if (isAdmin) return true;
-    return permissions.includes(permission);
+  // Admins always have all permissions; no other role has frontend-gated
+  // permissions currently, so anything else is denied.
+  const hasPermission = (_permission: Permission): boolean => {
+    return isAdmin;
   };
 
   // Helper for resource-level CRUD checks
@@ -31,7 +29,6 @@ export function usePermissions() {
     isStudent,
     isTeacher,
     isStaff,
-    permissions,
     hasPermission,
     canRead,
     canCreate,

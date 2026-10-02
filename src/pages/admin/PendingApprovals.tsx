@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
 import { getPendingUsers, approveUser, rejectUser } from "../../services/auth";
 import type { User } from "../../types/user";
 
@@ -9,14 +8,15 @@ function PendingApprovals() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPending = async () => {
+  const fetchPending = async (signal?: AbortSignal) => {
     try {
       setLoading(true);
       setError(null);
-      const users = await getPendingUsers();
+      const users = await getPendingUsers(signal);
       setPendingUsers(users);
-    } catch (error) {
-      console.error("Failed to fetch pending users:", error);
+    } catch (err: any) {
+      if (err.name === 'AbortError') return;
+      console.error("Failed to fetch pending users:", err);
       setError("Failed to load pending approval requests.");
     } finally {
       setLoading(false);
@@ -24,7 +24,9 @@ function PendingApprovals() {
   };
 
   useEffect(() => {
-    fetchPending();
+    const controller = new AbortController();
+    fetchPending(controller.signal);
+    return () => controller.abort();
   }, []);
 
   const handleApprove = async (id: string) => {
@@ -62,7 +64,7 @@ function PendingApprovals() {
   };
 
   return (
-    <DashboardLayout title="Pending Approvals">
+    <>
       <div className="page-header">
         <h2>Registration Approvals</h2>
         <p>Review and approve new user accounts</p>
@@ -124,9 +126,9 @@ function PendingApprovals() {
                         <button
                           className="btn btn-success"
                           onClick={() => handleApprove(user.id.toString())}
-                          disabled={actionLoading === user.id}
+                          disabled={actionLoading === user.id.toString()}
                         >
-                          {actionLoading === user.id
+                          {actionLoading === user.id.toString()
                             ? "Processing..."
                             : "Approve"}
                         </button>
@@ -134,9 +136,9 @@ function PendingApprovals() {
                         <button
                           className="btn btn-danger"
                           onClick={() => handleReject(user.id.toString())}
-                          disabled={actionLoading === user.id}
+                          disabled={actionLoading === user.id.toString()}
                         >
-                          {actionLoading === user.id
+                          {actionLoading === user.id.toString()
                             ? "Processing..."
                             : "Reject"}
                         </button>
@@ -149,7 +151,7 @@ function PendingApprovals() {
           </table>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 }
 

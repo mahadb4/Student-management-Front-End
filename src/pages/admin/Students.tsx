@@ -1,233 +1,557 @@
-import { useEffect, useState, useMemo } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
-import { studentService, departmentService, teacherService } from "../../services/entities";
+import { useEffect, useState } from "react";
+import { studentService, getStudentList, getDepartmentReference, getSectionReference, getCourseOfferingClassAssignmentList, enrollmentService } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { Student, Department, Teacher } from "../../types/user";
+import { PaginatedSelect } from "../../components/common/PaginatedSelect";
+import { Avatar } from "../../components/common/Avatar";
+import type { Student, StudentListItem } from "../../types/user";
+import { useToast } from "../../context/ToastContext";
 
 export default function Students() {
-  const [students, setStudents] = useState<Student[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const { showToast } = useToast();
+  const [students, setStudents] = useState<StudentListItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const [loading, setLoading] = useState(true);
-  
+  // Labels for the currently-edited student's Department/Section, shown until
+  // the paginated dropdowns' own loaded pages happen to include them.
+  const [editingLabels, setEditingLabels] = useState<{ department?: string; section?: string }>({});
+
+  // Optional "assign to a class" shortcut, offered right in the same review
+  // flow - creates a real Enrollment (student + course_offering) via the
+  // existing Enrollments API, same as the dedicated Enrollments page. Not
+  // preloaded with the student's current enrollment (would be an extra
+  // lookup per row/open); left blank means "don't change enrollment here",
+  // same convention as Enrollments.tsx not pre-resolving section on edit.
+  const [selectedOffering, setSelectedOffering] = useState<number | "">("");
+
   const [search, setSearch] = useState("");
-  const [deptFilter, setDeptFilter] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [deptFilter, setDeptFilter] = useState<number | "">("");
+  const [placementFilter, setPlacementFilter] = useState<"" | "pending" | "confirmed">("");
+  const [ordering, setOrdering] = useState("name");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<Student | null>(null);
-  
-  const [formData, setFormData] = useState({ 
-    first_name: "", last_name: "", student_email: "", parents_phone_number: "",
-    date_of_birth: "", gender: "M", address: "", student_group: "",
-    department: "" as number | "", teacher: "" as number | "", date_of_enrollment: "", is_active: true 
+  const [deleteConfirm, setDeleteConfirm] = useState<StudentListItem | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  // Separate from the Delete ConfirmDialog: shown only when an edit flips an
+  // existing, currently-active Student to inactive.
+  const [pendingDeactivation, setPendingDeactivation] = useState(false);
+
+  const [formData, setFormData] = useState({
+    first_name:"",
+    last_name:"",
+    student_email:"",
+    parents_phone_number:"",
+    date_of_birth:"",
+    gender:"M",
+    address:"",
+    department:"" as number | "",
+    section:"" as number | "",
+    placement_confirmed:false,
+    date_of_enrollment:"",
+    is_active:true
   });
 
-  const loadData = () => {
+  const loadStudents = async (signal?: AbortSignal) => {
     setLoading(true);
-    Promise.all([
-      studentService.getAll(),
-      departmentService.getAll(),
-      teacherService.getAll()
-    ]).then(([s, d, t]) => {
-      setStudents(s);
-      setDepartments(d);
-      setTeachers(t);
-    }).catch(console.error).finally(() => setLoading(false));
+
+    try {
+      const result = await getStudentList(
+        currentPage,pageSize,signal,debouncedSearch,deptFilter === "" ? undefined : deptFilter,ordering,
+        placementFilter === "" ? undefined : placementFilter === "confirmed",
+      );
+      setStudents(result.results);
+      setTotalCount(result.total_count);
+    } catch (err:any) {
+      if (err.name === "AbortError") return;
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    },400);
 
-  const handleOpenModal = (student?: Student) => {
-    if (student) {
-      setEditingStudent(student);
-      setFormData({ 
-        first_name: student.first_name, last_name: student.last_name, 
-        student_email: student.student_email, parents_phone_number: student.parents_phone_number,
-        date_of_birth: student.date_of_birth, gender: student.gender, address: student.address,
-        student_group: student.student_group, department: student.department || "",
-        teacher: student.teacher || "", date_of_enrollment: student.date_of_enrollment, is_active: student.is_active 
-      });
+    return () => clearTimeout(timer);
+  },[search]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadStudents(controller.signal);
+
+    return () => controller.abort();
+  },[currentPage,pageSize,debouncedSearch,deptFilter,placementFilter,ordering]);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
+  const handleDeptFilterChange = (id: number | "") => {
+    setDeptFilter(id);
+    setCurrentPage(1);
+  };
+
+  const handlePlacementFilterChange = (value: "" | "pending" | "confirmed") => {
+    setPlacementFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (nextOrdering: string) => {
+    setOrdering(nextOrdering);
+    setCurrentPage(1);
+  };
+
+  const handleDepartmentChange = (department: number | "") => {
+    // Clearing/changing Department invalidates any already-selected Section,
+    // and a placement can never stay confirmed without both. The Class
+    // Assignment picker is scoped to Section, so it resets too.
+    setFormData(prev => ({ ...prev, department, section: "", placement_confirmed: false }));
+    setEditingLabels(prev => ({ ...prev, section: undefined }));
+    setSelectedOffering("");
+  };
+
+  const handleSectionChange = (section: number | "") => {
+    setFormData(prev => ({ ...prev, section, placement_confirmed: section === "" ? false : prev.placement_confirmed }));
+    setSelectedOffering("");
+  };
+
+  // The Students list only carries the narrow StudentListItem projection, so editing
+  // fetches the full Student record (detail endpoint, unchanged) to populate the form.
+  const handleOpenModal = async (row?: StudentListItem) => {
+    if (row) {
+      try {
+        const student = await studentService.getById(row.id);
+        setEditingStudent(student);
+        setEditingLabels({ department: row.department_name || undefined, section: row.section_name || undefined });
+        setFormData({
+          first_name:student.first_name,
+          last_name:student.last_name,
+          student_email:student.student_email,
+          parents_phone_number:student.parents_phone_number,
+          date_of_birth:student.date_of_birth,
+          gender:student.gender,
+          address:student.address,
+          department:student.department || "",
+          section:student.section || "",
+          placement_confirmed:student.placement_confirmed,
+          date_of_enrollment:student.date_of_enrollment,
+          is_active:student.is_active
+        });
+        setSelectedOffering("");
+      } catch (error) {
+        console.error(error);
+        showToast(error instanceof Error ? error.message : "Failed to load student.", "error");
+        return;
+      }
     } else {
       setEditingStudent(null);
-      setFormData({ 
-        first_name: "", last_name: "", student_email: "", parents_phone_number: "",
-        date_of_birth: "", gender: "M", address: "", student_group: "",
-        department: "", teacher: "", date_of_enrollment: new Date().toISOString().split('T')[0], is_active: true 
+      setEditingLabels({});
+      setFormData({
+        first_name:"",
+        last_name:"",
+        student_email:"",
+        parents_phone_number:"",
+        date_of_birth:"",
+        gender:"M",
+        address:"",
+        department:"",
+        section:"",
+        placement_confirmed:false,
+        date_of_enrollment:new Date().toISOString().split("T")[0],
+        is_active:true
       });
+      setSelectedOffering("");
     }
+
     setIsModalOpen(true);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = async (e:React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    if (editingStudent && editingStudent.is_active && !formData.is_active) {
+      setPendingDeactivation(true);
+      return;
+    }
+
+    await saveStudent();
+  };
+
+  const saveStudent = async () => {
+    setIsSubmitting(true);
+
     try {
       const payload = {
         ...formData,
-        department: formData.department === "" ? null : Number(formData.department),
-        teacher: formData.teacher === "" ? null : Number(formData.teacher),
+        department:formData.department === "" ? null : Number(formData.department),
+        section:formData.section === "" ? null : Number(formData.section)
       };
-      
+
+      let studentId = editingStudent?.id;
+
       if (editingStudent) {
-        await studentService.update(editingStudent.id, payload);
+        await studentService.update(editingStudent.id,payload);
+        showToast("Student updated successfully.", "success");
       } else {
-        await studentService.create(payload);
+        const created = await studentService.create(payload);
+        studentId = created.id;
+        showToast("Student created successfully.", "success");
       }
+
+      // Optional convenience: assigning a class right here creates a real
+      // Enrollment through the existing Enrollments API - same effect as
+      // doing it afterwards from the Enrollments page, just without leaving
+      // this review flow. Left blank, nothing enrollment-related happens.
+      if (selectedOffering !== "" && studentId !== undefined) {
+        try {
+          await enrollmentService.create({
+            student: studentId, course_offering: Number(selectedOffering), status: "ACTIVE",
+          });
+          showToast("Student enrolled in the selected class.", "success");
+        } catch (error) {
+          console.error(error);
+          showToast(error instanceof Error ? error.message : "Student saved, but enrollment failed.", "error");
+        }
+      }
+
+      setPendingDeactivation(false);
       setIsModalOpen(false);
-      loadData();
+      loadStudents();
     } catch (error) {
       console.error(error);
-      alert("Failed to save student.");
+      showToast(error instanceof Error ? error.message : "Failed to save student.", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm || isDeleting) return;
+    setIsDeleting(true);
+
     try {
       await studentService.remove(deleteConfirm.id);
       setDeleteConfirm(null);
-      loadData();
+      showToast("Student deleted successfully.", "success");
+      loadStudents();
     } catch (error) {
       console.error(error);
-      alert("Failed to delete student.");
+      showToast(error instanceof Error ? error.message : "Failed to delete student.", "error");
+      setDeleteConfirm(null);
+      loadStudents();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  const filteredStudents = useMemo(() => {
-    return students.filter(s => {
-      const matchSearch = (s.first_name + " " + s.last_name).toLowerCase().includes(search.toLowerCase()) || 
-                          s.student_email.toLowerCase().includes(search.toLowerCase());
-      const matchDept = deptFilter ? s.department?.toString() === deptFilter : true;
-      return matchSearch && matchDept;
-    });
-  }, [students, search, deptFilter]);
-
   return (
-    <DashboardLayout title="Manage Students">
-      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+    <>
+      <div className="page-header" style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-end" }}>
         <div>
           <h2>Students</h2>
           <p>Manage student records</p>
         </div>
+
         <button onClick={() => handleOpenModal()} className="btn btn-primary">
           + Add Student
         </button>
       </div>
 
-      <div className="content-card" style={{ marginBottom: "24px", padding: "16px" }}>
-        <div style={{ display: "flex", gap: "16px" }}>
-          <input 
-            type="text" 
-            placeholder="Search by name or email..." 
-            className="form-control" 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
+      <div className="content-card" style={{ marginBottom:"24px",padding:"16px",overflow:"visible" }}>
+        <div style={{ display:"flex",gap:"16px" }}>
+          <input
+            type="text"
+            placeholder="Search by name or email..."
+            className="form-control"
+            value={search}
+            onChange={e => handleSearchChange(e.target.value)}
           />
-          <select className="form-control" value={deptFilter} onChange={e => setDeptFilter(e.target.value)} style={{ maxWidth: "250px" }}>
-            <option value="">All Departments</option>
-            {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+
+          <div style={{ maxWidth:"250px", width:"100%" }}>
+            <PaginatedSelect
+              fetchPage={(page, pageSize, signal, search) => getDepartmentReference(page, pageSize, signal, search)}
+              getId={d => d.id}
+              getLabel={d => d.name}
+              value={deptFilter}
+              onChange={id => handleDeptFilterChange(id)}
+              onClear={() => handleDeptFilterChange("")}
+              clearLabel="All Departments"
+              placeholder="All Departments"
+              serverSearch
+            />
+          </div>
+
+          <select
+            className="form-control"
+            style={{ maxWidth: "220px" }}
+            value={placementFilter}
+            onChange={e => handlePlacementFilterChange(e.target.value as "" | "pending" | "confirmed")}
+          >
+            <option value="">All Placements</option>
+            <option value="pending">Pending Review</option>
+            <option value="confirmed">Confirmed</option>
           </select>
         </div>
       </div>
 
       <div className="content-card">
-        <EntityTable<Student>
-          data={filteredStudents}
+        <EntityTable<StudentListItem>
+          data={students}
           loading={loading}
           resourceName="students"
           columns={[
-            { 
-              key: "name", 
-              label: "Name",
-              render: (s) => `${s.first_name} ${s.last_name}`
+            {
+              key:"profile_picture_url",
+              label:"",
+              render:s => <Avatar src={s.profile_picture_url} name={s.name} size={32} />
             },
-            { key: "student_email", label: "Email" },
-            { key: "student_group", label: "Group" },
-            { 
-              key: "department", 
-              label: "Department",
-              render: (s) => departments.find(d => d.id === s.department)?.name || "-"
+            {
+              key:"name",
+              label:"Name",
+              render:s => s.name,
+              sortKey:"name"
             },
-            { 
-              key: "teacher", 
-              label: "Advisor",
-              render: (s) => {
-                const t = teachers.find(t => t.id === s.teacher);
-                return t ? `${t.first_name} ${t.last_name}` : "-";
-              }
+            { key:"student_email",label:"Email" },
+            {
+              key:"section",
+              label:"Section",
+              render:s => s.section_name || "-"
+            },
+            {
+              key:"department",
+              label:"Department",
+              render:s => s.department_name || "-"
+            },
+            {
+              key:"placement_confirmed",
+              label:"Placement",
+              render:s => s.placement_confirmed ? (
+                <span className="placement-badge placement-confirmed">
+                  <span className="placement-dot placement-dot-confirmed" />
+                  Confirmed
+                </span>
+              ) : (
+                <span className="placement-badge placement-pending">
+                  <span className="placement-dot placement-dot-pending" />
+                  Pending Review
+                </span>
+              )
             }
           ]}
           onEdit={handleOpenModal}
           onDelete={setDeleteConfirm}
+          renderCustomActions={s => (
+            <div className="table-row-actions">
+              <button
+                type="button"
+                className="btn-table-action btn-table-edit"
+                onClick={() => handleOpenModal(s)}
+                title={s.placement_confirmed ? "Edit student details" : "Review application and assign placement"}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+                <span>{s.placement_confirmed ? "Edit" : "Review"}</span>
+              </button>
+              <button
+                type="button"
+                className="btn-table-action btn-table-delete"
+                onClick={() => setDeleteConfirm(s)}
+                title="Delete student record"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+                <span>Delete</span>
+              </button>
+            </div>
+          )}
+          totalCount={totalCount}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={handlePageSizeChange}
+          ordering={ordering}
+          onSortChange={handleSortChange}
         />
       </div>
 
-      <Modal isOpen={isModalOpen} title={editingStudent ? "Edit Student" : "Add Student"} onClose={() => setIsModalOpen(false)}>
+      <Modal
+        isOpen={isModalOpen}
+        maxWidth="680px"
+        title={editingStudent ? (editingStudent.placement_confirmed ? "Edit Student" : "Review Student Application") : "Add Student"}
+        onClose={() => setIsModalOpen(false)}
+      >
+        {editingStudent && !editingStudent.placement_confirmed && (
+          <div className="review-app-banner">
+            <span className="badge badge-warning" style={{ flexShrink: 0 }}>Pending Placement</span>
+            <span>This student completed registration and is awaiting department and section assignment.</span>
+          </div>
+        )}
+
         <form onSubmit={handleSave}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+          <div className="review-modal-section-title">
+            Personal Information
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
             <div className="form-group">
               <label className="form-label">First Name</label>
-              <input required className="form-control" value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} />
+              <input required className="form-control" value={formData.first_name} onChange={e => setFormData({...formData,first_name:e.target.value})} />
             </div>
+
             <div className="form-group">
               <label className="form-label">Last Name</label>
-              <input required className="form-control" value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} />
+              <input required className="form-control" value={formData.last_name} onChange={e => setFormData({...formData,last_name:e.target.value})} />
             </div>
+
             <div className="form-group">
               <label className="form-label">Email</label>
-              <input required type="email" className="form-control" value={formData.student_email} onChange={(e) => setFormData({...formData, student_email: e.target.value})} />
+              <input required type="email" className="form-control" value={formData.student_email} onChange={e => setFormData({...formData,student_email:e.target.value})} />
             </div>
+
             <div className="form-group">
               <label className="form-label">Parents Phone</label>
-              <input required className="form-control" value={formData.parents_phone_number} onChange={(e) => setFormData({...formData, parents_phone_number: e.target.value})} />
+              <input required className="form-control" value={formData.parents_phone_number} onChange={e => setFormData({...formData,parents_phone_number:e.target.value})} />
             </div>
+
             <div className="form-group">
               <label className="form-label">Date of Birth</label>
-              <input required type="date" className="form-control" value={formData.date_of_birth} onChange={(e) => setFormData({...formData, date_of_birth: e.target.value})} />
+              <input required type="date" className="form-control" value={formData.date_of_birth} onChange={e => setFormData({...formData,date_of_birth:e.target.value})} />
             </div>
+
             <div className="form-group">
               <label className="form-label">Gender</label>
-              <select className="form-control" value={formData.gender} onChange={(e) => setFormData({...formData, gender: e.target.value})}>
+              <select className="form-control" value={formData.gender} onChange={e => setFormData({...formData,gender:e.target.value})}>
                 <option value="M">Male</option>
                 <option value="F">Female</option>
               </select>
             </div>
+          </div>
+
+          <div className="form-group" style={{ marginTop: "4px" }}>
+            <label className="form-label">Address</label>
+            <textarea className="form-control" rows={2} value={formData.address} onChange={e => setFormData({...formData,address:e.target.value})}></textarea>
+          </div>
+
+          <div className="review-modal-section-title">
+            Academic Placement
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
             <div className="form-group">
               <label className="form-label">Department</label>
-              <select className="form-control" value={formData.department} onChange={(e) => setFormData({...formData, department: Number(e.target.value)})}>
-                <option value="">-- No Department --</option>
-                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              <PaginatedSelect
+                fetchPage={(page, pageSize, signal, search) => getDepartmentReference(page, pageSize, signal, search)}
+                getId={d => d.id}
+                getLabel={d => d.name}
+                value={formData.department}
+                onChange={id => handleDepartmentChange(id)}
+                onClear={() => handleDepartmentChange("")}
+                clearLabel="-- Select Department --"
+                selectedLabel={editingLabels.department}
+                placeholder="-- Select Department --"
+                serverSearch
+              />
             </div>
+
             <div className="form-group">
-              <label className="form-label">Advisor (Teacher)</label>
-              <select className="form-control" value={formData.teacher} onChange={(e) => setFormData({...formData, teacher: Number(e.target.value)})}>
-                <option value="">-- No Advisor --</option>
-                {teachers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
-              </select>
+              <label className="form-label">Section</label>
+              <PaginatedSelect
+                fetchPage={(page, pageSize, signal) => getSectionReference(formData.department === "" ? undefined : formData.department, page, pageSize, signal)}
+                resetKey={formData.department}
+                getId={s => s.id}
+                getLabel={s => s.name}
+                value={formData.section}
+                onChange={id => handleSectionChange(id)}
+                onClear={() => handleSectionChange("")}
+                clearLabel="-- Select Section --"
+                selectedLabel={editingLabels.section}
+                placeholder={formData.department === "" ? "Select department first" : "-- Select Section --"}
+                disabled={formData.department === ""}
+              />
             </div>
+
             <div className="form-group">
-              <label className="form-label">Group</label>
-              <input required className="form-control" value={formData.student_group} onChange={(e) => setFormData({...formData, student_group: e.target.value})} />
+              <label className="form-label">Course Offering (Optional)</label>
+              <PaginatedSelect
+                fetchPage={(page, pageSize, signal, search) =>
+                  getCourseOfferingClassAssignmentList(page, pageSize, signal, search, formData.section === "" ? undefined : formData.section)
+                }
+                resetKey={formData.section}
+                getId={o => o.id}
+                getLabel={o => `${o.course_name} (${o.course_code}) - ${o.teacher_name || "No Teacher"}`}
+                value={selectedOffering}
+                onChange={id => setSelectedOffering(id)}
+                onClear={() => setSelectedOffering("")}
+                clearLabel="-- No Class Assignment --"
+                placeholder={formData.section === "" ? "Select section first" : "-- No Class Assignment --"}
+                disabled={formData.section === ""}
+              />
             </div>
+
             <div className="form-group">
               <label className="form-label">Enrollment Date</label>
-              <input required type="date" className="form-control" value={formData.date_of_enrollment} onChange={(e) => setFormData({...formData, date_of_enrollment: e.target.value})} />
+              <input required type="date" className="form-control" value={formData.date_of_enrollment} onChange={e => setFormData({...formData,date_of_enrollment:e.target.value})} />
             </div>
           </div>
-          
-          <div className="form-group">
-            <label className="form-label">Address</label>
-            <textarea className="form-control" rows={2} value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})}></textarea>
+
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "10px", margin: "16px 0 14px", padding: "8px 12px", background: "var(--color-surface-muted)", borderRadius: "8px", border: "1px solid var(--color-border)" }}>
+            <input type="checkbox" id="student-is-active" style={{ cursor: "pointer", width: "16px", height: "16px" }} checked={formData.is_active} onChange={e => setFormData({...formData, is_active: e.target.checked})} />
+            <label htmlFor="student-is-active" style={{ margin: 0, fontSize: "0.875rem", fontWeight: 500, color: "var(--color-text-primary)", cursor: "pointer" }}>Active Student</label>
           </div>
-          
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px" }}>
-            <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline">Cancel</button>
-            <button type="submit" className="btn btn-primary">Save</button>
+
+          <label
+            htmlFor="placement-confirmed"
+            className={`review-placement-confirm-box ${formData.placement_confirmed ? "is-confirmed" : ""}`}
+            style={{
+              opacity: (formData.department === "" || formData.section === "") ? 0.6 : 1,
+              cursor: (formData.department === "" || formData.section === "") ? "not-allowed" : "pointer"
+            }}
+          >
+            <input
+              type="checkbox"
+              id="placement-confirmed"
+              style={{ marginTop: "2px", cursor: "inherit" }}
+              checked={formData.placement_confirmed}
+              disabled={formData.department === "" || formData.section === ""}
+              onChange={e => setFormData({...formData, placement_confirmed: e.target.checked})}
+            />
+            <div>
+              <span style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--color-text-primary)" }}>
+                Confirm Academic Placement
+              </span>
+              <span style={{ display: "block", fontSize: "0.78rem", color: "var(--color-text-secondary)", marginTop: "2px" }}>
+                {formData.department === "" || formData.section === ""
+                  ? "Select a Department and Section above to confirm placement."
+                  : "Grants this student access to their student dashboard."}
+              </span>
+            </div>
+          </label>
+
+          <div className="review-modal-actions">
+            <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline">
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : "Save"}
+            </button>
           </div>
         </form>
       </Modal>
@@ -235,10 +559,23 @@ export default function Students() {
       <ConfirmDialog
         isOpen={!!deleteConfirm}
         title="Delete Student"
-        message={`Are you sure you want to delete ${deleteConfirm?.first_name} ${deleteConfirm?.last_name}?`}
+        message={`Are you sure you want to delete ${deleteConfirm?.name}?`}
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
+        confirmDisabled={isDeleting}
       />
-    </DashboardLayout>
+
+      <ConfirmDialog
+        isOpen={pendingDeactivation}
+        title="Deactivate Student"
+        message="Deactivating this student will prevent new Enrollments for them. Existing enrollments and attendance records are not affected. Continue?"
+        onConfirm={saveStudent}
+        onCancel={() => setPendingDeactivation(false)}
+        variant="warning"
+        confirmDisabled={isSubmitting}
+        confirmLabel="Deactivate"
+        pendingLabel="Deactivating..."
+      />
+    </>
   );
 }

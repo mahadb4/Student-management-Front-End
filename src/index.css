@@ -1,17 +1,26 @@
 :root {
-  /*Color Palette - Deep Indigo & Clean Light Mode*/
-  --color-primary: #1e3a8a; /*Deep Blue / Indigo*/
-  --color-primary-hover: #1e40af;
+  /*Color Palette - Vibrant Academic Blue (Balanced & Solid)*/
+  --color-primary: #1e40af; /*Vibrant Deep Blue (Balanced)*/
+  --color-primary-hover: #1d4ed8;
   --color-primary-light: #eff6ff;
-  
-  --color-background: #f8fafc; /*Very Light Gray*/
+  --color-on-primary: #ffffff; /*Text/icons placed directly on a saturated accent bg (primary/success/warning/danger chips) - stays light in both themes*/
+
+
+  --color-background: #f7f8fa; /*Very Light Gray*/
   --color-surface: #ffffff; /*White Cards*/
-  
+  --color-surface-muted: #f8fafc; /*Subtle inset surface (rows, panels)*/
+
   --color-text-primary: #1e293b; /*Charcoal/Slate*/
   --color-text-secondary: #64748b; /*Muted Slate*/
-  
+  --color-text-tertiary: #94a3b8; /*Faint labels/meta text*/
+
   --color-border: #e2e8f0;
-  
+  --color-border-strong: #cbd5e1;
+
+  --color-surface-hover: #f1f5f9; /*Subtle hover/active tint for rows, chips, toggles*/
+  --color-text-heading: #0f172a; /*Slightly stronger than primary text, for headings/emphasis*/
+  --color-text-strong: #334155; /*Secondary text variant, a touch stronger than --color-text-secondary*/
+
   --color-success: #10b981;
   --color-success-bg: #ecfdf5;
   --color-warning: #f59e0b;
@@ -21,24 +30,88 @@
   --color-info: #3b82f6;
   --color-info-bg: #eff6ff;
 
-  /*Shadows*/
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  
+  /*Status pill text/border tones - used by badges & status chips across
+    Admin/Teacher/Student (e.g. Attendance, Assignments, AI assistant).
+    Kept separate from --color-success etc. so badge text stays high
+    contrast on its own pastel background in both themes.*/
+  --color-success-text: #065f46;
+  --color-success-border: #a7f3d0;
+  --color-warning-text: #92400e;
+  --color-warning-border: #fde68a;
+  --color-danger-text: #991b1b;
+  --color-danger-border: #fecaca;
+  --color-info-text: #1e40af;
+  --color-info-border: #bfdbfe;
+  --color-purple-bg: #faf5ff;
+  --color-purple-text: #6b21a8;
+  --color-purple-border: #e9d5ff;
+
+  /*Shadows - kept subtle for a flat, academic feel*/
+  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 2px 8px -2px rgba(15, 23, 42, 0.08), 0 1px 3px -1px rgba(15, 23, 42, 0.05);
+  --shadow-lg: 0 8px 20px -6px rgba(15, 23, 42, 0.12), 0 3px 8px -2px rgba(15, 23, 42, 0.06);
+
   /*Borders*/
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
   --radius-xl: 0.75rem;
-  
+
   /*Typography*/
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  
+
   /*Transitions*/
   --transition-fast: 150ms ease-in-out;
   --transition-normal: 250ms ease-in-out;
+}
+
+[data-theme="dark"] {
+  /* Dark Mode Palette - Professional Navy/Slate (Not pure black) */
+  --color-primary: #3b82f6;
+  --color-primary-hover: #60a5fa;
+  --color-primary-light: rgba(59, 130, 246, 0.15);
+  --color-on-primary: #ffffff;
+
+  --color-background: #0b0f19; /* Deep navy-black canvas */
+  --color-surface: #131b2e; /* Elevated navy surface */
+  --color-surface-muted: #1e293b; /* Subtle card/panel inset */
+
+  --color-text-primary: #f8fafc; /* Crisp white-slate text */
+  --color-text-secondary: #94a3b8; /* Muted text */
+  --color-text-tertiary: #64748b; /* Faint meta text */
+
+  --color-border: #1e293b;
+  --color-border-strong: #334155;
+
+  --color-surface-hover: #1c2740; /*Subtle hover/active tint on dark surfaces*/
+  --color-text-heading: #f8fafc; /*Headings/emphasis text*/
+  --color-text-strong: #cbd5e1; /*Secondary text variant, a touch brighter than --color-text-secondary*/
+
+  --color-success: #34d399;
+  --color-success-bg: rgba(16, 185, 129, 0.16);
+  --color-warning: #fbbf24;
+  --color-warning-bg: rgba(245, 158, 11, 0.16);
+  --color-danger: #f87171;
+  --color-danger-bg: rgba(239, 68, 68, 0.16);
+  --color-info: #60a5fa;
+  --color-info-bg: rgba(59, 130, 246, 0.16);
+
+  --color-success-text: #6ee7b7;
+  --color-success-border: rgba(16, 185, 129, 0.35);
+  --color-warning-text: #fbbf24;
+  --color-warning-border: rgba(245, 158, 11, 0.35);
+  --color-danger-text: #fca5a5;
+  --color-danger-border: rgba(239, 68, 68, 0.35);
+  --color-info-text: #93c5fd;
+  --color-info-border: rgba(59, 130, 246, 0.35);
+  --color-purple-bg: rgba(168, 85, 247, 0.16);
+  --color-purple-text: #d8b4fe;
+  --color-purple-border: rgba(168, 85, 247, 0.35);
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 28px -6px rgba(0, 0, 0, 0.6);
 }
 
 /*Base Reset & Box Sizing*/*, *::before, *::after {
@@ -60,6 +133,7 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /*Override previous fixed #root styling*/
@@ -116,3 +190,34 @@ button:disabled {
 .bg-warning { background-color: var(--color-warning-bg); }
 .bg-danger { background-color: var(--color-danger-bg); }
 .bg-info { background-color: var(--color-info-bg); }
+
+/*Toast Notifications*/
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 360px;
+}
+
+.toast {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-on-primary);
+  cursor: pointer;
+  animation: toast-slide-in var(--transition-normal);
+}
+
+.toast-success { background-color: var(--color-success); }
+.toast-error { background-color: var(--color-danger); }
+
+@keyframes toast-slide-in {
+  from { transform: translateX(30px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}

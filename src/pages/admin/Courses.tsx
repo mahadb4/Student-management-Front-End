@@ -1,98 +1,173 @@
 import { useEffect, useState } from "react";
-import DashboardLayout from "../../components/layout/DashboardLayout";
-import { courseService, departmentService, teacherService } from "../../services/entities";
+import { courseService, getCourseList, getDepartmentReference, getTeacherReference } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import type { Course, Department, Teacher } from "../../types/user";
+import { PaginatedSelect } from "../../components/common/PaginatedSelect";
+import type { Course, CourseListItem } from "../../types/user";
+import { useToast } from "../../context/ToastContext";
 
 export default function Courses() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const { showToast } = useToast();
+  const [courses, setCourses] = useState<CourseListItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const [loading, setLoading] = useState(true);
-  
+  // Labels for the currently-edited row's Department/Teacher, shown until the
+  // paginated dropdown's own loaded page happens to include that option.
+  const [editingLabels, setEditingLabels] = useState<{ department?: string; teacher?: string }>({});
+
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [ordering, setOrdering] = useState("name");
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<Course | null>(null);
-  
-  const [formData, setFormData] = useState({ 
-    name: "", code: "", description: "", credits: 3, 
-    department: "" as number | "", teacher: "" as number | "", is_active: true 
+  const [deleteConfirm, setDeleteConfirm] = useState<CourseListItem | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  // Separate from the Delete ConfirmDialog: shown only when an edit flips an
+  // existing, currently-active Course to inactive.
+  const [pendingDeactivation, setPendingDeactivation] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: "", code: "", description: "", credits: 3, semester_number: "" as number | "",
+    department: "" as number | "", teacher: "" as number | "", is_active: true
   });
 
-  const loadData = () => {
+  const loadCourses = (signal?: AbortSignal) => {
     setLoading(true);
-    Promise.all([
-      courseService.getAll(),
-      departmentService.getAll(),
-      teacherService.getAll()
-    ]).then(([c, d, t]) => {
-      setCourses(c);
-      setDepartments(d);
-      setTeachers(t);
-    }).catch(console.error).finally(() => setLoading(false));
+    getCourseList(currentPage, pageSize, signal, debouncedSearch, ordering).then(res => {
+      setCourses(res.results);
+      setTotalCount(res.total_count);
+    }).catch(err => {
+      if (err.name === 'AbortError') return;
+      console.error(err);
+    }).finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    },400);
 
-  const handleOpenModal = (course?: Course) => {
-    if (course) {
-      setEditingCourse(course);
-      setFormData({ 
-        name: course.name, 
-        code: course.code, 
-        description: course.description, 
-        credits: course.credits,
-        department: course.department || "",
-        teacher: course.teacher || "",
-        is_active: course.is_active 
-      });
+    return () => clearTimeout(timer);
+  },[search]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadCourses(controller.signal);
+    return () => controller.abort();
+  }, [currentPage,pageSize,debouncedSearch,ordering]);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (nextOrdering: string) => {
+    setOrdering(nextOrdering);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
+  // The Courses list only carries the narrow CourseListItem projection, so editing
+  // fetches the full Course record (detail endpoint, unchanged) to populate the form.
+  const handleOpenModal = async (row?: CourseListItem) => {
+    if (row) {
+      try {
+        const course = await courseService.getById(row.id);
+        setEditingCourse(course);
+        setEditingLabels({ department: row.department_name || undefined, teacher: row.teacher_name || undefined });
+        setFormData({
+          name: course.name,
+          code: course.code,
+          description: course.description,
+          credits: course.credits,
+          semester_number: course.semester_number ?? "",
+          department: course.department || "",
+          teacher: course.teacher || "",
+          is_active: course.is_active
+        });
+      } catch (error) {
+        console.error(error);
+        showToast(error instanceof Error ? error.message : "Failed to load course.", "error");
+        return;
+      }
     } else {
       setEditingCourse(null);
-      setFormData({ name: "", code: "", description: "", credits: 3, department: "", teacher: "", is_active: true });
+      setEditingLabels({});
+      setFormData({ name: "", code: "", description: "", credits: 3, semester_number: "", department: "", teacher: "", is_active: true });
     }
     setIsModalOpen(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    if (editingCourse && editingCourse.is_active && !formData.is_active) {
+      setPendingDeactivation(true);
+      return;
+    }
+
+    await saveCourse();
+  };
+
+  const saveCourse = async () => {
+    setIsSubmitting(true);
     try {
       const payload = {
         ...formData,
+        semester_number: formData.semester_number === "" ? null : Number(formData.semester_number),
         department: formData.department === "" ? null : Number(formData.department),
         teacher: formData.teacher === "" ? null : Number(formData.teacher),
       };
-      
+
       if (editingCourse) {
         await courseService.update(editingCourse.id, payload);
+        showToast("Course updated successfully.", "success");
       } else {
         await courseService.create(payload);
+        showToast("Course created successfully.", "success");
       }
+      setPendingDeactivation(false);
       setIsModalOpen(false);
-      loadData();
+      loadCourses();
     } catch (error) {
       console.error(error);
-      alert("Failed to save course.");
+      showToast(error instanceof Error ? error.message : "Failed to save course.", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm || isDeleting) return;
+    setIsDeleting(true);
     try {
       await courseService.remove(deleteConfirm.id);
       setDeleteConfirm(null);
-      loadData();
+      showToast("Course deleted successfully.", "success");
+      loadCourses();
     } catch (error) {
       console.error(error);
-      alert("Failed to delete course.");
+      showToast("Failed to delete course.", "error");
+      setDeleteConfirm(null);
+      loadCourses();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   return (
-    <DashboardLayout title="Manage Courses">
+    <>
       <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h2>Courses</h2>
@@ -103,31 +178,50 @@ export default function Courses() {
         </button>
       </div>
 
+      <div className="content-card" style={{ marginBottom: "24px", padding: "16px" }}>
+        <input
+          type="text"
+          placeholder="Search by name, code or department..."
+          className="form-control"
+          value={search}
+          onChange={e => handleSearchChange(e.target.value)}
+        />
+      </div>
+
       <div className="content-card">
-        <EntityTable<Course>
+        <EntityTable<CourseListItem>
           data={courses}
           loading={loading}
           resourceName="courses"
           columns={[
             { key: "code", label: "Code" },
-            { key: "name", label: "Name" },
+            { key: "name", label: "Name", sortKey: "name" },
             { key: "credits", label: "Credits" },
-            { 
-              key: "department", 
-              label: "Department",
-              render: (c) => departments.find(d => d.id === c.department)?.name || "-"
+            {
+              key: "semester_number",
+              label: "Semester",
+              render: (c) => c.semester_number ? `Semester ${c.semester_number}` : "-"
             },
-            { 
-              key: "teacher", 
+            {
+              key: "department",
+              label: "Department",
+              render: (c) => c.department_name || "-"
+            },
+            {
+              key: "teacher",
               label: "Teacher",
-              render: (c) => {
-                const t = teachers.find(t => t.id === c.teacher);
-                return t ? `${t.first_name} ${t.last_name}` : "-";
-              }
+              render: (c) => c.teacher_name || "-"
             }
           ]}
           onEdit={handleOpenModal}
           onDelete={setDeleteConfirm}
+          totalCount={totalCount}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={handlePageSizeChange}
+          ordering={ordering}
+          onSortChange={handleSortChange}
         />
       </div>
 
@@ -145,31 +239,61 @@ export default function Courses() {
             <label className="form-label">Credits</label>
             <input type="number" required className="form-control" value={formData.credits} onChange={(e) => setFormData({...formData, credits: parseInt(e.target.value) || 0})} />
           </div>
-          
+
           <div className="form-group">
-            <label className="form-label">Department</label>
-            <select className="form-control" value={formData.department} onChange={(e) => setFormData({...formData, department: Number(e.target.value)})}>
-              <option value="">-- Select Department --</option>
-              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            <label className="form-label">Semester Number</label>
+            <select
+              className="form-control"
+              value={formData.semester_number}
+              onChange={(e) => setFormData({...formData, semester_number: e.target.value === "" ? "" : parseInt(e.target.value)})}
+            >
+              <option value="">-- Not classified --</option>
+              {Array.from({ length: 8 }, (_, i) => i + 1).map(n => (
+                <option key={n} value={n}>Semester {n}</option>
+              ))}
             </select>
           </div>
 
           <div className="form-group">
+            <label className="form-label">Department</label>
+            <PaginatedSelect
+              fetchPage={(page, pageSize, signal, search) => getDepartmentReference(page, pageSize, signal, search)}
+              getId={d => d.id}
+              getLabel={d => d.name}
+              value={formData.department}
+              onChange={id => setFormData({...formData, department: id})}
+              selectedLabel={editingLabels.department}
+              placeholder="-- Select Department --"
+              serverSearch
+            />
+          </div>
+
+          <div className="form-group">
             <label className="form-label">Teacher</label>
-            <select className="form-control" value={formData.teacher} onChange={(e) => setFormData({...formData, teacher: Number(e.target.value)})}>
-              <option value="">-- Select Teacher --</option>
-              {teachers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
-            </select>
+            <PaginatedSelect
+              fetchPage={(page, pageSize, signal) => getTeacherReference(page, pageSize, signal)}
+              getId={t => t.id}
+              getLabel={t => t.name}
+              value={formData.teacher}
+              onChange={id => setFormData({...formData, teacher: id})}
+              selectedLabel={editingLabels.teacher}
+              placeholder="-- Select Teacher --"
+            />
           </div>
 
           <div className="form-group">
             <label className="form-label">Description</label>
             <textarea className="form-control" rows={3} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}></textarea>
           </div>
-          
+
+          <div className="form-group" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <input type="checkbox" checked={formData.is_active} onChange={(e) => setFormData({...formData, is_active: e.target.checked})} />
+            <label style={{ margin: 0 }}>Active</label>
+          </div>
+
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px" }}>
             <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline">Cancel</button>
-            <button type="submit" className="btn btn-primary">Save</button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save"}</button>
           </div>
         </form>
       </Modal>
@@ -180,7 +304,20 @@ export default function Courses() {
         message={`Are you sure you want to delete ${deleteConfirm?.name}?`}
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
+        confirmDisabled={isDeleting}
       />
-    </DashboardLayout>
+
+      <ConfirmDialog
+        isOpen={pendingDeactivation}
+        title="Deactivate Course"
+        message="Deactivating this course will make it unavailable for new Course Offerings. Existing offerings, enrollments, and attendance records are not affected. Continue?"
+        onConfirm={saveCourse}
+        onCancel={() => setPendingDeactivation(false)}
+        variant="warning"
+        confirmDisabled={isSubmitting}
+        confirmLabel="Deactivate"
+        pendingLabel="Deactivating..."
+      />
+    </>
   );
 }
