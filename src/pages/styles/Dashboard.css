@@ -2979,6 +2979,12 @@ select.form-control option {
 /* ==========================================================================
    Student Profile Accent & Button Enhancements
    ========================================================================== */
+.profile-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .profile-section-header-academic,
 .profile-section-header-personal,
 .profile-section-header-accent {
