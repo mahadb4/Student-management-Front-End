@@ -13,8 +13,8 @@ function Staff() {
       try {
         const allUsers = await getMockUsers(controller.signal);
         setStaff(allUsers.filter((u: User) => u.role === "staff" && u.status === "approved"));
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         console.error(err);
       } finally {
         setLoading(false);

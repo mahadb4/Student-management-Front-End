@@ -13,8 +13,8 @@ export default function Permissions() {
       try {
         const data = await getUsers(controller.signal);
         setUsers(data);
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         console.error("Failed to load users", err);
       } finally {
         setLoading(false);

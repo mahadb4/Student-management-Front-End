@@ -14,8 +14,8 @@ function PendingApprovals() {
       setError(null);
       const users = await getPendingUsers(signal);
       setPendingUsers(users);
-    } catch (err: any) {
-      if (err.name === 'AbortError') return;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       console.error("Failed to fetch pending users:", err);
       setError("Failed to load pending approval requests.");
     } finally {

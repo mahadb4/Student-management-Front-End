@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { teacherService, getTeacherList, getDepartmentReference } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
@@ -40,20 +40,20 @@ export default function Teachers() {
     date_of_birth: "", date_of_joining: "", salary: "", address: "", is_active: true
   });
 
-  const loadTeachers = async (signal?: AbortSignal) => {
+  const loadTeachers = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
 
     try {
       const result = await getTeacherList(currentPage,pageSize,signal,debouncedSearch,deptFilter === "" ? undefined : deptFilter,ordering);
       setTeachers(result.results);
       setTotalCount(result.total_count);
-    } catch (err:any) {
-      if (err.name === "AbortError") return;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, pageSize, debouncedSearch, deptFilter, ordering]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -68,7 +68,7 @@ export default function Teachers() {
     loadTeachers(controller.signal);
 
     return () => controller.abort();
-  },[currentPage,pageSize,debouncedSearch,deptFilter,ordering]);
+  },[loadTeachers]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);

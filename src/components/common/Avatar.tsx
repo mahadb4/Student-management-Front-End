@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { CSSProperties } from "react";
 
 interface AvatarProps {
@@ -26,7 +26,11 @@ export function Avatar({ src, name, size = 40 }: AvatarProps) {
 
   // A fresh src (new picture, or a re-signed URL after a refetch) deserves a
   // fresh attempt to load it.
-  useEffect(() => setFailed(false), [src]);
+  const [prevSrc, setPrevSrc] = useState(src);
+  if (src !== prevSrc) {
+    setPrevSrc(src);
+    setFailed(false);
+  }
 
   const baseStyle: CSSProperties = {
     width: size,

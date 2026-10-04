@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { offeringService, getDepartmentReference, getCourseReference, getTeacherReference, getSectionReference, getCourseOfferingList } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
@@ -53,7 +53,7 @@ export default function CourseOfferings() {
   // on the offering itself.
   const [selectedSemesterNumber, setSelectedSemesterNumber] = useState<number | "">("");
 
-  const loadData = (signal?: AbortSignal) => {
+  const loadData = useCallback((signal?: AbortSignal) => {
     setLoading(true);
     getCourseOfferingList(currentPage, pageSize, signal, debouncedSearch, undefined, undefined, ordering).then(oRes => {
       setOfferings(oRes.results);
@@ -62,7 +62,7 @@ export default function CourseOfferings() {
       if (err.name === 'AbortError') return;
       console.error(err);
     }).finally(() => setLoading(false));
-  };
+  }, [currentPage, pageSize, debouncedSearch, ordering]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -76,7 +76,7 @@ export default function CourseOfferings() {
     const controller = new AbortController();
     loadData(controller.signal);
     return () => controller.abort();
-  }, [currentPage,pageSize,debouncedSearch,ordering]);
+  }, [loadData]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);

@@ -294,7 +294,7 @@ export const dashboardService={
 // "me" endpoints resolve the caller's own Student/Teacher data server-side from
 // request.user - never a full-collection fetch filtered client-side to find "myself".
 
-export function invalidateMeCache(_key?:string){
+export const invalidateMeCache: (key?: string) => void = () => {
   // No-op: retained so existing call sites (post-mutation refresh, logout)
   // continue to compile without change. There is no cache to invalidate.
 }

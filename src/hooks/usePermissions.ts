@@ -13,7 +13,7 @@ export function usePermissions() {
 
   // Admins always have all permissions; no other role has frontend-gated
   // permissions currently, so anything else is denied.
-  const hasPermission = (_permission: Permission): boolean => {
+  const hasPermission: (permission: Permission) => boolean = () => {
     return isAdmin;
   };
 

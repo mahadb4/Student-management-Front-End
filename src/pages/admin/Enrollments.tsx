@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { enrollmentService, getStudentReference, getCourseOfferingList, getEnrollmentList } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
@@ -40,7 +40,7 @@ export default function Enrollments() {
   // = no student selected yet (or its section is still being looked up).
   const [selectedStudentSectionId, setSelectedStudentSectionId] = useState<number | null | undefined>(undefined);
 
-  const loadData = (signal?: AbortSignal) => {
+  const loadData = useCallback((signal?: AbortSignal) => {
     setLoading(true);
     getEnrollmentList(currentPage, pageSize, signal, debouncedSearch, ordering).then(eRes => {
       setEnrollments(eRes.results);
@@ -49,7 +49,7 @@ export default function Enrollments() {
       if (err.name === 'AbortError') return;
       console.error(err);
     }).finally(() => setLoading(false));
-  };
+  }, [currentPage, pageSize, debouncedSearch, ordering]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -63,7 +63,7 @@ export default function Enrollments() {
     const controller = new AbortController();
     loadData(controller.signal);
     return () => controller.abort();
-  }, [currentPage,pageSize,debouncedSearch,ordering]);
+  }, [loadData]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { studentService, getStudentList, getDepartmentReference, getSectionReference, getCourseOfferingClassAssignmentList, enrollmentService } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
@@ -58,7 +58,7 @@ export default function Students() {
     is_active:true
   });
 
-  const loadStudents = async (signal?: AbortSignal) => {
+  const loadStudents = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
 
     try {
@@ -68,13 +68,13 @@ export default function Students() {
       );
       setStudents(result.results);
       setTotalCount(result.total_count);
-    } catch (err:any) {
-      if (err.name === "AbortError") return;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, pageSize, debouncedSearch, deptFilter, ordering, placementFilter]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -89,7 +89,7 @@ export default function Students() {
     loadStudents(controller.signal);
 
     return () => controller.abort();
-  },[currentPage,pageSize,debouncedSearch,deptFilter,placementFilter,ordering]);
+  },[loadStudents]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);

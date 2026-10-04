@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { departmentService } from "../../services/entities";
 import { EntityTable } from "../../components/common/EntityTable";
 import { Modal } from "../../components/common/Modal";
@@ -31,7 +31,7 @@ export default function Departments() {
 
   const [formData, setFormData] = useState({ name: "", code: "", description: "", is_active: true });
 
-  const loadData = (signal?: AbortSignal) => {
+  const loadData = useCallback((signal?: AbortSignal) => {
     setLoading(true);
     departmentService.getList(currentPage, pageSize, signal, debouncedSearch, ordering)
       .then(res => {
@@ -43,7 +43,7 @@ export default function Departments() {
         console.error(err);
       })
       .finally(() => setLoading(false));
-  };
+  }, [currentPage, pageSize, debouncedSearch, ordering]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -57,7 +57,7 @@ export default function Departments() {
     const controller = new AbortController();
     loadData(controller.signal);
     return () => controller.abort();
-  }, [currentPage,pageSize,debouncedSearch,ordering]);
+  }, [loadData]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
