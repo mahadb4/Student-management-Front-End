@@ -80,7 +80,7 @@ function Login() {
             </div>
 
             <h1 className="auth-title">Student Management</h1>
-            <p className="auth-subtitle">Modern University Portal</p>
+            <p className="auth-subtitle">Modern University Portal - Deployment Test</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="auth-form">
